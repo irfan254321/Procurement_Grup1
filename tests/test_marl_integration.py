@@ -15,6 +15,7 @@ from procurement_marl.agents.iql import IQL
 from procurement_marl.env import ProcurementEnv
 from procurement_marl.scenario import cash_diagnosis
 from procurement_marl.evaluate import run_episode
+from procurement.baseline_ml import decision_features
 
 
 class MarlIntegrationTests(unittest.TestCase):
@@ -132,6 +133,15 @@ class MarlIntegrationTests(unittest.TestCase):
         self.assertEqual(load_run(db, run_id)["status"], "PERLU REVISI")
         self.assertEqual(load_events(db, run_id)[0]["agent"], "ENV")
         db.close()
+
+    def test_baseline_features_are_separate_from_marl_action(self):
+        snapshot, result, report = simulate("IQL", 700, 700, 100_000_000, seed=1)
+        scenario = scenario_from_snapshot(snapshot)
+        features = decision_features(scenario, result)
+        self.assertIsNotNone(features)
+        self.assertEqual(set(features), set(__import__("procurement.baseline_ml", fromlist=["FEATURE_COLUMNS"]).FEATURE_COLUMNS))
+        self.assertGreater(features["plan_total_per_unit"], 0)
+        self.assertIn("baseline_ml", report)
 
 
 if __name__ == "__main__":

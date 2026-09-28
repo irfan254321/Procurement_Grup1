@@ -9,6 +9,7 @@ from procurement_marl.agents.ctde_ac import CTDEActorCritic
 from procurement_marl.env import ProcurementEnv
 from procurement_marl.evaluate import run_episode
 from procurement_marl.scenario import Scenario, Vendor, load_scenario
+from procurement.baseline_ml import classify_decision
 
 
 PROJECT = Path(__file__).resolve().parents[1]
@@ -112,7 +113,7 @@ def short_report(result: dict, scenario, policy: str, seed: int) -> dict:
         next_action = "Ubah pendanaan, anggaran, atau jumlah unit karena batas kas minimum membuktikan skenario tidak dapat dipenuhi."
     else:
         next_action = "Periksa jumlah, pemasok, harga, atau termin lalu jalankan skenario baru."
-    return {
+    report = {
         "status": outcome,
         "policy": policy,
         "seed": seed,
@@ -129,6 +130,10 @@ def short_report(result: dict, scenario, policy: str, seed: int) -> dict:
         "cash_diagnosis": result.get("cash_diagnosis", {}) if outcome == "TIDAK FEASIBLE" else {},
         "next_action": next_action,
     }
+    # Baseline hanya mengevaluasi rencana yang sudah dibuat MARL. Ia tidak
+    # memilih aksi dan tidak memengaruhi status kelayakan dari environment.
+    report["baseline_ml"] = classify_decision(scenario, result)
+    return report
 
 
 def simulate(policy: str, quantity: int, urgent: int, budget: int, seed: int,

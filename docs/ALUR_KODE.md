@@ -22,6 +22,8 @@ LAYAK / PERLU REVISI / TIDAK FEASIBLE
 save_run() menyimpan skenario, laporan, dan semua event ke SQLite
         ↓
 Tab Proses membaca ulang event; tab Pelaporan merangkum hasil akhir
+        ↓
+Baseline LR/SVM/RF/XGBoost menilai rencana yang sudah selesai
 ```
 
 Pengguna hanya mengisi jumlah unit, unit mendesak, anggaran, metode, dan seed. Profil vendor, tenggat, kas awal, kewajiban, serta arus kas diambil dari fixture BAB 6. Karena itu pengguna tidak perlu menulis negosiasi vendor satu per satu.
@@ -95,7 +97,20 @@ Q(s,a) ← Q(s,a) + α [r + γ max Q(s',a') − Q(s,a)]
 
 Checkpoint disimpan di `runs/iql/` dan `runs/ctde/`. Mengganti observasi, jumlah aksi, atau reward mengharuskan pelatihan ulang. Versi model, jumlah episode, seed pelatihan, lokasi checkpoint, dan hash SHA-256 masuk ke laporan agar hasil dapat diaudit.
 
-## 5. Isi database
+## 5. Baseline ML sesuai laporan
+
+Baseline supervised learning mempunyai tugas yang berbeda dari agen:
+
+1. IQL atau CTDE mengendalikan IRE, VMI, DA, dan SLM untuk membuat rencana.
+2. `decision_features()` mengubah rencana akhir menjadi 24 fitur terstruktur, misalnya rasio anggaran, biaya per unit, kas akhir, kualitas vendor, kapasitas, lead time, dan jenis pembayaran.
+3. Logistic Regression, SVM, Random Forest, dan XGBoost mengklasifikasikan keputusan sebagai optimal atau tidak optimal.
+4. XGBoost menjadi pembanding utama pada dashboard karena accuracy dan ROC-AUC test tertinggi pada artefak yang disertakan.
+
+Baseline tidak memilih vendor, tidak menegosiasikan harga, dan tidak mengubah status LAYAK/PERLU REVISI/TIDAK FEASIBLE. Status tersebut tetap berasal dari aturan environment.
+
+Dataset historis organisasi yang disebut laporan tidak disertakan dalam proyek. `train_baseline.py` karena itu membuat data simulasi secara transparan. Kandidat diberi label optimal bila layak dan biayanya tidak lebih dari 103% biaya layak terendah pada skenario yang sama. Train/test dipisahkan berdasarkan skenario untuk mencegah kebocoran data. CSV, model, versi pustaka, aturan label, metrik, dan confusion matrix disimpan di `runs/baseline/`.
+
+## 6. Isi database
 
 `procurement/rl_storage.py` membuat tiga tabel:
 
@@ -105,7 +120,7 @@ Checkpoint disimpan di `runs/iql/` dan `runs/ctde/`. Mengganti observasi, jumlah
 
 Penyimpanan dilakukan dalam satu transaksi. Jika penyimpanan event gagal, baris skenario juga dibatalkan sehingga laporan tidak terpisah dari jejaknya.
 
-## 6. Pemeriksaan vendor bertahap
+## 7. Pemeriksaan vendor bertahap
 
 Sebelum model VMI memilih vendor, environment menghitung aturan yang diperlukan oleh `action_mask`. Agar proses ini transparan, pemeriksaan tersebut dicatat sebagai event, bukan disamarkan sebagai aksi belajar:
 
@@ -117,26 +132,28 @@ Sebelum model VMI memilih vendor, environment menghitung aturan yang diperlukan 
 
 Tabel pada tab Proses dibangun ulang dari event sampai posisi slider. Karena itu langkah pertama hanya menunjukkan **Belum diperiksa** dan tidak membocorkan keputusan akhir.
 
-## 7. Mengedit vendor
+## 8. Mengedit vendor
 
 Tab **Konfigurasi vendor** mengizinkan perubahan harga daftar, penawaran awal, harga minimum, transportasi, risiko, kualitas, lead time, kapasitas, diskon, reputasi, dan relasi. Validasi memastikan harga minimum ≤ penawaran awal ≤ harga daftar serta seluruh rentang angka masuk akal.
 
 Konfigurasi baru hanya digunakan ketika tombol menjalankan skenario ditekan. Skenario lama membaca snapshot dari `marl_runs`, sehingga hasil historis tidak ikut berubah. Jumlah vendor tetap A/B/C dan struktur observasi serta action space tidak berubah; checkpoint tidak perlu dilatih ulang untuk penambahan fitur audit dan editor ini.
 
-## 8. Hubungan fail utama
+## 9. Hubungan fail utama
 
 | Fail | Kegunaan |
 |---|---|
 | `app.py` | Form input, tampilan proses, pelaporan, dan unduhan audit |
 | `procurement/rl_service.py` | Membuat skenario, memuat model, menjalankan episode, dan membuat laporan singkat |
 | `procurement/rl_storage.py` | Menulis dan membaca SQLite |
+| `procurement/baseline_ml.py` | Membentuk fitur keputusan dan menjalankan baseline klasifikasi |
 | `src/procurement_marl/env.py` | Aturan giliran, aksi, reward, kendala, serta penghentian episode |
 | `src/procurement_marl/scenario.py` | Fixture BAB 6, diagnosis kas, dan pembangkit skenario latihan |
 | `src/procurement_marl/costs.py` | Rumus biaya, diskon, jadwal pembayaran, dan saldo kas |
 | `scripts/train.py` | Melatih IQL atau CTDE dan menyimpan checkpoint |
+| `scripts/train_baseline.py` | Melatih LR, SVM, Random Forest, dan XGBoost serta menyimpan metrik |
 | `src/procurement_marl/evaluate.py` | Menjalankan serta mengevaluasi kebijakan dengan aturan yang sama |
 
-## 9. Angka BAB 6
+## 10. Angka BAB 6
 
 Angka contoh laporan dipertahankan sebagai pembanding rule-based yang terpisah dari keputusan model:
 

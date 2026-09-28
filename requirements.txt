@@ -5,3 +5,6 @@ PyYAML>=6,<7
 gymnasium>=1,<2
 pettingzoo>=1.25,<2
 torch>=2.8,<3
+scikit-learn>=1.9,<2
+xgboost>=3.1,<4
+joblib>=1.5,<2

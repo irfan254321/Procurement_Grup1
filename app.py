@@ -15,6 +15,7 @@ from procurement.rl_service import (CHECKPOINTS, default_vendor_rows, scenario_f
 from procurement.rl_storage import (connect, load_events, load_run, load_vendor_settings,
                                     reset_vendor_settings, runs, save_run, save_vendor_settings)
 from procurement.rl_presentation import brief_event
+from procurement.baseline_ml import classify_decision, metrics_report
 from procurement.models import Scenario as ReportScenario
 from procurement.simulator import run as report_rule_trace
 from procurement_marl.presentation import STOP_REASON, VIOLATION, log_rows, rp
@@ -231,6 +232,54 @@ with report_tab:
                      f"Kekurangan {rp(diagnosis['shortfall'])}.")
         st.write("**Tindak lanjut:** " + report["next_action"])
         st.caption(STOP_REASON.get(report["stop_reason"], "Simulasi selesai."))
+
+        st.subheader("Pembanding supervised learning")
+        scenario = scenario_from_snapshot(json.loads(saved_run["scenario_json"]))
+        baseline = report.get("baseline_ml")
+        if not baseline:
+            # Riwayat versi lama dapat dinilai tanpa mengubah record SQLite.
+            baseline = classify_decision(scenario, {
+                "log": log, "total": report["total"],
+                "outcome": report["status"], "violations": report.get("violations", []),
+            })
+        if baseline.get("applicable"):
+            probability = baseline["probability_optimal"]
+            left, right = st.columns(2)
+            left.metric(f"Klasifikasi {baseline['comparator']}", baseline["label"])
+            right.metric("Probabilitas optimal", f"{probability:.1%}")
+            st.caption(
+                "Baseline menilai rencana setelah agen selesai. Hasil ini tidak mengganti pemeriksaan "
+                "anggaran, kas, kapasitas, dan tenggat oleh environment."
+            )
+        else:
+            st.info(f"Baseline ML: {baseline['label']}. {baseline['reason']}")
+
+        if baseline.get("metadata"):
+            with st.expander("Evaluasi Logistic Regression, SVM, Random Forest, dan XGBoost"):
+                baseline_metrics = metrics_report()
+                metric_rows = []
+                for model_name, values in baseline_metrics["models"].items():
+                    tn, fp = values["confusion_matrix"][0]
+                    fn, tp = values["confusion_matrix"][1]
+                    metric_rows.append({
+                        "Model": model_name,
+                        "Accuracy": values["accuracy"],
+                        "Precision": values["precision"],
+                        "Recall": values["recall"],
+                        "F1-score": values["f1"],
+                        "ROC-AUC": values["roc_auc"],
+                        "TN / FP / FN / TP": f"{tn} / {fp} / {fn} / {tp}",
+                    })
+                st.dataframe(pd.DataFrame(metric_rows), hide_index=True, width="stretch",
+                             column_config={name: st.column_config.NumberColumn(name, format="%.3f")
+                                            for name in ("Accuracy", "Precision", "Recall", "F1-score", "ROC-AUC")})
+                dataset_info = baseline_metrics["dataset"]
+                st.write(f"**Sumber data:** {dataset_info['source']}.")
+                st.write(f"**Pembagian:** {dataset_info['split']} · "
+                         f"{dataset_info['train_rows']} baris train dan {dataset_info['test_rows']} baris test.")
+                st.write(f"**Definisi label:** {dataset_info['label_rule']}.")
+                st.warning("Belum ada dataset historis perusahaan pada proyek ini. Angka evaluasi di atas "
+                           "mengukur generalisasi pada data simulasi, bukan performa produksi.")
         if report["cash"]:
             st.subheader("Kas akhir per bulan")
             cash = pd.DataFrame({"Bulan": range(1, len(report["cash"]) + 1),
