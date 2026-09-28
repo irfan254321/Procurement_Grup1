@@ -1,0 +1,7 @@
+streamlit>=1.36,<2
+pandas>=2.0,<4
+numpy>=2.0,<3
+PyYAML>=6,<7
+gymnasium>=1,<2
+pettingzoo>=1.25,<2
+torch>=2.8,<3

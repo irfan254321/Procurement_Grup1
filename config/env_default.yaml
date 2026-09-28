@@ -1,0 +1,47 @@
+# Parameters for the random training scenarios and the environment.
+# Everything here is our own assumption (not from the report); see DECISIONS.md.
+max_rounds: 6                # simulator safety limit; NOT the six coordination stages of Bab 6.5
+gamma: 0.99
+max_steps: 300               # safety net: episode is truncated after this many steps
+
+randomization:
+  quantity: [600, 1400]
+  urgent_share: [0.5, 0.8]   # ASSUMPTION: covers the fixture (0.7); retuned after score became a hard filter
+  deadline_days: [6, 14]     # ASSUMPTION: covers the fixture (10); below 6 the only score-eligible vendors are too slow
+  vendor_jitter: 0.10        # +-10% on price, transport, risk, capacity, lead time
+  relation: [0.4, 0.9]
+  budget_per_unit: [100000, 125000]      # ASSUMPTION: lower edge is the fixture (100.000 per unit); retuned after the capacity-check fix
+  initial_cash: [125000000, 230000000]   # ASSUMPTION: covers the fixture (150 jt)
+  other_needs_month1: [0, 80000000]      # ASSUMPTION: covers the fixture (70 jt)
+  inflow_months_2_to_4: [0, 80000000]    # ASSUMPTION: covers the fixture (0)
+  min_cash: 60000000
+  enforce_min_cash: false
+  infeasible_share: 0.20     # 20% episode sengaja kekurangan dana agar aksi revisi SLM dapat dipelajari
+
+stochastic:
+  accept_base: 0.2           # p_accept = clip(base + slope * relation)
+  accept_slope: 0.6
+  termin_base: 0.3           # p_termin = clip(base + slope * relation)
+  termin_slope: 0.6
+  accept_relation_drop: 0.2  # relation drop when a counter offer is rejected
+  termin_relation_drop: 0.1  # relation drop when a term revision is rejected
+  withdraw_below: 0.3        # vendor withdraws if relation falls below this
+  p_accept_override: null    # fixed value, ignores the relation formula
+  p_termin_override: null
+
+reward:
+  weights: {IRE: 1.0, VMI: 1.0, DA: 1.0, SLM: 1.0}
+  ire: {on_time: 1.0, late: -1.0, per_revision: -0.25}
+  da: {saving_scale: 10.0, failed_negotiation: -0.5}
+  slm: {below_min_cash: -1.0, negative_cash: -2.0}
+  # Reward terminal lebih dominan daripada penghematan lokal agar agen tidak
+  # mengumpulkan reward dengan memperpanjang episode yang tetap gagal.
+  team:
+    consensus: 5.0
+    correct_infeasible: 4.0
+    agent_revision_bonus: 2.0
+    premature_revision: -4.0
+    over_budget: -2.0
+    no_consensus: -5.0
+    no_progress: -3.0
+    per_round: -0.25

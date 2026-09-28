@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "multi-agent-procurement-simulator"
+version = "0.4.0"
+description = "Streamlit procurement simulation with trained IQL and CTDE agents"
+requires-python = ">=3.14"
+dependencies = [
+    "streamlit>=1.36,<2",
+    "pandas>=2.0,<4",
+    "numpy>=2.0,<3",
+    "PyYAML>=6,<7",
+    "gymnasium>=1,<2",
+    "pettingzoo>=1.25,<2",
+    "torch>=2.8,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

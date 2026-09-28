@@ -1,0 +1,16 @@
+{
+  "algo": "ctde",
+  "model_version": 2,
+  "episodes": 50000,
+  "seed": 0,
+  "batch": 32,
+  "p_override": null,
+  "hidden": 64,
+  "lr": 0.001,
+  "gamma": 0.99,
+  "lam": 0.95,
+  "entropy_coef": 0.01,
+  "value_coef": 0.5,
+  "replay_capacity": 20000,
+  "critic_batch": 512
+}

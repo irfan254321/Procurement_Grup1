@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: multi-agent-procurement-simulator
+Version: 0.4.0
+Summary: Streamlit procurement simulation with trained IQL and CTDE agents
+Requires-Python: >=3.14
+Requires-Dist: streamlit<2,>=1.36
+Requires-Dist: pandas<4,>=2.0
+Requires-Dist: numpy<3,>=2.0
+Requires-Dist: PyYAML<7,>=6
+Requires-Dist: gymnasium<2,>=1
+Requires-Dist: pettingzoo<2,>=1.25
+Requires-Dist: torch<3,>=2.8

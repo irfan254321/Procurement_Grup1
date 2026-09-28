@@ -1,0 +1,57 @@
+# Fixture taken exactly from the report (Bab 6). Money is integer rupiah.
+request:
+  quantity: 1000
+  urgent_quantity: 700        # the other 300 units can wait until next month
+  budget: 100000000
+  deadline_days: 10
+
+cash:
+  initial: 150000000
+  other_needs: [70000000, 0, 0, 0]   # month 1 = 40 jt + 30 jt (6.5), months 2-4 = 0
+  inflow: [0, 0, 0, 0]
+  min_cash: 60000000
+  enforce_min_cash: false            # only reported, not a hard constraint on the fixture
+
+horizon_months: 4
+
+scoring:
+  weights: {quality: 0.4, delivery: 0.3, reputation: 0.2, price: 0.1}
+  min_composite_score: 6.0           # vendor is dropped below this score
+
+vendors:
+  A:
+    list_price: 100000
+    transport: 5000
+    risk: 2000
+    quality: 8
+    lead_time: 5
+    capacity: 800
+    initial_offer: 95000             # from report (6.4 trace)
+    floor_price: 95000               # ASSUMPTION: not in report
+    discount_pct: 0
+    reputation: 7.00                 # dihitung balik dari skor 6.2, konfirmasi ke tim
+    relation: 0.6
+  B:
+    list_price: 90000
+    transport: 7000
+    risk: 5000
+    quality: 9
+    lead_time: 7
+    capacity: 1200
+    initial_offer: 89500
+    floor_price: 89000
+    discount_pct: 2                  # pay within 7 days
+    reputation: 8.45                 # dihitung balik dari skor 6.2, konfirmasi ke tim
+    relation: 0.6
+  C:
+    list_price: 110000
+    transport: 4000
+    risk: 1000
+    quality: 7
+    lead_time: 3
+    capacity: 600
+    initial_offer: 110000            # ASSUMPTION: not in report
+    floor_price: 108000              # ASSUMPTION: not in report
+    discount_pct: 0
+    reputation: 2.55                 # dihitung balik dari skor 6.2, konfirmasi ke tim
+    relation: 0.6
