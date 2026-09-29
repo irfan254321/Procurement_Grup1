@@ -16,19 +16,41 @@ from procurement_marl.env import ProcurementEnv
 from procurement_marl.scenario import cash_diagnosis
 from procurement_marl.evaluate import run_episode
 from procurement.baseline_ml import decision_features
-from procurement.rl_presentation import audit_rows
+from procurement.rl_presentation import audit_rows, competition_round_rows
 from procurement_marl.vendor_agents import VendorNegotiator
 
 
 class MarlIntegrationTests(unittest.TestCase):
-    def test_minimum_cash_reserve_is_required_for_consensus(self):
-        """Kas positif saja belum cukup saat BAB 6 mensyaratkan cadangan Rp60 juta."""
+    def test_competition_round_table_serializes_to_arrow(self):
+        """Label Awal dan nomor ronde tidak boleh mencampur str/int di Streamlit."""
+        import pandas as pd
+        import pyarrow as pa
+
+        scenario = scenario_from_request(700, 700, 100_000_000)
+        env = ProcurementEnv(scenario)
+        env.reset(seed=0)
+        env.step(0)
+        for step in range(1, len(env.log) + 1):
+            rows = competition_round_rows(env.log, step, cycle=1, batch=0)
+            if rows:
+                self.assertTrue(all(isinstance(row["Putaran"], str) for row in rows))
+                pa.Table.from_pandas(pd.DataFrame(rows), preserve_index=False)
+
+    def test_minimum_cash_is_warning_when_balance_stays_positive(self):
+        """Target Rp60 juta memberi peringatan, bukan menolak rencana yang likuid."""
+        from procurement_marl.oracle import PlanPolicy
+
         scenario = scenario_from_request(300, 300, 100_000_000)
         diagnosis = cash_diagnosis(scenario)
-        self.assertTrue(scenario.enforce_min_cash)
-        self.assertEqual(diagnosis["available"], 20_000_000)
-        self.assertTrue(diagnosis["infeasible"])
-        self.assertGreater(diagnosis["shortfall"], 0)
+        self.assertFalse(scenario.enforce_min_cash)
+        self.assertEqual(diagnosis["available"], 80_000_000)
+        self.assertFalse(diagnosis["infeasible"])
+        result = run_episode(ProcurementEnv(scenario), PlanPolicy((0, ((0, 0, 1),))),
+                             seed=0, options={"scenario": scenario})
+        final = next(event for event in reversed(result["log"]) if event.get("event") == "cek_batasan")
+        self.assertTrue(result["consensus"])
+        self.assertLess(min(final["cash"]), scenario.min_cash)
+        self.assertIn("kas_di_bawah_minimum", final["warnings"])
 
     def test_audit_export_keeps_all_four_cash_months(self):
         """Pembayaran termin bulan 3/4 harus dapat diaudit dari CSV."""

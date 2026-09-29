@@ -1,5 +1,7 @@
 # Multi-Agent Procurement Simulator
 
+Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia di [20 skenario uji](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.
+
 Dashboard Streamlit untuk empat agen **IRE, VMI, DA, SLM** dengan dua pilihan kebijakan yang benar-benar dilatih: **Independent Q-learning (IQL)** dan **CTDE actor-critic**. Vendor A/B/C mempunyai agen negosiasi berbasis utilitas. Setiap vendor yang lolos penyaringan merespons permintaan harga yang sama sebelum VMI memilih pemasok. Penawaran pembeli dan balasan vendor terlihat berdampingan per putaran. DA lalu menerima harga kandidat, menawar lagi, atau meminta vendor alternatif; SLM memeriksa termin dan kas. Vendor tidak menawar di bawah harga minimum masing-masing. Sesuai bagian *Algorithm and AI Integration* pada laporan, proyek juga melatih **Logistic Regression, SVM, Random Forest, dan XGBoost** sebagai baseline supervised learning.
 
 ## Jalankan aplikasi
@@ -40,35 +42,35 @@ Setiap pelatihan menulis kurva `curve.csv`, parameter `config.json`, dan checkpo
 
 Paket `procurement_marl` berada di folder `src/`. Instalasi editable (`pip install -e . --no-deps`) membuatnya dapat diimpor oleh interpreter virtual environment; `pyrightconfig.json` memberi tahu editor lokasi sumbernya. Jika editor masih menandai impor merah, pilih interpreter `.venv/Scripts/python.exe` (Windows) atau `.venv/bin/python` (macOS), lalu muat ulang editor.
 
-Mulai versi 0.9.0, cadangan kas minimum Rp60 juta menjadi **syarat wajib**. Rencana dengan kas positif tetapi di bawah Rp60 juta tidak lagi berstatus LAYAK. Pada fixture BAB 6, kas awal Rp150 juta dikurangi kewajiban lain Rp70 juta dan cadangan Rp60 juta menyisakan dana belanja Rp20 juta. Karena itu skenario 600–1.000 unit tanpa pendanaan baru memang tidak feasible, sekalipun termin diundur.
+Mulai versi 0.10.0, target kas Rp60 juta kembali menjadi **peringatan**, sesuai pilihan pengguna. Rencana dengan kas positif di bawah target dapat berstatus LAYAK jika anggaran, kapasitas, tenggat, dan syarat lain terpenuhi. Kas negatif tetap tidak layak. Pada fixture BAB 6, dana yang tersedia untuk belanja adalah Rp150 juta dikurangi kewajiban lain Rp70 juta, yaitu Rp80 juta; target Rp60 juta dilaporkan terpisah. Run lama tetap tersimpan, tetapi statusnya tidak dinilai ulang otomatis.
 
-Hasil evaluasi model versi 6 setelah 20.000 episode latihan, pada 500 skenario yang sama (seed evaluasi 0–499, seed latihan 0):
+Hasil evaluasi model versi 7 setelah 20.000 episode latihan, pada 500 skenario yang sama (seed evaluasi 0–499, seed latihan 0):
 
 | Model | Return tim | Konsensus | Terdeteksi tidak feasible | Minta revisi | Revisi keliru |
 |---|---:|---:|---:|---:|---:|
-| IQL | 12,67 | 60,2% | 22,6% | 21,6% | 0,0% |
-| CTDE | 14,14 | 64,0% | 22,6% | 0,0% | 0,0% |
+| IQL | 17,60 | 71,0% | 20,8% | 20,4% | 0,0% |
+| CTDE | 20,22 | 72,8% | 20,8% | 25,8% | 5,0% |
 
-Sekitar 20% generator latihan sengaja membuat kasus kekurangan dana yang dapat dibuktikan; pada 500 skenario evaluasi angka nyatanya 22,6%. Konsensus dan tidak feasible adalah hasil yang berbeda. CTDE seed 0 tidak memilih aksi minta revisi pada evaluasi ini; ketika kekurangan dana terbukti, evaluator tetap menghentikan rencana sebagai TIDAK FEASIBLE. Kasus BAB 6 ditolak oleh kedua model.
+Sekitar 20% generator latihan sengaja membuat kasus kekurangan dana yang dapat dibuktikan; pada 500 skenario evaluasi angka nyatanya 20,8%. Konsensus dan tidak feasible adalah hasil yang berbeda. Kasus awal BAB 6 tetap ditolak oleh kedua model karena kekurangan dana total, walaupun target kas minimum hanya peringatan.
 
-`scripts/evaluate_quality.py` membandingkan model dengan pencarian seluruh kandidat **satu siklus** yang menggunakan DA terima/tawar balik serta SLM bayar cepat/jatuh tempo. Ini pembanding yang dapat diaudit, bukan bukti optimum global karena revisi termin stokastik dan perbaikan lintas siklus tidak dicakup. Pada 100 skenario terpisah (seed 2000–2099), pembanding menemukan 58 kasus feasible: IQL melewatkan 4, CTDE melewatkan 0. Saat model dan pembanding sama-sama feasible, biaya model rata-rata di atas pembanding sebesar 4,13% (IQL; 54 kasus) dan 2,38% (CTDE; 58 kasus). CTDE dapat mencapai konsensus di luar ruang pembanding melalui termin atau siklus tambahan.
+`scripts/evaluate_quality.py` membandingkan model dengan pencarian seluruh kandidat **satu siklus** yang menggunakan DA terima/tawar balik serta SLM bayar cepat/jatuh tempo. Ini pembanding yang dapat diaudit, bukan bukti optimum global karena revisi termin stokastik dan perbaikan lintas siklus tidak dicakup. Pada 100 skenario terpisah (seed 2000–2099), pembanding menemukan 76 kasus feasible: IQL melewatkan 2, CTDE melewatkan 0. Saat model dan pembanding sama-sama feasible, biaya model rata-rata di atas pembanding sebesar 3,45% (IQL; 74 kasus) dan 2,32% (CTDE; 76 kasus).
 
-Pelatihan tambahan dengan seed 1 dan 20.000 episode memberi konsensus IQL 59,6% dan CTDE 64,0% pada 500 skenario yang sama. Pada 100 skenario pembanding, seed 1 melewatkan 3/58 kasus feasible untuk IQL dan 0/58 untuk CTDE; selisih biaya rata-rata 3,36% dan 2,35%. Checkpoint aplikasi tetap memakai seed 0 agar pemilihan model tidak disesuaikan dengan data evaluasi. Hasil dua seed menunjukkan variasi, sehingga angka ini belum cukup untuk mengklaim optimum global.
+Checkpoint aplikasi memakai seed pelatihan 0. Artefak seed 1 dari versi 6 disimpan sebagai arsip dan **tidak boleh** dipakai dengan aturan versi 7. Angka evaluasi satu seed belum cukup untuk mengklaim optimum global.
 
 ### Evaluasi baseline supervised learning
 
 Proyek tidak menerima dataset historis perusahaan bersama laporan. Agar bagian algoritma dapat dijalankan tanpa mengaku memakai data riil, `scripts/train_baseline.py` membuat kandidat keputusan dari simulator: **optimal** berarti rencana layak dan biayanya maksimal 3% di atas biaya layak terendah dari kandidat yang dievaluasi pada skenario yang sama. Split 80/20 dilakukan berdasarkan ID skenario, sehingga kandidat dari skenario test tidak muncul di train.
 
-Hasil artefak yang dilatih ulang untuk aturan kas v6, dari 2.042 keputusan pada 180 skenario yang mempunyai kandidat solusi layak:
+Hasil artefak yang dilatih ulang untuk aturan kas v7, dari 2.180 keputusan pada 199 skenario yang mempunyai kandidat solusi layak:
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |---|---:|---:|---:|---:|---:|
-| Logistic Regression | 65,5% | 40,6% | 70,4% | 51,5% | 0,752 |
-| SVM | 75,9% | 55,0% | 40,7% | 46,8% | 0,781 |
-| Random Forest | 70,1% | 45,6% | **76,9%** | 57,2% | 0,799 |
-| XGBoost | **79,0%** | **57,5%** | 74,1% | **64,8%** | **0,828** |
+| Logistic Regression | 70,9% | 48,6% | **72,5%** | 58,2% | 0,821 |
+| SVM | 78,6% | **65,2%** | 50,0% | 56,6% | 0,840 |
+| Random Forest | 75,3% | 54,5% | 70,8% | 61,6% | 0,835 |
+| XGBoost | **79,7%** | 62,8% | 67,5% | **65,1%** | **0,842** |
 
-XGBoost dipakai sebagai pembanding utama karena accuracy, F1, dan ROC-AUC test tertinggi. Random Forest mempunyai recall sedikit lebih tinggi. Tabel lengkap serta confusion matrix tetap ditampilkan agar trade-off terlihat. Angka ini hanya berlaku pada data simulasi.
+XGBoost dipakai sebagai pembanding utama karena accuracy, F1, dan ROC-AUC test tertinggi. Logistic Regression mempunyai recall tertinggi, sedangkan SVM mempunyai precision tertinggi. Tabel lengkap serta confusion matrix tetap ditampilkan agar trade-off terlihat. Angka ini hanya berlaku pada data simulasi.
 
 ## Penggunaan
 

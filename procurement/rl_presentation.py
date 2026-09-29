@@ -20,6 +20,26 @@ def audit_rows(log: list[dict], report: dict, fallback_seed: int) -> list[dict]:
     return rows
 
 
+def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -> list[dict]:
+    """Tampilkan tawaran A/B/C sampai langkah terpilih dengan kolom Arrow yang seragam."""
+    rows: dict[int, dict] = {}
+    for event in log[:step]:
+        if event["round"] != cycle or event.get("batch") != batch:
+            continue
+        vendor = event.get("vendor")
+        if vendor not in {"A", "B", "C"}:
+            continue
+        if event.get("event") == "vendor_opening_offer":
+            rows.setdefault(0, {"Putaran": "Awal", "A": "—", "B": "—", "C": "—"})[vendor] = rp(event["offer"])
+        elif event.get("event") == "vendor_counter_offer":
+            number = event["negotiation_round"]
+            # Pandas/Arrow memerlukan tipe konsisten pada satu kolom.
+            rows.setdefault(number, {"Putaran": str(number), "A": "—", "B": "—", "C": "—"})[vendor] = (
+                f"Kita {rp(event['buyer_offer'])} → vendor {rp(event['vendor_offer'])} · "
+                f"{'sepakat' if event['accepted'] else 'lanjut'}")
+    return [rows[key] for key in sorted(rows)]
+
+
 def brief_event(event: dict) -> str:
     agent = event["agent"]
     if event.get("event") == "vendor_opening_offer":

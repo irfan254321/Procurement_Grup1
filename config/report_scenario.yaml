@@ -10,7 +10,7 @@ cash:
   other_needs: [70000000, 0, 0, 0]   # month 1 = 40 jt + 30 jt (6.5), months 2-4 = 0
   inflow: [0, 0, 0, 0]
   min_cash: 60000000
-  enforce_min_cash: true             # BAB 6: konsensus memerlukan cadangan likuiditas Rp60 juta
+  enforce_min_cash: false            # target kas Rp60 juta ditampilkan sebagai peringatan
 
 horizon_months: 4
 

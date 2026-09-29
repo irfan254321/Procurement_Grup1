@@ -2,6 +2,35 @@
 
 Dokumen ini mencatat pekerjaan aktif agar sesi berikutnya dapat melanjutkan dari keadaan terakhir. Baca file ini sebelum mengubah kode.
 
+## Tugas aktif: error Arrow dan 20 skenario (29 September 2026)
+
+Pengguna melaporkan `ArrowTypeError` pada kolom `Putaran` dan meminta 20 skenario uji dengan alasan perubahan yang rinci. CSV `2026-09-29T11-22_export.csv` adalah run IQL model 7, 700 unit, biaya Rp68.892.600, kas akhir bulan 2 Rp11.107.400, status LAYAK dengan peringatan kas rendah. Gambar menunjukkan XGBoost `TIDAK OPTIMAL` probabilitas 3,9%; itu klasifikasi baseline yang berbeda dari pemeriksaan kelayakan.
+
+- [x] Penyebab Arrow ditemukan: tabel putaran mencampur `"Awal"` (str) dan nomor ronde (int). Nomor ronde sudah diubah menjadi `str` pada salinan kerja `app.py`.
+- [x] Tes regresi mengonversi tabel putaran nyata ke PyArrow; 20 tes keseluruhan lulus.
+- [x] Jalankan 20 skenario model 7 dengan input/metode/seed/vendor yang bervariasi, tanpa menambah riwayat SQLite pengguna; hasil di `runs/demo_scenarios_v7.json`.
+- [x] Tulis `docs/20_skenario_uji.md` berisi input, perubahan, tujuan, hasil aktual, dan cara membaca perbedaan. Uji transport B mengungkap sensitivitas kebijakan yang masih lemah.
+- [x] Sinkronkan delapan file ke proyek utama tanpa menimpa SQLite; 20 tes di proyek utama lulus. ZIP proyek diperbarui.
+
+## Status terkini: pengembalian aturan kas (permintaan 29 September 2026)
+
+Pengguna meminta kembali ke perilaku sebelum v0.9.0 karena target kas Rp60 juta sebagai syarat wajib membuat terlalu banyak skenario tidak layak. Kas Rp60 juta sekarang kembali **peringatan**; kas negatif, anggaran, kapasitas, dan tenggat tetap syarat wajib.
+
+- [x] Tinjau `2026-09-29T11-05_export.csv`: saldo akhir Rp21.077.800 positif, tetapi v6 menolaknya hanya karena di bawah Rp60 juta.
+- [x] `config/report_scenario.yaml` dan `config/env_default.yaml` mengatur `enforce_min_cash: false`.
+- [x] Versi proyek 0.10.0 / model 7; test baru menegaskan kas positif di bawah target menghasilkan peringatan dan rencana dapat layak.
+- [x] IQL dan CTDE model 7 (20.000 episode seed 0) selesai; konsensus 71,0%/72,8% pada 500 skenario. Baseline ML dilatih ulang; XGBoost accuracy 79,7%, F1 65,1%, ROC-AUC 0,842.
+- [x] Evaluasi kualitas 100 skenario terpisah: pembanding menemukan 76 feasible; IQL melewatkan 2, CTDE 0; selisih biaya rata-rata 3,45%/2,32%. README dan dokumen alur sudah diperbarui.
+- [x] 19 tes lulus; Streamlit AppTest startup dan skenario baru masing-masing 0 exception.
+- [x] 23 file disinkronkan ke proyek utama tanpa menimpa SQLite; 19 tes di proyek utama lulus dan model IQL/CTDE keduanya versi 7.
+- [x] ZIP distribusi diperbarui dan diverifikasi memuat model/evaluasi v7 serta progress.md, tanpa database pengguna.
+
+## Cara memeriksa hasil terbaru
+
+Jalankan contoh 600 unit, 100 unit mendesak, anggaran Rp100 juta, seed 0. IQL dan CTDE model 7 menghasilkan LAYAK dengan kas positif di bawah Rp60 juta, sehingga UI harus menampilkan peringatan likuiditas. Contoh BAB 6 awal tetap TIDAK FEASIBLE karena dana total tidak cukup.
+
+## Riwayat v0.9.0 (arsip, bukan status aturan saat ini)
+
 ## Tujuan aktif (29 September 2026)
 
 - Selaraskan status kelayakan dengan syarat likuiditas laporan: kas akhir setiap bulan minimal Rp60 juta pada skenario BAB 6.
@@ -53,4 +82,4 @@ Jalankan dari folder proyek dengan interpreter `.venv`:
 .\.venv\Scripts\python.exe scripts\train.py --algo ctde --episodes 20000 --out runs\ctde
 ```
 
-Checkpoint v5 **tidak boleh** dipakai setelah definisi reward/kelayakan berubah. Naikkan `MODEL_VERSION` dan latih ulang sebelum aplikasi menerima skenario baru.
+Checkpoint v6 **tidak boleh** dipakai setelah definisi reward/kelayakan berubah. Model aktif versi 7 sudah dilatih ulang.

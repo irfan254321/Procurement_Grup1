@@ -18,7 +18,7 @@ randomization:
   other_needs_month1: [0, 80000000]      # ASSUMPTION: covers the fixture (70 jt)
   inflow_months_2_to_4: [0, 80000000]    # ASSUMPTION: covers the fixture (0)
   min_cash: 60000000
-  enforce_min_cash: true
+  enforce_min_cash: false
   infeasible_share: 0.20     # 20% episode sengaja kekurangan dana agar aksi revisi SLM dapat dipelajari
 
 stochastic:

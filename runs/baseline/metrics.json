@@ -2,70 +2,70 @@
   "comparator": "XGBoost",
   "models": {
     "Logistic Regression": {
-      "accuracy": 0.655421686746988,
-      "precision": 0.40641711229946526,
-      "recall": 0.7037037037037037,
-      "f1": 0.5152542372881356,
-      "roc_auc": 0.7519604294848595,
+      "accuracy": 0.7086247086247086,
+      "precision": 0.4860335195530726,
+      "recall": 0.725,
+      "f1": 0.5819397993311036,
+      "roc_auc": 0.8206850053937433,
       "confusion_matrix": [
         [
-          196,
-          111
+          217,
+          92
         ],
         [
-          32,
-          76
+          33,
+          87
         ]
       ]
     },
     "SVM": {
-      "accuracy": 0.7590361445783133,
-      "precision": 0.55,
-      "recall": 0.4074074074074074,
-      "f1": 0.46808510638297873,
-      "roc_auc": 0.780522379056581,
+      "accuracy": 0.7855477855477856,
+      "precision": 0.6521739130434783,
+      "recall": 0.5,
+      "f1": 0.5660377358490566,
+      "roc_auc": 0.839670981661273,
       "confusion_matrix": [
         [
-          271,
-          36
+          277,
+          32
         ],
         [
-          64,
-          44
+          60,
+          60
         ]
       ]
     },
     "Random Forest": {
-      "accuracy": 0.7012048192771084,
-      "precision": 0.45604395604395603,
-      "recall": 0.7685185185185185,
-      "f1": 0.5724137931034483,
-      "roc_auc": 0.7984527687296417,
+      "accuracy": 0.752913752913753,
+      "precision": 0.5448717948717948,
+      "recall": 0.7083333333333334,
+      "f1": 0.6159420289855072,
+      "roc_auc": 0.8354099244875943,
       "confusion_matrix": [
         [
-          208,
-          99
+          238,
+          71
         ],
         [
-          25,
-          83
+          35,
+          85
         ]
       ]
     },
     "XGBoost": {
-      "accuracy": 0.7903614457831325,
-      "precision": 0.5755395683453237,
-      "recall": 0.7407407407407407,
-      "f1": 0.6477732793522267,
-      "roc_auc": 0.8276028471468211,
+      "accuracy": 0.7972027972027972,
+      "precision": 0.627906976744186,
+      "recall": 0.675,
+      "f1": 0.6506024096385542,
+      "roc_auc": 0.8423274002157497,
       "confusion_matrix": [
         [
-          248,
-          59
+          261,
+          48
         ],
         [
-          28,
-          80
+          39,
+          81
         ]
       ]
     }
@@ -73,11 +73,11 @@
   "dataset": {
     "source": "Keputusan kandidat dari simulator; label oracle kelayakan dan biaya (bukan data historis riil)",
     "scenarios_requested": 300,
-    "scenarios_used": 180,
-    "rows": 2042,
-    "train_rows": 1627,
-    "test_rows": 415,
-    "positive_share": 0.2624877571008815,
+    "scenarios_used": 199,
+    "rows": 2180,
+    "train_rows": 1751,
+    "test_rows": 429,
+    "positive_share": 0.2738532110091743,
     "split": "80/20 berdasarkan scenario_id (GroupShuffleSplit)",
     "label_rule": "Optimal = layak dan biaya <= 103% biaya layak terendah dari kandidat pada skenario yang sama",
     "seed": 42

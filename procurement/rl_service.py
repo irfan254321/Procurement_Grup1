@@ -17,7 +17,7 @@ CHECKPOINTS = {
     "IQL": PROJECT / "runs" / "iql" / "checkpoint.json",
     "CTDE": PROJECT / "runs" / "ctde" / "checkpoint.pt",
 }
-MODEL_VERSION = 6
+MODEL_VERSION = 7
 
 INT_VENDOR_FIELDS = ("list_price", "transport", "risk", "quality", "lead_time", "capacity",
                      "initial_offer", "floor_price", "discount_pct")
@@ -114,7 +114,7 @@ def short_report(result: dict, scenario, policy: str, seed: int) -> dict:
     if outcome == "LAYAK":
         next_action = "Lanjutkan ke persetujuan manusia; simulasi belum mengeksekusi pembelian."
     elif outcome == "TIDAK FEASIBLE":
-        next_action = "Ubah pendanaan, anggaran, atau jumlah unit karena batas kas minimum membuktikan skenario tidak dapat dipenuhi."
+        next_action = "Ubah pendanaan, anggaran, atau jumlah unit karena dana total tidak cukup bahkan pada biaya minimum."
     else:
         next_action = "Periksa jumlah, pemasok, harga, atau termin lalu jalankan skenario baru."
     report = {

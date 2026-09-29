@@ -71,17 +71,17 @@ Generator latihan membuat sekitar 20% episode dengan kekurangan dana yang dibukt
 
 ### Evaluator Sistem
 
-Evaluator Sistem bukan agen pembelajar. Ia menghitung biaya dan kas, lalu memeriksa anggaran, kapasitas, tenggat, kebutuhan mendesak, dan **cadangan kas minimum Rp60 juta pada setiap bulan**. Di UI evaluator memiliki kotak tersendiri agar tidak terlihat seolah menjadi agen kelima.
+Evaluator Sistem bukan agen pembelajar. Ia menghitung biaya dan kas, lalu memeriksa anggaran, kapasitas, tenggat, kebutuhan mendesak, dan kas negatif. Target kas minimum Rp60 juta ditampilkan sebagai **peringatan**, bukan syarat wajib. Di UI evaluator memiliki kotak tersendiri agar tidak terlihat seolah menjadi agen kelima.
 
 ## 3. Mengapa proses dapat berhenti lebih awal
 
-`cash_diagnosis()` menghitung batas bawah biaya. Dana tersedia untuk belanja adalah kas awal + arus masuk − kewajiban lain − cadangan kas wajib. Perhitungan sengaja memakai harga terbaik yang mungkin, bahkan tanpa membatasi kapasitas vendor. Karena nilainya optimistis, jika dana belanja masih lebih kecil dari batas biaya tersebut, tidak ada perubahan termin pembayaran yang dapat membuat saldo akhir mencapai Rp60 juta.
+`cash_diagnosis()` menghitung batas bawah biaya. Dana tersedia untuk belanja adalah kas awal + arus masuk − kewajiban lain. Target Rp60 juta tidak dikurangkan karena pengguna memilihnya sebagai peringatan. Perhitungan biaya minimum sengaja memakai harga terbaik yang mungkin, bahkan tanpa membatasi kapasitas vendor. Bila dana belanja masih lebih kecil dari batas biaya tersebut, perubahan termin saja tidak dapat mencegah kas akhir negatif.
 
 Hasil akhir mempunyai tiga arti:
 
-- **LAYAK**: semua kendala rencana terpenuhi, termasuk cadangan kas minimum tiap bulan.
+- **LAYAK**: semua kendala wajib terpenuhi. Jika kas akhir di bawah Rp60 juta tetapi tetap tidak negatif, hasilnya LAYAK dengan peringatan risiko likuiditas.
 - **PERLU REVISI**: episode berhenti tanpa bukti matematis bahwa skenario mustahil, sehingga input atau rencana perlu diperiksa.
-- **TIDAK FEASIBLE**: batas bawah biaya melampaui dana belanja setelah cadangan wajib disisihkan.
+- **TIDAK FEASIBLE**: batas bawah biaya melampaui dana yang tersedia setelah kewajiban lain.
 
 Environment juga menghentikan pengulangan rencana material yang sama dengan alasan `no_progress`. Ini mencegah model berputar sampai batas enam siklus tanpa menghasilkan perubahan.
 

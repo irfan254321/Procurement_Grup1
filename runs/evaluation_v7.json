@@ -1,0 +1,12 @@
+{
+  "model_version": 7,
+  "training_episodes_per_model": 20000,
+  "training_seed": 0,
+  "evaluation_scenarios": 500,
+  "evaluation_seeds": "0-499",
+  "iql": {"team_return": 17.60, "consensus": 0.710, "infeasible_detected": 0.208, "revision_request": 0.204, "false_revision": 0.0},
+  "ctde": {"team_return": 20.22, "consensus": 0.728, "infeasible_detected": 0.208, "revision_request": 0.258, "false_revision": 0.050},
+  "restricted_quality_file": "runs/quality_v7.json",
+  "cash_minimum_rule": "warning_only",
+  "note": "Kas negatif tetap pelanggaran; target Rp60 juta dilaporkan sebagai peringatan."
+}

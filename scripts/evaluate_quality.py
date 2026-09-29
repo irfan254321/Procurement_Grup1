@@ -75,7 +75,7 @@ def evaluate(n: int, start_seed: int, iql_path: Path | None = None,
         summary[name] = row | {"consensus_rate": row["consensus"] / n,
                                "mean_cost_gap_when_both_feasible": sum(gaps) / len(gaps) if gaps else None,
                                "cost_gap_sample_size": len(gaps)}
-    return {"model_version": 6, "n": n, "seed_start": start_seed,
+    return {"model_version": 7, "n": n, "seed_start": start_seed,
             "restricted_benchmark_no_feasible": proven_infeasible,
             "benchmark_scope": "satu siklus, DA terima/tawar balik, SLM cepat/jatuh tempo",
             "results": summary}

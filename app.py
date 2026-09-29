@@ -89,6 +89,7 @@ def vendor_progress_rows(scenario, log: list[dict], step: int, current_round: in
 
     scores = composite_scores(scenario)
     return [{"Vendor": v.name, "Harga awal": rp(v.initial_offer),
+             # pyrefly: ignore [bad-argument-type]
              "Penawaran terkini": rp(state[v.name]["price"]) if state[v.name]["price"] else "—",
              "Diskon cepat": f"{v.discount_pct}%", "Kapasitas": v.capacity,
              "Kirim": f"{v.lead_time} hari", "Skor": round(scores[v.name], 2),
@@ -172,12 +173,15 @@ with process_tab:
         scenario = scenario_from_snapshot(snapshot)
         log = load_events(db, run_id)
 
-        if report.get("model", {}).get("model_version", 0) < 6:
-            st.warning("Run arsip memakai aturan kas lama. Jalankan skenario baru untuk penilaian "
-                       "dengan batas kas minimum sebagai syarat wajib.")
+        if report.get("model", {}).get("model_version", 0) != 7:
+            st.warning("Run arsip memakai versi aturan berbeda; status lama tidak dinilai ulang. "
+                       "Jalankan skenario baru untuk melihat hasil versi sekarang.")
 
         if report["status"] == "LAYAK":
             st.success("Konsensus rencana: seluruh kendala simulasi terpenuhi.")
+            if report.get("cash") and min(report["cash"]) < scenario.min_cash:
+                st.warning("Kas akhir berada di bawah target Rp60 juta. Rencana layak menurut "
+                           "syarat wajib simulasi, tetapi memiliki risiko likuiditas.")
         elif report["status"] == "TIDAK FEASIBLE":
             st.error("Skenario tidak feasible: dana tersedia tidak cukup bahkan pada biaya minimum.")
         else:
@@ -264,8 +268,8 @@ with report_tab:
         log = load_events(db, run_id)
         st.subheader(f"Laporan singkat #{run_id}: {report['status']}")
         model = report.get("model", {})
-        if model.get("model_version", 0) < 6:
-            st.warning("Laporan arsip ini memakai aturan kas lama; statusnya tidak dinilai ulang otomatis.")
+        if model.get("model_version", 0) != 7:
+            st.warning("Laporan arsip ini memakai versi aturan berbeda; statusnya tidak dinilai ulang otomatis.")
         total_label = "Batas biaya minimum" if report.get("total_kind") == "batas_bawah" else "Biaya rencana"
         st.write(f"**Metode:** {report['policy']} · **Seed simulasi:** {report.get('seed', saved_run['seed'])} · "
                  f"**{total_label}:** {rp(report['total'])} dari anggaran {rp(report['budget'])} · "
@@ -275,6 +279,8 @@ with report_tab:
                        f"(seed {model.get('training_seed', '?')}) · SHA-256 {model.get('checkpoint_sha256', '')[:12]}…")
         if report["violations"]:
             st.write("**Kendala akhir:** " + "; ".join(VIOLATION.get(x, x) for x in report["violations"]))
+        if report["status"] == "LAYAK" and report.get("cash") and min(report["cash"]) < 60_000_000:
+            st.warning("Kas di bawah target Rp60 juta; target ini peringatan, bukan syarat wajib.")
         diagnosis = report.get("cash_diagnosis", {})
         if diagnosis:
             st.error(f"Bukti ketidaklayakan kas: tersedia {rp(diagnosis['available'])}, "

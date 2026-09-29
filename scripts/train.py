@@ -23,7 +23,7 @@ from procurement_marl.evaluate import make_env, run_episode
 from procurement_marl.scenario import sample_scenario
 
 TRAIN_SEED_OFFSET = 1_000_000
-MODEL_VERSION = 6
+MODEL_VERSION = 7
 
 
 def quick_eval(policy, n: int = 500, override: float | None = None) -> dict[str, float]:

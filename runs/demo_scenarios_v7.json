@@ -1,0 +1,627 @@
+[
+  {
+    "number": 1,
+    "pair": 1,
+    "method": "IQL",
+    "quantity": 1000,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Acuan laporan; cek kekurangan dana total",
+    "status": "TIDAK FEASIBLE",
+    "total_kind": "batas_bawah",
+    "total": 96770000,
+    "allocations": [],
+    "cash": [],
+    "warnings": [],
+    "stop_reason": "infeasible_proven",
+    "baseline_label": null,
+    "baseline_probability": null
+  },
+  {
+    "number": 2,
+    "pair": 1,
+    "method": "CTDE",
+    "quantity": 1000,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Acuan laporan; cek kekurangan dana total",
+    "status": "TIDAK FEASIBLE",
+    "total_kind": "batas_bawah",
+    "total": 96770000,
+    "allocations": [],
+    "cash": [],
+    "warnings": [],
+    "stop_reason": "infeasible_proven",
+    "baseline_label": null,
+    "baseline_probability": null
+  },
+  {
+    "number": 3,
+    "pair": 2,
+    "method": "IQL",
+    "quantity": 700,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Semua unit mendesak; cek satu batch",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 68892600,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 700,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75100000,
+      11107400,
+      11107400,
+      11107400
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.03915754705667496
+  },
+  {
+    "number": 4,
+    "pair": 2,
+    "method": "CTDE",
+    "quantity": 700,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Semua unit mendesak; cek satu batch",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 68637800,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 700,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75100000,
+      11362200,
+      11362200,
+      11362200
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.041721172630786896
+  },
+  {
+    "number": 5,
+    "pair": 3,
+    "method": "IQL",
+    "quantity": 700,
+    "urgent": 300,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Kurangi urgensi tanpa mengubah jumlah",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 68892600,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 700,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75100000,
+      11107400,
+      11107400,
+      11107400
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.04286513477563858
+  },
+  {
+    "number": 6,
+    "pair": 3,
+    "method": "CTDE",
+    "quantity": 700,
+    "urgent": 300,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Kurangi urgensi tanpa mengubah jumlah",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 68389100,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 300,
+        "payment": "bayar_jatuh_tempo"
+      },
+      {
+        "vendor": "A",
+        "units": 400,
+        "payment": "revisi_termin"
+      }
+    ],
+    "cash": [
+      77900000,
+      47917300,
+      29764100,
+      11610900
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "OPTIMAL",
+    "baseline_probability": 0.8225356340408325
+  },
+  {
+    "number": 7,
+    "pair": 4,
+    "method": "IQL",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Kurangi jumlah dan urgensi; cari rencana layak",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58516800,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 600,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75800000,
+      21483200,
+      21483200,
+      21483200
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.019577711820602417
+  },
+  {
+    "number": 8,
+    "pair": 4,
+    "method": "CTDE",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Kurangi jumlah dan urgensi; cari rencana layak",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58685000,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 100,
+        "payment": "bayar_jatuh_tempo"
+      },
+      {
+        "vendor": "A",
+        "units": 500,
+        "payment": "revisi_termin"
+      }
+    ],
+    "cash": [
+      79300000,
+      66754000,
+      44034500,
+      21315000
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "OPTIMAL",
+    "baseline_probability": 0.8723788857460022
+  },
+  {
+    "number": 9,
+    "pair": 5,
+    "method": "IQL",
+    "quantity": 800,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Dekati batas kas dan kapasitas A",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 78854400,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 800,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      74400000,
+      1145600,
+      1145600,
+      1145600
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.004886993672698736
+  },
+  {
+    "number": 10,
+    "pair": 5,
+    "method": "CTDE",
+    "quantity": 800,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Dekati batas kas dan kapasitas A",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 78385500,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 700,
+        "payment": "bayar_jatuh_tempo"
+      },
+      {
+        "vendor": "A",
+        "units": 100,
+        "payment": "revisi_termin"
+      }
+    ],
+    "cash": [
+      75100000,
+      10662200,
+      6138350,
+      1614500
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.47454673051834106
+  },
+  {
+    "number": 11,
+    "pair": 6,
+    "method": "IQL",
+    "quantity": 900,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Naikkan kebutuhan melewati kapasitas A",
+    "status": "TIDAK FEASIBLE",
+    "total_kind": "batas_bawah",
+    "total": 87093000,
+    "allocations": [],
+    "cash": [],
+    "warnings": [],
+    "stop_reason": "infeasible_proven",
+    "baseline_label": null,
+    "baseline_probability": null
+  },
+  {
+    "number": 12,
+    "pair": 6,
+    "method": "CTDE",
+    "quantity": 900,
+    "urgent": 700,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Naikkan kebutuhan melewati kapasitas A",
+    "status": "TIDAK FEASIBLE",
+    "total_kind": "batas_bawah",
+    "total": 87093000,
+    "allocations": [],
+    "cash": [],
+    "warnings": [],
+    "stop_reason": "infeasible_proven",
+    "baseline_label": null,
+    "baseline_probability": null
+  },
+  {
+    "number": 13,
+    "pair": 7,
+    "method": "IQL",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 55000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Perketat anggaran saja",
+    "status": "PERLU REVISI",
+    "total_kind": "rencana",
+    "total": 59310000,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 600,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75800000,
+      20690000,
+      20690000,
+      20690000
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "cycle_limit",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.004542181733995676
+  },
+  {
+    "number": 14,
+    "pair": 7,
+    "method": "CTDE",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 55000000,
+    "seed": 0,
+    "vendor_case": "BAB 6",
+    "purpose": "Perketat anggaran saja",
+    "status": "PERLU REVISI",
+    "total_kind": "batas_bawah",
+    "total": 58062000,
+    "allocations": [],
+    "cash": [],
+    "warnings": [],
+    "stop_reason": "revision_requested",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.48222434520721436
+  },
+  {
+    "number": 15,
+    "pair": 8,
+    "method": "IQL",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 1,
+    "vendor_case": "BAB 6",
+    "purpose": "Ganti seed saja; uji respons termin",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58516800,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 600,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75800000,
+      21483200,
+      21483200,
+      21483200
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.019577711820602417
+  },
+  {
+    "number": 16,
+    "pair": 8,
+    "method": "CTDE",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 1,
+    "vendor_case": "BAB 6",
+    "purpose": "Ganti seed saja; uji respons termin",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58647000,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 100,
+        "payment": "revisi_termin"
+      },
+      {
+        "vendor": "A",
+        "units": 500,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      79300000,
+      71277000,
+      21353000,
+      21353000
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "OPTIMAL",
+    "baseline_probability": 0.8520478010177612
+  },
+  {
+    "number": 17,
+    "pair": 9,
+    "method": "IQL",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 7,
+    "vendor_case": "BAB 6",
+    "purpose": "Ganti seed lagi; uji kestabilan kebijakan",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58516800,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 600,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75800000,
+      21483200,
+      21483200,
+      21483200
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.019577711820602417
+  },
+  {
+    "number": 18,
+    "pair": 9,
+    "method": "CTDE",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 7,
+    "vendor_case": "BAB 6",
+    "purpose": "Ganti seed lagi; uji kestabilan kebijakan",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58685000,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 100,
+        "payment": "bayar_jatuh_tempo"
+      },
+      {
+        "vendor": "A",
+        "units": 500,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      79300000,
+      66754000,
+      21315000,
+      21315000
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "OPTIMAL",
+    "baseline_probability": 0.8520478010177612
+  },
+  {
+    "number": 19,
+    "pair": 10,
+    "method": "IQL",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "B transport Rp1.000",
+    "purpose": "Ubah ongkos transport B saja",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58516800,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 600,
+        "payment": "bayar_jatuh_tempo"
+      }
+    ],
+    "cash": [
+      75800000,
+      21483200,
+      21483200,
+      21483200
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "TIDAK OPTIMAL",
+    "baseline_probability": 0.019577711820602417
+  },
+  {
+    "number": 20,
+    "pair": 10,
+    "method": "CTDE",
+    "quantity": 600,
+    "urgent": 100,
+    "budget": 100000000,
+    "seed": 0,
+    "vendor_case": "B transport Rp1.000",
+    "purpose": "Ubah ongkos transport B saja",
+    "status": "LAYAK",
+    "total_kind": "rencana",
+    "total": 58685000,
+    "allocations": [
+      {
+        "vendor": "A",
+        "units": 100,
+        "payment": "bayar_jatuh_tempo"
+      },
+      {
+        "vendor": "A",
+        "units": 500,
+        "payment": "revisi_termin"
+      }
+    ],
+    "cash": [
+      79300000,
+      66754000,
+      44034500,
+      21315000
+    ],
+    "warnings": [
+      "kas_di_bawah_minimum"
+    ],
+    "stop_reason": "consensus",
+    "baseline_label": "OPTIMAL",
+    "baseline_probability": 0.8723788857460022
+  }
+]

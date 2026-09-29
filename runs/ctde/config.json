@@ -1,6 +1,6 @@
 {
   "algo": "ctde",
-  "model_version": 6,
+  "model_version": 7,
   "episodes": 20000,
   "seed": 0,
   "batch": 32,
