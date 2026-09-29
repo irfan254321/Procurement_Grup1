@@ -47,11 +47,16 @@ def build_dataset(scenarios: int, seed: int) -> pd.DataFrame:
     """
     rng = np.random.default_rng(seed)
     rows = []
-    plans = all_plans(deterministic_only=True)
+    # Ruang penuh berisi 360 kombinasi. Ambil sampel tetap per skenario agar
+    # penawaran balik dan revisi termin masuk dataset tanpa membuat latihan
+    # terlalu berat. Seed menjamin kandidat yang sama dapat direproduksi.
+    plan_space = all_plans(deterministic_only=False)
     for scenario_id in range(scenarios):
         scenario_seed = seed * 100_000 + scenario_id
         scenario = sample_scenario(scenario_seed)
         candidates = []
+        plan_indices = rng.choice(len(plan_space), size=min(72, len(plan_space)), replace=False)
+        plans = [plan_space[int(index)] for index in plan_indices]
         for plan_id, plan in enumerate(plans):
             result = run_episode(ProcurementEnv(scenario), PlanPolicy(plan), seed=scenario_seed,
                                  options={"scenario": scenario}, stop_at_first_check=True)
@@ -148,7 +153,7 @@ def train(scenarios: int, seed: int, output: Path) -> dict:
             "test_rows": len(test_data),
             "positive_share": float(data["label"].mean()),
             "split": "80/20 berdasarkan scenario_id (GroupShuffleSplit)",
-            "label_rule": "Optimal = layak dan biaya <= 103% biaya layak terendah pada skenario yang sama",
+            "label_rule": "Optimal = layak dan biaya <= 103% biaya layak terendah dari kandidat pada skenario yang sama",
             "seed": seed,
         },
         "feature_columns": FEATURE_COLUMNS,

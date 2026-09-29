@@ -17,7 +17,7 @@ CHECKPOINTS = {
     "IQL": PROJECT / "runs" / "iql" / "checkpoint.json",
     "CTDE": PROJECT / "runs" / "ctde" / "checkpoint.pt",
 }
-MODEL_VERSION = 2
+MODEL_VERSION = 6
 
 INT_VENDOR_FIELDS = ("list_price", "transport", "risk", "quality", "lead_time", "capacity",
                      "initial_offer", "floor_price", "discount_pct")
@@ -84,6 +84,10 @@ def policy_from_checkpoint(name: str):
     path = CHECKPOINTS[name]
     if not path.exists():
         raise FileNotFoundError(f"Model {name} belum dilatih: {path}")
+    config_path = path.with_name("config.json")
+    config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
+    if config.get("model_version") != MODEL_VERSION:
+        raise RuntimeError(f"Model {name} versi lama; latih ulang untuk alur negosiasi versi {MODEL_VERSION}.")
     return IQL.load(path) if name == "IQL" else CTDEActorCritic.load(path)
 
 

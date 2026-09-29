@@ -1,0 +1,21 @@
+{
+  "model_version": 5,
+  "training_episodes": 20000,
+  "training_seed": 0,
+  "evaluation_scenarios": 500,
+  "evaluation_seeds": "0-499",
+  "iql": {
+    "team_return": 17.60,
+    "consensus": 0.710,
+    "infeasible": 0.208,
+    "revision_request": 0.204,
+    "false_revision": 0.0
+  },
+  "ctde": {
+    "team_return": 20.22,
+    "consensus": 0.728,
+    "infeasible": 0.208,
+    "revision_request": 0.258,
+    "false_revision": 0.050
+  }
+}

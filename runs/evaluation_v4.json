@@ -1,0 +1,34 @@
+{
+  "model_version": 4,
+  "evaluation_scenarios": 500,
+  "evaluation_seeds": "0-499",
+  "training_seed": 0,
+  "IQL": {
+    "team_return": 16.934213865336634,
+    "consensus": 0.696,
+    "infeasible_detected": 0.208,
+    "budget_violation": 0.042,
+    "cash_violation": 0.016,
+    "urgent_met": 0.936,
+    "avg_cost": 98069589.078,
+    "rounds": 1.618,
+    "counter_offer_rate": 0.5824675324675325,
+    "term_revision_rate": 0.3798449612403101,
+    "revision_request_rate": 0.208,
+    "false_revision_rate": 0.0
+  },
+  "CTDE": {
+    "team_return": 19.859569771434668,
+    "consensus": 0.726,
+    "infeasible_detected": 0.208,
+    "budget_violation": 0.018,
+    "cash_violation": 0.006,
+    "urgent_met": 1.0,
+    "avg_cost": 97021000.63,
+    "rounds": 1.188,
+    "counter_offer_rate": 0.9348591549295775,
+    "term_revision_rate": 0.8760683760683761,
+    "revision_request_rate": 0.252,
+    "false_revision_rate": 0.044
+  }
+}

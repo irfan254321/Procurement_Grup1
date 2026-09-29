@@ -14,11 +14,11 @@ from procurement.rl_service import (CHECKPOINTS, default_vendor_rows, scenario_f
                                     scenario_from_snapshot, simulate, validate_vendor_rows)
 from procurement.rl_storage import (connect, load_events, load_run, load_vendor_settings,
                                     reset_vendor_settings, runs, save_run, save_vendor_settings)
-from procurement.rl_presentation import brief_event
+from procurement.rl_presentation import audit_rows, brief_event
 from procurement.baseline_ml import classify_decision, metrics_report
 from procurement.models import Scenario as ReportScenario
 from procurement.simulator import run as report_rule_trace
-from procurement_marl.presentation import STOP_REASON, VIOLATION, log_rows, rp
+from procurement_marl.presentation import STOP_REASON, VIOLATION, rp
 from procurement_marl.scenario import composite_scores, eligible_vendors
 
 
@@ -65,6 +65,17 @@ def vendor_progress_rows(scenario, log: list[dict], step: int, current_round: in
                     state[name]["status"] = "Lolos, tidak dipilih"
                 elif state[name]["status"] == "Belum diperiksa" and name not in item.get("masked", {}):
                     state[name]["status"] = "Lolos, tidak dipilih"
+        elif kind == "vendor_opening_offer" and vendor:
+            state[vendor]["status"] = "Penawaran awal otomatis"
+            state[vendor]["price"] = item["offer"]
+        elif kind == "vendor_counter_offer" and vendor:
+            state[vendor]["status"] = ("Sepakat" if item["accepted"] else
+                                       f"Counter offer ronde {item['negotiation_round']}")
+            state[vendor]["price"] = item["vendor_offer"]
+        elif kind == "vendor_quote_ready" and vendor:
+            state[vendor]["status"] = ("Siap dibandingkan" if item["accepted"]
+                                       else "Penawaran akhir, belum sepakat")
+            state[vendor]["price"] = item["price"]
         elif item["agent"] == "DA" and vendor and kind != "term_response":
             if item.get("price") is None:
                 state[vendor]["status"] = "Dikeluarkan DA"
@@ -78,18 +89,37 @@ def vendor_progress_rows(scenario, log: list[dict], step: int, current_round: in
 
     scores = composite_scores(scenario)
     return [{"Vendor": v.name, "Harga awal": rp(v.initial_offer),
-             "Harga disepakati": rp(state[v.name]["price"]) if state[v.name]["price"] else "—",
+             "Penawaran terkini": rp(state[v.name]["price"]) if state[v.name]["price"] else "—",
              "Diskon cepat": f"{v.discount_pct}%", "Kapasitas": v.capacity,
              "Kirim": f"{v.lead_time} hari", "Skor": round(scores[v.name], 2),
              "Status": state[v.name]["status"], "Pembayaran": state[v.name]["payment"]}
             for v in scenario.vendors]
 
 
+def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -> list[dict]:
+    """Tampilkan respons A/B/C berdampingan tanpa membocorkan langkah berikutnya."""
+    rows: dict[int, dict] = {}
+    for event in log[:step]:
+        if event["round"] != cycle or event.get("batch") != batch:
+            continue
+        vendor = event.get("vendor")
+        if vendor not in {"A", "B", "C"}:
+            continue
+        if event.get("event") == "vendor_opening_offer":
+            rows.setdefault(0, {"Putaran": "Awal", "A": "—", "B": "—", "C": "—"})[vendor] = rp(event["offer"])
+        elif event.get("event") == "vendor_counter_offer":
+            number = event["negotiation_round"]
+            rows.setdefault(number, {"Putaran": number, "A": "—", "B": "—", "C": "—"})[vendor] = (
+                f"Kita {rp(event['buyer_offer'])} → vendor {rp(event['vendor_offer'])} · "
+                f"{'sepakat' if event['accepted'] else 'lanjut'}")
+    return [rows[key] for key in sorted(rows)]
+
+
 st.set_page_config(page_title="MARL Procurement", layout="wide")
 db = connect(ROOT / "data" / "procurement.sqlite3")
 active_vendor_rows = load_vendor_settings(db) or default_vendor_rows()
 st.title("Multi-Agent Procurement Simulator")
-st.caption("Empat agen mengambil keputusan dengan kebijakan IQL atau CTDE yang sudah dilatih")
+st.caption("Empat agen procurement terlatih bernegosiasi dengan agen vendor berbasis utilitas")
 
 with st.sidebar:
     st.header("Skenario baru")
@@ -142,6 +172,10 @@ with process_tab:
         scenario = scenario_from_snapshot(snapshot)
         log = load_events(db, run_id)
 
+        if report.get("model", {}).get("model_version", 0) < 6:
+            st.warning("Run arsip memakai aturan kas lama. Jalankan skenario baru untuk penilaian "
+                       "dengan batas kas minimum sebagai syarat wajib.")
+
         if report["status"] == "LAYAK":
             st.success("Konsensus rencana: seluruh kendala simulasi terpenuhi.")
         elif report["status"] == "TIDAK FEASIBLE":
@@ -177,6 +211,10 @@ with process_tab:
             display_batch = next((x["batch"] for x in reversed(log[:step])
                                   if x["round"] == current_round and "batch" in x), 0)
         st.markdown(f"**Penawaran vendor · batch {display_batch + 1}**")
+        rounds = competition_round_rows(log, step, current_round, display_batch)
+        if rounds:
+            st.dataframe(pd.DataFrame(rounds), hide_index=True, width="stretch")
+            st.caption("Harga per unit. Setiap sel menampilkan tawaran pembeli dan respons vendor pada putaran yang sama.")
         vendor_rows = vendor_progress_rows(scenario, log, step, current_round)
         st.dataframe(pd.DataFrame(vendor_rows), hide_index=True, width="stretch")
 
@@ -192,6 +230,16 @@ with process_tab:
                            "Sudah bertindak" if prior_actions else "Menunggu giliran")
                 if event["agent"] == agent:
                     st.info("**Keputusan pada langkah ini**\n\n" + message)
+
+        # Vendor mempunyai kebijakan utilitas sendiri, tetapi bukan agen MARL
+        # kelima. Kotak khusus menunjukkan kapan lawan negosiasi sedang berpikir.
+        if event["agent"].startswith("VENDOR "):
+            with st.container(border=True):
+                st.markdown(f"**{event['agent']} · Agen negosiasi lawan**")
+                st.info("**Respons vendor pada langkah ini**\n\n" + message)
+                if event.get("utility") is not None:
+                    st.caption(f"Nilai utilitas internal: {event['utility']:.2f}. "
+                               "Vendor tidak pernah menawarkan harga di bawah batas minimumnya.")
 
         # ENV adalah pemeriksa sistem, bukan salah satu dari empat agen pembelajar.
         if event["agent"] == "ENV":
@@ -216,6 +264,8 @@ with report_tab:
         log = load_events(db, run_id)
         st.subheader(f"Laporan singkat #{run_id}: {report['status']}")
         model = report.get("model", {})
+        if model.get("model_version", 0) < 6:
+            st.warning("Laporan arsip ini memakai aturan kas lama; statusnya tidak dinilai ulang otomatis.")
         total_label = "Batas biaya minimum" if report.get("total_kind") == "batas_bawah" else "Biaya rencana"
         st.write(f"**Metode:** {report['policy']} · **Seed simulasi:** {report.get('seed', saved_run['seed'])} · "
                  f"**{total_label}:** {rp(report['total'])} dari anggaran {rp(report['budget'])} · "
@@ -291,19 +341,7 @@ with report_tab:
                 "Nilai": [diagnosis["available"], diagnosis.get("lower_bound", diagnosis.get("total", 0))]
             }, index=["Dana tersedia", "Biaya minimum"])
             st.bar_chart(proof_chart)
-        audit_rows = []
-        for row, raw in zip(log_rows(log), log):
-            cash_values = raw.get("cash") or []
-            audit_rows.append({
-                **row,
-                "metode": report["policy"],
-                "seed_simulasi": report.get("seed", saved_run["seed"]),
-                "versi_model": model.get("model_version", "model lama"),
-                "hash_checkpoint": model.get("checkpoint_sha256", "tidak tersedia"),
-                "kas_bulan_1": cash_values[0] if cash_values else None,
-                "kas_bulan_2": cash_values[1] if len(cash_values) > 1 else None,
-            })
-        audit = pd.DataFrame(audit_rows)
+        audit = pd.DataFrame(audit_rows(log, report, saved_run["seed"]))
         with st.expander("Jejak seluruh tahap"):
             st.dataframe(audit, hide_index=True, width="stretch")
         if (report["quantity"], report["urgent_quantity"], report["budget"]) == (1000, 700, 100_000_000):
@@ -322,7 +360,8 @@ with report_tab:
 
 with vendor_tab:
     st.subheader("Konfigurasi Vendor A, B, dan C")
-    st.caption("Perubahan digunakan untuk skenario berikutnya. Riwayat yang sudah tersimpan tidak berubah.")
+    st.caption("Harga daftar menjadi titik pembuka, penawaran awal menjadi konsesi pertama, dan harga minimum "
+               "tidak boleh ditembus agen vendor. Perubahan berlaku untuk skenario berikutnya.")
     vendor_notice = st.session_state.pop("vendor_notice", None)
     if vendor_notice:
         st.success(vendor_notice)

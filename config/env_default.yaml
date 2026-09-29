@@ -4,6 +4,9 @@ max_rounds: 6                # simulator safety limit; NOT the six coordination 
 gamma: 0.99
 max_steps: 300               # safety net: episode is truncated after this many steps
 
+vendor_negotiation:
+  max_rounds: 3              # ronde tawar-menawar harga di dalam satu giliran DA
+
 randomization:
   quantity: [600, 1400]
   urgent_share: [0.5, 0.8]   # ASSUMPTION: covers the fixture (0.7); retuned after score became a hard filter
@@ -15,7 +18,7 @@ randomization:
   other_needs_month1: [0, 80000000]      # ASSUMPTION: covers the fixture (70 jt)
   inflow_months_2_to_4: [0, 80000000]    # ASSUMPTION: covers the fixture (0)
   min_cash: 60000000
-  enforce_min_cash: false
+  enforce_min_cash: true
   infeasible_share: 0.20     # 20% episode sengaja kekurangan dana agar aksi revisi SLM dapat dipelajari
 
 stochastic:
@@ -32,7 +35,7 @@ stochastic:
 reward:
   weights: {IRE: 1.0, VMI: 1.0, DA: 1.0, SLM: 1.0}
   ire: {on_time: 1.0, late: -1.0, per_revision: -0.25}
-  da: {saving_scale: 10.0, failed_negotiation: -0.5}
+  da: {saving_scale: 10.0, failed_negotiation: -0.5, alternative_without_benefit: -0.35}
   slm: {below_min_cash: -1.0, negative_cash: -2.0}
   # Reward terminal lebih dominan daripada penghematan lokal agar agen tidak
   # mengumpulkan reward dengan memperpanjang episode yang tetap gagal.

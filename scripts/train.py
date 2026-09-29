@@ -1,6 +1,6 @@
 """Train a policy on random scenarios: independent Q-learning (iql) or CTDE actor-critic (ctde).
 
-Usage: python scripts/train.py --algo iql|ctde [--episodes 50000] [--seed 0] [--out runs/<algo>]
+Usage: python scripts/train.py --algo iql|ctde [--episodes 20000] [--seed 0] [--out runs/<algo>]
 Writes curve.csv (training curve), checkpoint.json and config.json into the output folder.
 """
 
@@ -23,7 +23,7 @@ from procurement_marl.evaluate import make_env, run_episode
 from procurement_marl.scenario import sample_scenario
 
 TRAIN_SEED_OFFSET = 1_000_000
-MODEL_VERSION = 2
+MODEL_VERSION = 6
 
 
 def quick_eval(policy, n: int = 500, override: float | None = None) -> dict[str, float]:
@@ -108,7 +108,7 @@ def train_ctde(episodes: int, seed: int, out: Path, block: int = 500, batch: int
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--algo", choices=["iql", "ctde"], default="iql")
-    parser.add_argument("--episodes", type=int, default=50_000)
+    parser.add_argument("--episodes", type=int, default=20_000)
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument("--override", type=float, default=None, help="fixed p_accept = p_termin (sensitivity)")

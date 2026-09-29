@@ -31,10 +31,27 @@ def describe(e: dict) -> tuple[str, str]:
     if event == "episode_stopped":
         return "SIMULASI DIHENTIKAN", STOP_REASON[e["stop_reason"]]
     if event == "term_request":
-        return "usulkan revisi termin ke DA", f"batch {e['batch'] + 1}, {e['vendor']}; menunggu kesepakatan vendor."
+        return f"usulkan revisi termin kepada Vendor {e['vendor']}", f"batch {e['batch'] + 1}; menunggu keputusan vendor."
     if event == "term_response":
         outcome = "diterima" if e["accepted"] else "ditolak; gunakan jatuh tempo"
-        return "negosiasi ulang termin", f"batch {e['batch'] + 1}, {e['vendor']}: {outcome}. Hasil diteruskan ke SLM."
+        draw = (f", angka seed {e['random_value']:.3f}" if e.get("random_value") is not None else "")
+        return "respons vendor atas termin", (f"batch {e['batch'] + 1}, {e['vendor']}: {outcome}; "
+                                                f"utilitas {e.get('utility', 0):.2f}, peluang menerima "
+                                                f"{e.get('probability', 0):.1%}{draw}. Hasil diteruskan ke SLM.")
+    if event == "vendor_opening_offer":
+        return "penawaran awal vendor", (f"batch {e['batch'] + 1}; harga daftar {rp(e['list_price'])}, "
+                                           f"penawaran {rp(e['offer'])}, batas bawah {rp(e['floor_price'])}, "
+                                           f"utilitas {e['utility']:.2f}.")
+    if event == "vendor_counter_offer":
+        outcome = "sepakat" if e["accepted"] else "belum sepakat"
+        return f"ronde negosiasi {e['negotiation_round']}: {e['decision']}", (
+            f"batch {e['batch'] + 1}; pembeli {rp(e['buyer_offer'])}, vendor {rp(e['vendor_offer'])}, "
+            f"harga reservasi rahasia {rp(e['reservation_price'])}; {outcome}; utilitas {e['utility']:.2f}.")
+    if event == "vendor_quote_ready":
+        result = "sepakat" if e["accepted"] else "penawaran akhir belum disepakati"
+        return "catat penawaran untuk perbandingan", (
+            f"Vendor {e['vendor']}: {rp(e['price'])}/unit, biaya total {rp(e['landed_cost'])}; {result}. "
+            "VMI akan membandingkannya dengan vendor lain yang lolos.")
     if event == "revision_request":
         proof = "terbukti tidak feasible" if e["proven_infeasible"] else "perlu pemeriksaan ulang"
         return "minta revisi skenario", (f"Dana tersedia {rp(e['available'])}; batas bawah biaya "

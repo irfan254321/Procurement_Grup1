@@ -16,9 +16,52 @@ from procurement_marl.env import ProcurementEnv
 from procurement_marl.scenario import cash_diagnosis
 from procurement_marl.evaluate import run_episode
 from procurement.baseline_ml import decision_features
+from procurement.rl_presentation import audit_rows
+from procurement_marl.vendor_agents import VendorNegotiator
 
 
 class MarlIntegrationTests(unittest.TestCase):
+    def test_minimum_cash_reserve_is_required_for_consensus(self):
+        """Kas positif saja belum cukup saat BAB 6 mensyaratkan cadangan Rp60 juta."""
+        scenario = scenario_from_request(300, 300, 100_000_000)
+        diagnosis = cash_diagnosis(scenario)
+        self.assertTrue(scenario.enforce_min_cash)
+        self.assertEqual(diagnosis["available"], 20_000_000)
+        self.assertTrue(diagnosis["infeasible"])
+        self.assertGreater(diagnosis["shortfall"], 0)
+
+    def test_audit_export_keeps_all_four_cash_months(self):
+        """Pembayaran termin bulan 3/4 harus dapat diaudit dari CSV."""
+        rows = audit_rows(
+            [{"round": 1, "agent": "ENV", "event": "cek_batasan", "cash": [80, 70, 60, 50],
+              "total": 100, "budget_left": 0, "violations": [], "consensus": True}],
+            {"policy": "IQL", "seed": 0, "model": {"model_version": 6}}, 0)
+        self.assertEqual([rows[0][f"kas_bulan_{month}"] for month in range(1, 5)], [80, 70, 60, 50])
+
+    def test_competing_vendors_quote_before_vmi_selects(self):
+        """Vendor layak harus menawar lebih dulu, sehingga VMI melihat harga aktual."""
+        from procurement_marl.env import ProcurementEnv
+        from procurement_marl.scenario import load_scenario
+
+        env = ProcurementEnv(load_scenario())
+        env.reset(seed=0)
+        env.step(1)  # IRE membagi 700 unit mendesak dan 300 unit berikutnya.
+        chosen = env.batch
+        self.assertEqual(env.agent_selection, "VMI")
+        quoted = set(chosen["quotes"])
+        self.assertGreaterEqual(len(quoted), 2)
+        vmi_position = next((i for i, e in enumerate(env.log)
+                             if e.get("agent") == "VMI" and e.get("action")), len(env.log))
+        for vendor in quoted:
+            self.assertTrue(any(e.get("event") == "vendor_counter_offer"
+                                and e.get("vendor") == vendor
+                                for e in env.log[:vmi_position]))
+        for vendor in env.scenario.vendors:
+            if vendor.name in quoted:
+                expected = chosen["qty"] * (chosen["quotes"][vendor.name]["price"]
+                                            + vendor.transport + vendor.risk)
+                self.assertEqual(env._estimates(chosen["qty"])[vendor.name], expected)
+
     def test_three_inputs_preserve_vendor_fixture(self):
         sc = scenario_from_request(600, 420, 100_000_000)
         self.assertEqual((sc.quantity, sc.urgent_quantity, sc.budget), (600, 420, 100_000_000))
@@ -64,6 +107,22 @@ class MarlIntegrationTests(unittest.TestCase):
         c_result = checks[-1]
         self.assertFalse(c_result["passed"])
         self.assertEqual(set(c_result["failed_checks"]), {"score", "capacity"})
+
+    def test_vendor_negotiates_in_rounds_without_crossing_floor(self):
+        scenario = scenario_from_request(600, 420, 100_000_000)
+        vendor = scenario.vendor("B")
+        price, accepted, transcript = VendorNegotiator(scenario).negotiate_price(
+            vendor, 600, relation=0.6, competitors=2, urgent_share=0.7)
+        self.assertGreaterEqual(len(transcript), 2)
+        self.assertTrue(accepted)
+        self.assertGreaterEqual(price, vendor.floor_price)
+        self.assertLess(price, vendor.initial_offer)
+        self.assertEqual([row["negotiation_round"] for row in transcript], [1, 2])
+        fixed = scenario.vendor("A")
+        fixed_price, fixed_accepted, _ = VendorNegotiator(scenario).negotiate_price(
+            replace(fixed, floor_price=fixed.initial_offer), 300, 0.6, 1, 0.5)
+        self.assertTrue(fixed_accepted)
+        self.assertEqual(fixed_price, fixed.initial_offer)
 
     def test_snapshot_and_trained_policies_keep_report_infeasible(self):
         for policy in ("IQL", "CTDE"):
@@ -135,7 +194,9 @@ class MarlIntegrationTests(unittest.TestCase):
         db.close()
 
     def test_baseline_features_are_separate_from_marl_action(self):
-        snapshot, result, report = simulate("IQL", 700, 700, 100_000_000, seed=1)
+        # Jumlah kecil menyisakan cadangan kas wajib sehingga model membuat
+        # rencana lengkap yang dapat dinilai baseline supervised learning.
+        snapshot, result, report = simulate("IQL", 150, 150, 100_000_000, seed=1)
         scenario = scenario_from_snapshot(snapshot)
         features = decision_features(scenario, result)
         self.assertIsNotNone(features)

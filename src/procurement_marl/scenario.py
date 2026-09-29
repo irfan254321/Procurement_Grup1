@@ -112,14 +112,17 @@ def cash_diagnosis(scenario: Scenario) -> dict[str, int | str | bool]:
 
     The cheapest possible bill is the whole request at the best vendor's floor price with the fast-payment
     discount (capacity and lead time ignored, so it is a true lower bound). Every payment falls inside the
-    horizon, so if cash over the whole horizon is below that bill, the last month must end negative.
+    horizon, so if cash over the whole horizon is below that bill plus the required reserve,
+    the last month must end below the minimum.
     `shortfall > 0` proves the scenario cannot reach consensus; `shortfall <= 0` proves nothing.
     """
     def bill(v: Vendor) -> int:
         return batch_total(scenario.quantity, v.floor_price, v.transport, v.risk, v.discount_pct)
 
     cheapest = min(scenario.vendors, key=bill)
-    available = scenario.initial_cash + sum(scenario.inflows) - sum(scenario.other_needs)
+    # Dana untuk pembelian harus menyisakan saldo minimum bila itu syarat wajib.
+    reserve = scenario.min_cash if scenario.enforce_min_cash else 0
+    available = scenario.initial_cash + sum(scenario.inflows) - sum(scenario.other_needs) - reserve
     lower_bound = bill(cheapest)
     return {"vendor": cheapest.name, "lower_bound": lower_bound, "available": available,
             "shortfall": max(0, lower_bound - available), "infeasible": lower_bound > available}
@@ -165,7 +168,8 @@ def sample_scenario(seed: int, config_path: str | Path = CONFIG_DIR / "env_defau
         lower_bound = min(batch_total(quantity, v.floor_price, v.transport, v.risk, v.discount_pct)
                           for v in vendors)
         shortfall = rng.randrange(5_000_000, 30_000_001, 1_000_000)
-        initial_cash = max(1_000_000, other_month1 + lower_bound - shortfall)
+        reserve = cfg["min_cash"] if cfg["enforce_min_cash"] else 0
+        initial_cash = max(1_000_000, other_month1 + lower_bound + reserve - shortfall)
         inflows = (0, 0, 0, 0)
     else:
         initial_cash = rng.randrange(cfg["initial_cash"][0], cfg["initial_cash"][1] + 1, 1_000_000)

@@ -1,7 +1,8 @@
 """PettingZoo AEC environment: four agents (IRE, VMI, DA, SLM) take turns.
 
-One round = IRE picks how to split the request, then for every batch VMI picks a vendor,
-DA negotiates the price and SLM picks the payment mode. After the last batch the
+One round = IRE picks how to split the request. Every eligible vendor then responds
+to the same buyer request before VMI selects one, DA confirms or renegotiates its
+price, and SLM picks the payment mode. After the last batch the
 environment checks budget, cash and urgent units. If something is violated a new round
 starts, subject to a configurable simulation limit. A simulation cycle is not one of
 the six coordination stages in the report. Payment entries are proposed schedules,
@@ -21,6 +22,7 @@ from .costs import PAY_DUE, PAY_FAST, PAY_SPLIT, cash_balances, discount_amount,
 from .rewards import da_reward, ire_reward, slm_reward, team_reward, vmi_reward
 from .scenario import (CONFIG_DIR, Scenario, cash_diagnosis, composite_scores, eligible_vendors,
                        load_scenario, sample_scenario, score_fallback)
+from .vendor_agents import VendorNegotiator
 
 AGENTS = ["IRE", "VMI", "DA", "SLM"]
 VENDORS = ["A", "B", "C"]
@@ -90,6 +92,8 @@ class ProcurementEnv(AECEnv):
         self.forced_draws = options.get("forced_draws")   # used by oracle.py
         self.draw_probs: list[float] = []
         self.relation = {v.name: v.relation for v in self.scenario.vendors}
+        self.vendor_negotiator = VendorNegotiator(
+            self.scenario, int(self.cfg.get("vendor_negotiation", {}).get("max_rounds", 3)))
         self.round = 1
         self.steps = 0
         self.was_truncated = False
@@ -146,8 +150,15 @@ class ProcurementEnv(AECEnv):
         self.draw_probs.append(p)
         if self.forced_draws is not None:
             i = len(self.draw_probs) - 1
-            return bool(self.forced_draws[i]) if i < len(self.forced_draws) else False
-        return bool(self.rng.random() < p)
+            result = bool(self.forced_draws[i]) if i < len(self.forced_draws) else False
+            self.last_draw = {"probability": p, "random_value": None,
+                              "forced": True, "result": result}
+            return result
+        value = float(self.rng.random())
+        result = value < p
+        self.last_draw = {"probability": p, "random_value": value,
+                          "forced": False, "result": result}
+        return result
 
     def _vendor_mask(self, batch: dict, extra_excluded: tuple[str, ...] = ()) -> tuple[list[bool], dict[str, str]]:
         """Which vendors VMI may pick for this batch, and why the others are masked."""
@@ -170,9 +181,10 @@ class ProcurementEnv(AECEnv):
         return max(self.scenario.vendors, key=lambda v: v.capacity).name
 
     def _estimates(self, qty: int) -> dict[str, int]:
-        """VMI cost estimate per vendor: last agreed price with that vendor, else list price."""
+        """Bandingkan biaya total berdasarkan penawaran yang sudah diterima per batch."""
         return {
-            v.name: qty * (self.agreed_price.get(v.name, v.list_price) + v.transport + v.risk)
+            v.name: qty * (self.batch["quotes"].get(v.name, {}).get(
+                "price", self.agreed_price.get(v.name, v.initial_offer)) + v.transport + v.risk)
             for v in self.scenario.vendors
         }
 
@@ -213,7 +225,9 @@ class ProcurementEnv(AECEnv):
         def new(qty: int, month: int, urgent: int) -> dict:
             return {"qty": qty, "month": month, "urgent": urgent, "vendor": None, "price": None,
                     "excluded": set(), "alt_used": False, "counter_used": False, "da_failed": False, "cheapest": None,
-                    "mode": None, "discount": 0, "schedule": {}, "no_vendor": False}
+                    "mode": None, "discount": 0, "schedule": {}, "no_vendor": False,
+                    "alternative_reference": None, "alternative_no_benefit": False,
+                    "quotes": {}}
 
         if a == 0:
             self.batches = [new(sc.quantity, 1, sc.urgent_quantity)]
@@ -231,8 +245,28 @@ class ProcurementEnv(AECEnv):
         b = self.batch
         mask, _ = self._vendor_mask(b)
         self._log_vendor_screening(b)
+        # Semua pemasok yang lolos menghadapi permintaan pembeli yang sama.
+        # Simpan setiap respons sebelum VMI mengambil keputusan; urutan daftar
+        # vendor tidak boleh membuat vendor yang tidak dipilih kehilangan kesempatan.
+        for vendor, allowed in zip(self.scenario.vendors, mask):
+            if not allowed:
+                continue
+            competitors = sum(mask) - 1
+            opening = self.vendor_negotiator.opening_offer(
+                vendor, b["qty"], self.relation[vendor.name], competitors)
+            self._log(agent=f"VENDOR {vendor.name}", batch=self.batch_idx, **opening)
+            price, accepted, transcript = self.vendor_negotiator.negotiate_price(
+                vendor, b["qty"], self.relation[vendor.name], competitors,
+                self.scenario.urgent_quantity / self.scenario.quantity)
+            for response in transcript:
+                self._log(agent=f"VENDOR {vendor.name}", batch=self.batch_idx, **response)
+            b["quotes"][vendor.name] = {"price": price, "accepted": accepted,
+                                           "opening": opening["offer"]}
+            self._log(agent="DA", event="vendor_quote_ready", batch=self.batch_idx,
+                      vendor=vendor.name, price=price, accepted=accepted,
+                      landed_cost=b["qty"] * (price + vendor.transport + vendor.risk))
         if b["cheapest"] is None:
-            costs = list(self._list_costs(b["qty"]).values())
+            costs = list(self._estimates(b["qty"]).values())
             b["cheapest"] = min([c for c, ok in zip(costs, mask) if ok] or costs)
 
     def _log_vendor_screening(self, batch: dict) -> None:
@@ -264,6 +298,7 @@ class ProcurementEnv(AECEnv):
         self._log(agent="VMI", batch=self.batch_idx, action=f"vendor_{v.name}", vendor=v.name,
                   mask=mask, masked=reasons, estimates=est, estimate=est[v.name],
                   no_vendor_fits=b["no_vendor"], score_fallback=score_fallback(self.scenario))
+        competitors = max(0, sum(mask) - 1)
         self._after_vendor_selection()
 
     def _after_vendor_selection(self) -> None:
@@ -275,23 +310,32 @@ class ProcurementEnv(AECEnv):
         entry = dict(agent="DA", batch=self.batch_idx, action=DA_ACTIONS[a], vendor=v.name)
         if a == 2:   # ask VMI for an alternative, once per batch
             b["alt_used"] = True
+            b["alternative_reference"] = b["qty"] * (
+                b["quotes"].get(v.name, {}).get("price", v.initial_offer) + v.transport + v.risk)
             b["excluded"].add(v.name)
             b["vendor"] = None
             self._log(**entry, price=None)
             self._begin_batch()
             return
         if a == 0:
-            b["price"] = v.initial_offer
+            b["price"] = b["quotes"].get(v.name, {}).get("price", v.initial_offer)
             self._log(**entry, price=b["price"], accepted=None, relation=self.relation[v.name])
         else:
             b["counter_used"] = True
-            accepted = self._draw(self._p_accept(v.name))
+            mask, _ = self._vendor_mask(b)
+            competitors = max(0, sum(mask) - 1)
+            price, accepted, transcript = self.vendor_negotiator.negotiate_price(
+                v, b["qty"], self.relation[v.name], competitors,
+                self.scenario.urgent_quantity / self.scenario.quantity,
+                opening_override=b["quotes"].get(v.name, {}).get("price"))
+            for response in transcript:
+                self._log(agent=f"VENDOR {v.name}", batch=self.batch_idx, **response)
+            b["price"] = price
+            b["da_failed"] = not accepted
             if accepted:
-                b["price"] = v.floor_price
+                self.relation[v.name] = round(min(1.0, self.relation[v.name] + 0.02), 4)
             else:
-                b["price"] = v.initial_offer
-                b["da_failed"] = True
-                self.relation[v.name] = round(max(0.0, self.relation[v.name] - self.stoch["accept_relation_drop"]), 4)
+                self.relation[v.name] = round(max(0.0, self.relation[v.name] - self.stoch["accept_relation_drop"] / 2), 4)
             # a vendor only walks away if another vendor can take the batch (avoids endless loops)
             can_replace = any(self._vendor_mask(b, extra_excluded=(v.name,))[0])
             withdrew = (not accepted) and self.relation[v.name] < self.stoch["withdraw_below"] and can_replace
@@ -303,26 +347,34 @@ class ProcurementEnv(AECEnv):
                 self._begin_batch()
                 return
         self.agreed_price[v.name] = b["price"]
+        if b.get("alternative_reference") is not None:
+            selected_cost = b["qty"] * (b["price"] + v.transport + v.risk)
+            b["alternative_no_benefit"] = selected_cost >= b["alternative_reference"]
         self._after_price_agreement()
 
     def _after_price_agreement(self) -> None:
         self.stage, self.agent_selection = "SLM", "SLM"
 
     def _negotiate_terms(self, vendor) -> tuple[str, bool]:
-        """DA handles SLM's request before SLM builds a payment recommendation.
+        """Vendor menilai permintaan SLM sebelum SLM membuat rekomendasi pembayaran.
 
         These delegated protocol events remain inside one AEC transition: the
         existing three policy actions and checkpoint observations stay compatible.
-        Acceptance probabilities and the 50/50 proposal are simulator assumptions.
+        Nilai utilitas, peluang penerimaan, dan proposal 50/50 adalah asumsi simulator.
         """
-        accepted = self._draw(self._p_termin(vendor.name))
+        probability, utility = self.vendor_negotiator.term_probability(
+            vendor, self.batch["qty"], self.relation[vendor.name], self._p_termin(vendor.name))
+        accepted = self._draw(probability)
+        draw = dict(self.last_draw)
         mode = PAY_SPLIT if accepted else PAY_DUE
         if not accepted:
             self.relation[vendor.name] = round(
                 max(0.0, self.relation[vendor.name] - self.stoch["termin_relation_drop"]), 4)
-        self._log(agent="DA", event="term_response", action="negosiasi_termin",
+        self._log(agent=f"VENDOR {vendor.name}", event="term_response", action="negosiasi_termin",
                   batch=self.batch_idx, vendor=vendor.name, accepted=accepted,
-                  mode=mode, relation=self.relation[vendor.name])
+                  mode=mode, relation=self.relation[vendor.name], utility=round(utility, 4),
+                  probability=round(probability, 4), random_value=draw["random_value"],
+                  forced_draw=draw["forced"])
         return mode, accepted
 
     def _step_slm(self, a: int) -> None:
@@ -432,10 +484,13 @@ class ProcurementEnv(AECEnv):
         rew = {
             "IRE": ire_reward(urgent_met, 1 if self.round > 1 else 0, rc["ire"]["per_revision"]),
             "VMI": sum(vmi_reward(sc.vendor(b["vendor"]).quality,
-                                  self._list_costs(b["qty"])[b["vendor"]], b["cheapest"])
+                                  b["qty"] * (b["price"] + sc.vendor(b["vendor"]).transport
+                                              + sc.vendor(b["vendor"]).risk), b["cheapest"])
                        for b in self.batches) / n,
             "DA": sum(da_reward(sc.vendor(b["vendor"]).list_price, b["price"], b["da_failed"],
                                 rc["da"]["saving_scale"], rc["da"]["failed_negotiation"])
+                      + (rc["da"].get("alternative_without_benefit", 0.0)
+                         if b.get("alternative_no_benefit") else 0.0)
                       for b in self.batches) / n,
             "SLM": slm_reward(sum(b["discount"] for b in self.batches), sc.budget,
                               sc.enforce_min_cash and below_min, negative,
@@ -507,7 +562,8 @@ class ProcurementEnv(AECEnv):
             scores = composite_scores(sc)
             vec = [b["qty"] / 1500 if b else 0.0, (b["month"] - 1) if b else 0.0, sc.deadline_days / 20]
             for v in sc.vendors:
-                vec += [v.list_price / PRICE_SCALE, v.quality / 10, v.lead_time / 20,
+                quoted = b["quotes"].get(v.name, {}).get("price", v.initial_offer) if b else v.initial_offer
+                vec += [quoted / PRICE_SCALE, v.quality / 10, v.lead_time / 20,
                         v.capacity / 1500, scores[v.name] / 10]
             return vec + conflict
         if agent == "DA":
@@ -515,7 +571,8 @@ class ProcurementEnv(AECEnv):
             v = sc.vendor(chosen) if chosen else None
             left = (sc.budget - sum(self.committed.values())) / sc.budget
             return ([float(n == chosen) for n in VENDORS]
-                    + [v.list_price / PRICE_SCALE if v else 0.0, v.initial_offer / PRICE_SCALE if v else 0.0,
+                    + [v.list_price / PRICE_SCALE if v else 0.0,
+                       b["quotes"].get(chosen, {}).get("price", v.initial_offer) / PRICE_SCALE if v else 0.0,
                        self.relation[chosen] if chosen else 0.0, _clip01(left, -1, 1),
                        float(b["alt_used"]) if b else 0.0] + conflict)
         # SLM

@@ -14,6 +14,7 @@ src/procurement_marl/presentation.py
 src/procurement_marl/report.py
 src/procurement_marl/rewards.py
 src/procurement_marl/scenario.py
+src/procurement_marl/vendor_agents.py
 src/procurement_marl/agents/__init__.py
 src/procurement_marl/agents/ctde_ac.py
 src/procurement_marl/agents/iql.py

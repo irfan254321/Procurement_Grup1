@@ -1,0 +1,16 @@
+{
+  "model_version": 6,
+  "training_episodes_per_model": 20000,
+  "evaluation_scenarios": 500,
+  "evaluation_seeds": "0-499",
+  "seed_0_default": {
+    "iql": {"team_return": 12.67, "consensus": 0.602, "infeasible_detected": 0.226, "revision_request": 0.216, "false_revision": 0.0},
+    "ctde": {"team_return": 14.14, "consensus": 0.640, "infeasible_detected": 0.226, "revision_request": 0.0, "false_revision": 0.0}
+  },
+  "seed_1_sensitivity": {
+    "iql": {"team_return": 12.80, "consensus": 0.596, "infeasible_detected": 0.226, "revision_request": 0.246, "false_revision": 0.020},
+    "ctde": {"team_return": 14.04, "consensus": 0.640, "infeasible_detected": 0.226, "revision_request": 0.0, "false_revision": 0.0}
+  },
+  "restricted_quality_files": ["runs/quality_v6.json", "runs/quality_v6_seed1.json"],
+  "note": "Satu seed pelatihan bukan bukti optimalitas global; pembanding hanya satu siklus dengan pembayaran deterministik."
+}

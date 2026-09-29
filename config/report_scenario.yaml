@@ -10,7 +10,7 @@ cash:
   other_needs: [70000000, 0, 0, 0]   # month 1 = 40 jt + 30 jt (6.5), months 2-4 = 0
   inflow: [0, 0, 0, 0]
   min_cash: 60000000
-  enforce_min_cash: false            # only reported, not a hard constraint on the fixture
+  enforce_min_cash: true             # BAB 6: konsensus memerlukan cadangan likuiditas Rp60 juta
 
 horizon_months: 4
 
@@ -27,7 +27,7 @@ vendors:
     lead_time: 5
     capacity: 800
     initial_offer: 95000             # from report (6.4 trace)
-    floor_price: 95000               # ASSUMPTION: not in report
+    floor_price: 90000               # ASSUMPTION: ruang negosiasi agen vendor
     discount_pct: 0
     reputation: 7.00                 # dihitung balik dari skor 6.2, konfirmasi ke tim
     relation: 0.6
@@ -39,7 +39,7 @@ vendors:
     lead_time: 7
     capacity: 1200
     initial_offer: 89500
-    floor_price: 89000
+    floor_price: 86500               # ASSUMPTION: Vendor B lebih tegas
     discount_pct: 2                  # pay within 7 days
     reputation: 8.45                 # dihitung balik dari skor 6.2, konfirmasi ke tim
     relation: 0.6
@@ -51,7 +51,7 @@ vendors:
     lead_time: 3
     capacity: 600
     initial_offer: 110000            # ASSUMPTION: not in report
-    floor_price: 108000              # ASSUMPTION: not in report
+    floor_price: 101000              # ASSUMPTION: Vendor C lebih fleksibel
     discount_pct: 0
     reputation: 2.55                 # dihitung balik dari skor 6.2, konfirmasi ke tim
     relation: 0.6

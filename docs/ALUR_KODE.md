@@ -13,7 +13,7 @@ Muat checkpoint IQL atau CTDE
         ↓
 ProcurementEnv.reset()
         ↓
-IRE → VMI → DA → SLM → Evaluator Sistem
+IRE → saring vendor → A/B/C saling memberi penawaran → VMI → DA → SLM → Evaluator Sistem
         ↓
 Ulangi bila masih dapat diperbaiki
         ↓
@@ -40,17 +40,21 @@ IRE menentukan waktu pemenuhan kebutuhan:
 
 ### VMI
 
-VMI memilih vendor A, B, atau C. Environment membuat `action_mask` untuk menutup pilihan yang melanggar skor, kapasitas, tenggat, atau pengecualian akibat negosiasi sebelumnya.
+Environment membuat `action_mask` untuk menutup pilihan yang melanggar skor, kapasitas, tenggat, atau pengecualian akibat negosiasi sebelumnya. Semua vendor yang lolos terlebih dahulu memberi penawaran awal dan merespons permintaan harga pembeli. Setelah harga tiap kandidat tersedia, VMI memilih A, B, atau C. Biaya pembanding mencakup harga penawaran, transportasi, dan risiko.
 
 ### DA
 
 DA menentukan cara bernegosiasi:
 
-- menerima penawaran awal;
-- memberi penawaran balik;
+- menerima penawaran kandidat hasil putaran kompetitif;
+- memberi penawaran balik lanjutan kepada kandidat terpilih;
 - meminta vendor alternatif.
 
-Penerimaan penawaran balik dipengaruhi relasi vendor dan seed simulasi. Seed yang sama membuat hasil acak dapat diulang.
+Harga balasan ditentukan oleh utilitas vendor. Penerimaan revisi termin dipengaruhi utilitas dan seed simulasi; seed yang sama membuat hasil dapat diulang.
+
+Sebelum VMI memilih, setiap vendor yang lolos membandingkan tawaran pembeli dengan harga reservasi yang dipengaruhi harga minimum, relasi, tekanan kapasitas, besar pesanan, jumlah pesaing, dan karakter konsesi. Negosiasi dapat berlangsung sampai tiga ronde internal per vendor. DA boleh mencoba menawar lagi setelah VMI memilih. Setiap respons dicatat sebagai langkah `VENDOR A`, `VENDOR B`, atau `VENDOR C`, meskipun vendor bukan bagian dari empat policy MARL pembeli.
+
+Harga minimum bawaan ialah A Rp90.000, B Rp86.500, dan C Rp101.000. Jika tawaran pembeli mencapai harga vendor, hasilnya sepakat. DA mendapat penalti −0,35 saat meminta alternatif yang tidak menurunkan biaya pembelian dan logistik dibanding kandidat sebelumnya.
 
 ### SLM
 
@@ -67,17 +71,17 @@ Generator latihan membuat sekitar 20% episode dengan kekurangan dana yang dibukt
 
 ### Evaluator Sistem
 
-Evaluator Sistem bukan agen pembelajar. Ia menghitung biaya dan kas, lalu memeriksa anggaran, kapasitas, tenggat, kebutuhan mendesak, dan saldo kas. Di UI evaluator memiliki kotak tersendiri agar tidak terlihat seolah menjadi agen kelima.
+Evaluator Sistem bukan agen pembelajar. Ia menghitung biaya dan kas, lalu memeriksa anggaran, kapasitas, tenggat, kebutuhan mendesak, dan **cadangan kas minimum Rp60 juta pada setiap bulan**. Di UI evaluator memiliki kotak tersendiri agar tidak terlihat seolah menjadi agen kelima.
 
 ## 3. Mengapa proses dapat berhenti lebih awal
 
-`cash_diagnosis()` menghitung batas bawah biaya. Perhitungan sengaja memakai harga terbaik yang mungkin, bahkan tanpa membatasi kapasitas vendor. Karena nilainya optimistis, jika dana yang tersedia masih lebih kecil dari batas tersebut, tidak ada perubahan termin pembayaran yang dapat membuat saldo akhir menjadi cukup.
+`cash_diagnosis()` menghitung batas bawah biaya. Dana tersedia untuk belanja adalah kas awal + arus masuk − kewajiban lain − cadangan kas wajib. Perhitungan sengaja memakai harga terbaik yang mungkin, bahkan tanpa membatasi kapasitas vendor. Karena nilainya optimistis, jika dana belanja masih lebih kecil dari batas biaya tersebut, tidak ada perubahan termin pembayaran yang dapat membuat saldo akhir mencapai Rp60 juta.
 
 Hasil akhir mempunyai tiga arti:
 
-- **LAYAK**: semua kendala rencana terpenuhi.
+- **LAYAK**: semua kendala rencana terpenuhi, termasuk cadangan kas minimum tiap bulan.
 - **PERLU REVISI**: episode berhenti tanpa bukti matematis bahwa skenario mustahil, sehingga input atau rencana perlu diperiksa.
-- **TIDAK FEASIBLE**: batas bawah biaya melampaui seluruh kas yang tersedia dalam horizon.
+- **TIDAK FEASIBLE**: batas bawah biaya melampaui dana belanja setelah cadangan wajib disisihkan.
 
 Environment juga menghentikan pengulangan rencana material yang sama dengan alasan `no_progress`. Ini mencegah model berputar sampai batas enam siklus tanpa menghasilkan perubahan.
 
@@ -108,7 +112,9 @@ Baseline supervised learning mempunyai tugas yang berbeda dari agen:
 
 Baseline tidak memilih vendor, tidak menegosiasikan harga, dan tidak mengubah status LAYAK/PERLU REVISI/TIDAK FEASIBLE. Status tersebut tetap berasal dari aturan environment.
 
-Dataset historis organisasi yang disebut laporan tidak disertakan dalam proyek. `train_baseline.py` karena itu membuat data simulasi secara transparan. Kandidat diberi label optimal bila layak dan biayanya tidak lebih dari 103% biaya layak terendah pada skenario yang sama. Train/test dipisahkan berdasarkan skenario untuk mencegah kebocoran data. CSV, model, versi pustaka, aturan label, metrik, dan confusion matrix disimpan di `runs/baseline/`.
+Dataset historis organisasi yang disebut laporan tidak disertakan dalam proyek. `train_baseline.py` karena itu membuat data simulasi secara transparan. Kandidat diberi label optimal bila layak dan biayanya tidak lebih dari 103% biaya layak terendah dari kandidat yang diuji pada skenario yang sama. Train/test dipisahkan berdasarkan skenario untuk mencegah kebocoran data. CSV, model, versi pustaka, aturan label, metrik, dan confusion matrix disimpan di `runs/baseline/`.
+
+Jejak audit CSV memuat kas bulan 1–4. Saat vendor menanggapi revisi termin, log mencatat utilitas, probabilitas menerima, serta angka acak dari seed. Respons diterima jika angka acak lebih kecil daripada probabilitas. Untuk pengujian oracle, angka acak diganti keputusan paksa dan ditandai dalam event.
 
 ## 6. Isi database
 
@@ -147,6 +153,7 @@ Konfigurasi baru hanya digunakan ketika tombol menjalankan skenario ditekan. Ske
 | `procurement/rl_storage.py` | Menulis dan membaca SQLite |
 | `procurement/baseline_ml.py` | Membentuk fitur keputusan dan menjalankan baseline klasifikasi |
 | `src/procurement_marl/env.py` | Aturan giliran, aksi, reward, kendala, serta penghentian episode |
+| `src/procurement_marl/vendor_agents.py` | Agen vendor berbasis utilitas, harga reservasi, dan counter offer |
 | `src/procurement_marl/scenario.py` | Fixture BAB 6, diagnosis kas, dan pembangkit skenario latihan |
 | `src/procurement_marl/costs.py` | Rumus biaya, diskon, jadwal pembayaran, dan saldo kas |
 | `scripts/train.py` | Melatih IQL atau CTDE dan menyimpan checkpoint |

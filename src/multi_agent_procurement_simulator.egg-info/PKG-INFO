@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: multi-agent-procurement-simulator
-Version: 0.5.0
+Version: 0.6.0
 Summary: Streamlit procurement simulation with trained MARL agents and supervised ML baselines
 Requires-Python: >=3.14
 Requires-Dist: streamlit<2,>=1.36
