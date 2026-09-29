@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Menjalankan 20 contoh sebagai 10 pasangan IQL/CTDE, lalu menulis JSON tanpa mengubah database pengguna.
 """Jalankan 20 contoh pembelajaran tanpa menambah riwayat SQLite pengguna.
 
 Setiap input dipasangkan antara IQL dan CTDE agar perbedaan metode terlihat.

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Memutar episode dengan policy tertentu dan menghitung metrik konsensus, biaya, serta pelanggaran.
 """Play episodes with a policy and compare policies on the same random scenarios.
 
 Run `python scripts/evaluate.py` for the comparison table (writes runs/comparison.csv and .md).

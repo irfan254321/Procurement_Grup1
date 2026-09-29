@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Menguji kualitas kebijakan pada banyak skenario dan membandingkannya dengan pencarian rencana yang layak.
 """Bandingkan kebijakan terlatih dengan pencarian rencana feasible satu siklus.
 
 Pembanding mencoba semua kombinasi IRE, VMI, DA, dan pembayaran cepat/jatuh

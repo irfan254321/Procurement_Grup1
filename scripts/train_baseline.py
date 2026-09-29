@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Membuat data kandidat simulasi, memberi label pembanding, melatih empat classifier, dan menyimpan metrik/artefak.
 """Latih LR, SVM, Random Forest, dan XGBoost sebagai baseline laporan.
 
 Contoh:

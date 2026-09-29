@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Tes hasil dan batasan simulator aturan lama untuk menjaga contoh laporan.
 """Jalankan dengan python -m unittest discover -s tests -v."""
 import unittest
 from procurement.models import Scenario

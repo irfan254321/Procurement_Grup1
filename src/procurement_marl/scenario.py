@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Mendefinisikan Vendor/Scenario, memuat YAML BAB 6, menghitung skor dan membuat sampel latihan.
 """Vendor and Scenario dataclasses, composite vendor score, random scenario generator."""
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "config"
 
 @dataclass(frozen=True)
 class Vendor:
+    """Satu pemasok; frozen mencegah perubahan data awal di tengah episode."""
     name: str
     list_price: int
     transport: int
@@ -31,6 +33,7 @@ class Vendor:
 
 @dataclass(frozen=True)
 class Scenario:
+    """Input lengkap untuk satu episode, termasuk arus kas dan batas vendor."""
     quantity: int
     urgent_quantity: int
     budget: int
@@ -79,6 +82,8 @@ def load_scenario(path: str | Path = CONFIG_DIR / "report_scenario.yaml") -> Sce
 
 def composite_scores(scenario: Scenario) -> dict[str, float]:
     """Composite score per vendor, 0-10. Scored over all vendors, before any masking."""
+    # Harga dinormalisasi relatif terhadap daftar vendor pada skenario ini;
+    # skor komposit bukan biaya transaksi setelah negosiasi.
     w = scenario.score_weights
     prices = [v.list_price for v in scenario.vendors]
     p_min, p_max = min(prices), max(prices)
@@ -116,6 +121,9 @@ def cash_diagnosis(scenario: Scenario) -> dict[str, int | str | bool]:
     the last month must end below the minimum.
     `shortfall > 0` proves the scenario cannot reach consensus; `shortfall <= 0` proves nothing.
     """
+    # Batas bawah boleh mengabaikan kapasitas/tenggat, sebab tujuannya hanya
+    # membuktikan kekurangan dana: jika harga paling murah pun tak terbayar,
+    # semua rencana yang lebih mahal juga tak terbayar.
     def bill(v: Vendor) -> int:
         return batch_total(scenario.quantity, v.floor_price, v.transport, v.risk, v.discount_pct)
 
@@ -133,6 +141,8 @@ def sample_scenario(seed: int, config_path: str | Path = CONFIG_DIR / "env_defau
 
     The feasibility filter (>= 80% feasible) is added in phase 2 with oracle.py.
     """
+    # random.Random(seed) membuat profil latihan yang sama muncul lagi
+    # pada seed sama; perubahan vendor tidak diketik manual setiap episode.
     rng = random.Random(seed)
     cfg = _read_yaml(Path(config_path))["randomization"]
     base = load_scenario()

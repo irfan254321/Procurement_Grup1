@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Tes perpindahan tahapan dan penyimpanan alur lama memakai database sementara.
 """Tes transisi tahap, persistensi SQLite, dan variasi vendor."""
 import json
 import unittest

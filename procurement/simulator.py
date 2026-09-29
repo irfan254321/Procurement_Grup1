@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Simulator aturan lama untuk pembanding pedagogis; tidak mengklaim fungsi ini melatih IQL atau CTDE.
 """Orkestrasi enam putaran sesuai BAB 6 laporan."""
 from dataclasses import dataclass
 from .agents import ire, vmi, da, slm

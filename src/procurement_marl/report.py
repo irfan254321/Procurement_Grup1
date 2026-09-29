@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Memutar ulang kasus laporan BAB 6 agar keluaran simulator dapat dibandingkan dengan dokumen acuan.
 """Executable reconstruction of Bab 6.4–6.5, with six coordination stages.
 
 The initial proposal is preparation (stage 0). The revised proposal is processed

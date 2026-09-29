@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Policy acak memilih aksi valid untuk pembanding dasar, bukan model terlatih.
 """Random policy that respects the action mask."""
 
 import numpy as np

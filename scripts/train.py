@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Melatih IQL dan CTDE dalam episode berulang lalu menyimpan checkpoint yang dipakai app.py.
 """Train a policy on random scenarios: independent Q-learning (iql) or CTDE actor-critic (ctde).
 
 Usage: python scripts/train.py --algo iql|ctde [--episodes 20000] [--seed 0] [--out runs/<algo>]
@@ -12,6 +13,8 @@ import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+# Jalankan skrip dari folder mana pun: root dihitung dari lokasi file ini,
+# lalu src dimasukkan agar import paket inti tidak bergantung pada cwd.
 sys.path.insert(0, str(ROOT / "src"))
 
 from procurement_marl.agents.ctde_ac import CTDEActorCritic
@@ -23,6 +26,8 @@ from procurement_marl.evaluate import make_env, run_episode
 from procurement_marl.scenario import sample_scenario
 
 TRAIN_SEED_OFFSET = 1_000_000
+# Pisahkan seed latihan dari seed evaluasi 0..n-1 agar pengujian tidak
+# sekadar mengulang persis skenario yang dilihat selama pembelajaran.
 MODEL_VERSION = 7
 
 
@@ -50,9 +55,13 @@ def train_iql(episodes: int, seed: int, out: Path, block: int = 500, alpha: floa
     returns, consensus = [], []
     start = time.time()
     with open(out / "curve.csv", "w", newline="") as f:
+        # CSV ini menyimpan perkembangan latihan per blok episode; checkpoint
+        # di bawah menyimpan parameter/tabel yang benar-benar dipelajari.
         writer = csv.writer(f)
         writer.writerow(["episode", "epsilon", "mean_team_return", "consensus_rate", "seconds"])
         for ep in range(1, episodes + 1):
+            # Epsilon turun bertahap: mula-mula lebih sering eksplorasi,
+            # lalu kebijakan lebih sering memilih nilai Q terbaik.
             agent.epsilon = max(eps_end, eps_start - (eps_start - eps_end) * ep / decay_episodes)
             ret, ok = agent.train_episode(env, seed=TRAIN_SEED_OFFSET + seed * 10_000_000 + ep)
             returns.append(ret)
@@ -84,6 +93,8 @@ def train_ctde(episodes: int, seed: int, out: Path, block: int = 500, batch: int
         writer = csv.writer(f)
         writer.writerow(["episode", "entropy", "mean_team_return", "consensus_rate", "seconds"])
         while done_eps < episodes:
+            # CTDE mengumpulkan episode baru sebelum pembaruan gradien actor.
+            # Ini menjaga actor memakai data segar, bukan replay lama.
             batch_eps = []
             for _ in range(batch):
                 done_eps += 1

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Mendefinisikan reward masing-masing agen dan tujuan tim selama pelatihan.
 """Pure reward functions. Our own design, not from the report (see DECISIONS.md)."""
 
 from __future__ import annotations
@@ -45,6 +46,8 @@ def collective_objective(
     gamma: float = 1.0,
 ) -> float:
     """J(pi) = sum_t gamma^t * sum_i w_i * R_i. `rewards[t]` maps agent name -> reward."""
+    # enumerate memberi indeks waktu t; gamma**t mengecilkan kontribusi
+    # reward yang diterima lebih jauh di masa depan.
     return sum(
         gamma**t * sum(weights[agent] * r for agent, r in step.items())
         for t, step in enumerate(rewards)

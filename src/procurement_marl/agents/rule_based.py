@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Policy aturan memakai keputusan tetap sebagai baseline perilaku, bukan MARL terlatih.
 """Fixed baseline using the choices illustrated in Bab 6.
 
 IRE forwards in round 1 and asks for clarification after a conflict. VMI picks the eligible

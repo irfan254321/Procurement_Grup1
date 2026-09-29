@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: CTDE actor critic: actor melihat observasi lokal, critic melihat state gabungan hanya saat pelatihan.
 """CTDE actor-critic: local actors, one centralized critic (PyTorch, CPU).
 
 - Actors: one small MLP per agent (parameters are NOT shared). Each actor only sees the
@@ -25,6 +26,7 @@ NEG = -1e9
 
 
 def mlp(n_in: int, hidden: int, n_out: int) -> nn.Sequential:
+    """Rangkai dua lapisan tersembunyi Tanh untuk actor atau critic."""
     return nn.Sequential(nn.Linear(n_in, hidden), nn.Tanh(), nn.Linear(hidden, hidden), nn.Tanh(),
                          nn.Linear(hidden, n_out))
 
@@ -46,11 +48,14 @@ class CTDEActorCritic:
         self.replay = deque(maxlen=replay_capacity)
         self.critic_batch = critic_batch
         self.actors = nn.ModuleDict({a: mlp(DIMS[a], hidden, ACTION_DIMS[a]) for a in AGENTS})
+        # Critic menerima state gabungan, sedangkan tiap actor di atas hanya
+        # menerima observasi lokal. Itulah pembagian centralized/decentralized.
         self.critic = mlp(STATE_DIM, 2 * hidden, 1)
         self.optimizer = torch.optim.Adam(list(self.actors.parameters()) + list(self.critic.parameters()), lr=lr)
 
     # ---------------------------------------------------------------- acting
     def masked_logits(self, agent: str, obs: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Beri logit sangat rendah pada aksi terlarang agar softmax tak memilihnya."""
         return self.actors[agent](obs).masked_fill(mask == 0, NEG)
 
     def act(self, env: ProcurementEnv, agent: str) -> int:
@@ -87,6 +92,8 @@ class CTDEActorCritic:
 
     def update(self, episodes: list[list[dict]]) -> dict[str, float]:
         """Actor belajar dari episode baru; critic memakai shared replay buffer."""
+        # Flatten episode menjadi urutan transisi; batas episode tetap ditandai
+        # oleh `done` sehingga GAE tidak menyambung dua simulasi berbeda.
         steps = [s for ep in episodes for s in ep]
         states = torch.from_numpy(np.stack([s["state"] for s in steps]))
         values = self.critic(states).squeeze(-1)

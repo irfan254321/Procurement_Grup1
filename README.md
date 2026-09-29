@@ -1,5 +1,7 @@
 # Multi-Agent Procurement Simulator
 
+Untuk belajar kode per file, baca [panduan semua file Python](docs/PANDUAN_FILE_PYTHON.md). Komentar berbahasa Indonesia di setiap modul menjelaskan perannya; panduan tersebut menjelaskan sintaks penting dan urutan membaca proyek.
+
 Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia di [20 skenario uji](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.
 
 Dashboard Streamlit untuk empat agen **IRE, VMI, DA, SLM** dengan dua pilihan kebijakan yang benar-benar dilatih: **Independent Q-learning (IQL)** dan **CTDE actor-critic**. Vendor A/B/C mempunyai agen negosiasi berbasis utilitas. Setiap vendor yang lolos penyaringan merespons permintaan harga yang sama sebelum VMI memilih pemasok. Penawaran pembeli dan balasan vendor terlihat berdampingan per putaran. DA lalu menerima harga kandidat, menawar lagi, atau meminta vendor alternatif; SLM memeriksa termin dan kas. Vendor tidak menawar di bawah harga minimum masing-masing. Sesuai bagian *Algorithm and AI Integration* pada laporan, proyek juga melatih **Logistic Regression, SVM, Random Forest, dan XGBoost** sebagai baseline supervised learning.

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Pengatur tahapan simulator lama: membuat keadaan pasar, melangkah antar agen, lalu menyelesaikan laporan.
 """Mesin tahap: satu pemanggilan advance() mengeksekusi tepat satu keputusan."""
 import json
 import random

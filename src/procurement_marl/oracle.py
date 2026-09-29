@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Mencari rencana pembanding pada ruang aksi terbatas; dipakai untuk mengecek kelayakan/kualitas, bukan eksekusi ERP.
 """Best single-round plan ("rencana optimal satu putaran"): try every plan, keep the best expected return.
 
 A plan = IRE action + (vendor, DA action, SLM action) for each batch, played in one round.

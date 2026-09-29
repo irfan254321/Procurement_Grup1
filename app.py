@@ -1,3 +1,5 @@
+# PANDUAN MAHASISWA: Titik masuk Streamlit: formulir membuat skenario, tab membaca event tersimpan, dan laporan menampilkan hasil akhir.
+# Satu rerun Streamlit mengeksekusi berkas dari atas; session_state mempertahankan pilihan saat tombol/slider berubah.
 """Dashboard dua kebijakan MARL: jalankan episode, lalu telusuri jejak agen."""
 import json
 import sys
@@ -5,6 +7,8 @@ from dataclasses import asdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+# Paket MARL berada di src; Python mencari modul menurut urutan sys.path.
+# Baris ini membuat `import procurement_marl` berhasil saat `streamlit run app.py`.
 sys.path.insert(0, str(ROOT / "src"))
 
 import pandas as pd
@@ -34,12 +38,15 @@ PAYMENT_LABEL = {
 
 def vendor_progress_rows(scenario, log: list[dict], step: int, current_round: int) -> list[dict]:
     """Bangun keadaan tabel sampai langkah yang sedang dibaca, bukan dari hasil akhir."""
+    # Slice [:step] hanya memuat event yang telah terjadi pada posisi slider.
+    # Tanpanya status akhir vendor akan terlihat sebelum VMI/DA mengambil keputusan.
     visible = log[:step]
     event = visible[-1]
     batch = event.get("batch")
     if batch is None:
         batch = next((x["batch"] for x in reversed(visible)
                       if x["round"] == current_round and "batch" in x), 0)
+    # Dictionary comprehension memberi satu keadaan awal terpisah untuk A, B, C.
     state = {v.name: {"status": "Belum diperiksa", "price": None, "payment": "—"}
              for v in scenario.vendors}
     for item in visible:
@@ -99,6 +106,8 @@ def vendor_progress_rows(scenario, log: list[dict], step: int, current_round: in
 
 def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -> list[dict]:
     """Tampilkan respons A/B/C berdampingan tanpa membocorkan langkah berikutnya."""
+    # Kunci integer dipakai untuk mengurutkan ronde; isi kolom Putaran berupa teks
+    # agar Pandas dan PyArrow tidak perlu menggabungkan angka dengan kata "Awal".
     rows: dict[int, dict] = {}
     for event in log[:step]:
         if event["round"] != cycle or event.get("batch") != batch:
@@ -110,13 +119,15 @@ def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -
             rows.setdefault(0, {"Putaran": "Awal", "A": "—", "B": "—", "C": "—"})[vendor] = rp(event["offer"])
         elif event.get("event") == "vendor_counter_offer":
             number = event["negotiation_round"]
-            rows.setdefault(number, {"Putaran": number, "A": "—", "B": "—", "C": "—"})[vendor] = (
+            rows.setdefault(number, {"Putaran": str(number), "A": "—", "B": "—", "C": "—"})[vendor] = (
                 f"Kita {rp(event['buyer_offer'])} → vendor {rp(event['vendor_offer'])} · "
                 f"{'sepakat' if event['accepted'] else 'lanjut'}")
     return [rows[key] for key in sorted(rows)]
 
 
 st.set_page_config(page_title="MARL Procurement", layout="wide")
+# connect membuat tabel bila belum ada. Database hanya menyimpan simulasi,
+# bukan melakukan pembelian atau mengirim pembayaran ke sistem eksternal.
 db = connect(ROOT / "data" / "procurement.sqlite3")
 active_vendor_rows = load_vendor_settings(db) or default_vendor_rows()
 st.title("Multi-Agent Procurement Simulator")
@@ -135,6 +146,8 @@ with st.sidebar:
         submitted = st.form_submit_button("Buat & jalankan skenario", type="primary")
     st.caption("Tenggat 10 hari, kas awal Rp150 juta, dan kewajiban lain Rp70 juta memakai acuan BAB 6.")
     if submitted:
+        # Streamlit menjalankan ulang seluruh berkas ketika formulir dikirim.
+        # Session state menyimpan id run agar tampilan tetap menunjuk hasil baru.
         if int(urgent) > int(quantity):
             st.error("Unit mendesak tidak boleh melebihi jumlah unit.")
         elif not CHECKPOINTS[policy_name].exists():
@@ -150,6 +163,7 @@ with st.sidebar:
             st.rerun()
 
 saved = runs(db)
+# Selectbox membaca run terbaru dari SQLite; data tetap ada setelah browser ditutup.
 run_id = None
 if saved:
     ids = [row["id"] for row in saved]

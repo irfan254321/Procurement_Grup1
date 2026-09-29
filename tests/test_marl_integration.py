@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Tes lintas modul memastikan environment, checkpoint, laporan, dan tabel putaran bekerja bersama.
 """Pastikan kedua pilihan benar-benar memiliki pembaruan parameter belajar."""
 import sys
 import unittest

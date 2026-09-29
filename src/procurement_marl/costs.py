@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Satu sumber rumus nilai barang, diskon, logistik, jadwal bayar, dan saldo tiap bulan.
 """Pure cost and cash-flow formulas. Money is always integer rupiah."""
 
 from __future__ import annotations
@@ -15,6 +16,8 @@ def goods_value(quantity: int, price: int) -> int:
 
 def discount_amount(value: int, discount_pct: int) -> int:
     """Payment discount on goods only, rounded to the nearest rupiah (half up)."""
+    # Menambah 50 sebelum pembagian bulat oleh 100 menghasilkan pembulatan
+    # half-up untuk persentase bilangan bulat, tanpa float rupiah.
     return (value * discount_pct + 50) // 100
 
 
@@ -39,6 +42,8 @@ def payment_schedule(
     discount_pct: int = 0,
 ) -> dict[int, int]:
     """Return {month: amount paid} for one batch bought in `month` (1-based)."""
+    # Dictionary memetakan nomor bulan ke nominal yang dibayar pada bulan itu.
+    # Biaya logistik dibayar pada bulan batch, terlepas dari termin barang.
     value = goods_value(quantity, price)
     logistics = logistics_cost(quantity, transport, risk)
     if mode == PAY_FAST:
@@ -46,6 +51,8 @@ def payment_schedule(
     if mode == PAY_DUE:
         return {month: logistics, month + 1: value}
     if mode == PAY_SPLIT:
+        # Sisa dibayar pada bulan terakhir agar pembagian rupiah ganjil
+        # tetap menjumlah tepat ke nilai barang semula.
         first = value // 2
         return {month: logistics, month + 1: first, month + 2: value - first}
     raise ValueError(f"unknown payment mode: {mode}")

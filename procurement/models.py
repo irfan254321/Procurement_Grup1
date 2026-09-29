@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Definisi data lama memakai dataclass agar Vendor dan Scenario memiliki field bernama dan mudah dipindahkan antar fungsi.
 """Struktur data yang dipakai bersama oleh lingkungan dan agen."""
 from dataclasses import dataclass
 

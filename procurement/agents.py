@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Empat fungsi agen aturan lama dipakai oleh alur pembanding; kebijakan IQL/CTDE terlatih berada di src/procurement_marl/agents.
 """Empat agen sebagai fungsi keputusan yang mudah diaudit mahasiswa."""
 from .models import Scenario, Vendor
 

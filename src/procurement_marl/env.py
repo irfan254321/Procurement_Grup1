@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Lingkungan PettingZoo AEC: IRE, VMI, DA, dan SLM bergiliran; setiap aksi menghasilkan event dan reward.
 """PettingZoo AEC environment: four agents (IRE, VMI, DA, SLM) take turns.
 
 One round = IRE picks how to split the request. Every eligible vendor then responds
@@ -25,6 +26,8 @@ from .scenario import (CONFIG_DIR, Scenario, cash_diagnosis, composite_scores, e
 from .vendor_agents import VendorNegotiator
 
 AGENTS = ["IRE", "VMI", "DA", "SLM"]
+# Indeks dalam daftar aksi dipakai model sebagai angka 0, 1, ...; ubah urutan
+# hanya jika model dilatih ulang, karena checkpoint menyimpan arti indeks lama.
 VENDORS = ["A", "B", "C"]
 IRE_ACTIONS = ["teruskan", "minta_klarifikasi", "tunda"]
 # Display labels (dashboard, trace). The internal action name stays so tests and checkpoints keep working.
@@ -84,7 +87,9 @@ class ProcurementEnv(AECEnv):
 
     # ------------------------------------------------------------------ reset
     def reset(self, seed: int | None = None, options: dict | None = None) -> None:
+        """Mulai episode baru dan kosongkan keputusan, saldo, reward, serta jejak lama."""
         options = options or {}
+        # Generator RNG lokal membuat respons acak dapat direproduksi dari seed.
         if seed is not None:
             self.rng = np.random.default_rng(seed)
         self.scenario = options.get("scenario") or self._make_scenario()
@@ -198,6 +203,7 @@ class ProcurementEnv(AECEnv):
 
     # ------------------------------------------------------------------- step
     def step(self, action: int | None) -> None:
+        """Terima satu aksi dari agen yang sedang bergiliran, lalu pindah tahap."""
         agent = self.agent_selection
         if self.terminations[agent] or self.truncations[agent]:
             self._was_dead_step(action)
@@ -446,6 +452,7 @@ class ProcurementEnv(AECEnv):
         return None
 
     def _end_round(self) -> None:
+        """Periksa rencana lengkap, catat pelanggaran, lalu putuskan lanjut/berhenti."""
         sc = self.scenario
         cash = self._projected_cash()
         total = sum(self.committed.values())
@@ -590,11 +597,12 @@ class ProcurementEnv(AECEnv):
                 + conflict)
 
     def observe(self, agent: str) -> dict:
+        """Berikan vektor lokal dan mask aksi yang boleh dipilih agen ini."""
         vec = np.clip(np.array(self._local_vec(agent), dtype=np.float32), -1.0, 1.0)
         return {"observation": vec, "action_mask": np.array(self._mask(agent), dtype=np.int8)}
 
     def state(self) -> np.ndarray:
-        """Full state for the centralized critic: all local vectors + stage + round progress."""
+        """Gabungkan vektor lokal, tahap, dan putaran untuk critic CTDE saat latihan."""
         parts = [np.array(self._local_vec(a), dtype=np.float32) for a in AGENTS]
         stage = [float(self.stage == a) for a in AGENTS]
         extra = [self.round / self.max_rounds, self.batch_idx / 2]

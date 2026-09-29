@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Pemeriksa kendala pada simulator aturan lama: biaya, anggaran, kapasitas, tenggat, dan saldo kas.
 """Perhitungan deterministik untuk biaya, kas, dan kendala."""
 from dataclasses import dataclass
 from .models import Scenario, Vendor

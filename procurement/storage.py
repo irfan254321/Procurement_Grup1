@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Penyimpanan SQLite untuk simulator aturan lama; tabelnya terpisah dari marl_runs/marl_events.
 """Penyimpanan SQLite: setiap langkah adalah transaksi yang dapat dibaca kembali."""
 import json
 import sqlite3

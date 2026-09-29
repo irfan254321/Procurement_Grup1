@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Jembatan formulir ke model terlatih: validasi input, muat checkpoint, jalankan episode, dan bentuk laporan akhir.
 """Hubungkan input sederhana dengan kebijakan MARL terlatih dan laporan singkat."""
 from dataclasses import asdict, replace
 import hashlib
@@ -65,6 +66,7 @@ def scenario_from_request(quantity: int, urgent: int, budget: int, vendor_rows: 
     if quantity <= 0 or not 0 <= urgent <= quantity or budget <= 0:
         raise ValueError("Periksa jumlah unit, unit mendesak, dan anggaran")
     vendors = validate_vendor_rows(vendor_rows) if vendor_rows is not None else load_scenario().vendors
+    # replace membuat salinan dataclass fixture BAB 6; berkas YAML tidak ditimpa.
     return replace(load_scenario(), quantity=quantity, urgent_quantity=urgent, budget=budget, vendors=vendors)
 
 
@@ -88,6 +90,7 @@ def policy_from_checkpoint(name: str):
     config = json.loads(config_path.read_text(encoding="utf-8")) if config_path.exists() else {}
     if config.get("model_version") != MODEL_VERSION:
         raise RuntimeError(f"Model {name} versi lama; latih ulang untuk alur negosiasi versi {MODEL_VERSION}.")
+    # Cabang ini benar-benar memuat parameter hasil train, bukan memilih fungsi aturan.
     return IQL.load(path) if name == "IQL" else CTDEActorCritic.load(path)
 
 
@@ -146,6 +149,7 @@ def simulate(policy: str, quantity: int, urgent: int, budget: int, seed: int,
     scenario = scenario_from_request(quantity, urgent, budget, vendor_rows)
     model = policy_from_checkpoint(policy)
     env = ProcurementEnv(scenario)
+    # seed diteruskan ke RNG environment agar negosiasi/termin dapat diulang.
     result = run_episode(env, model, seed=seed,
                          options={"scenario": scenario, "stop_on_repeat": True})
     return asdict(scenario), result, short_report(result, scenario, policy, seed)

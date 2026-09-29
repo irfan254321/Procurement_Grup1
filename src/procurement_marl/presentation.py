@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Memberi nama manusiawi untuk aksi, pelanggaran, dan event yang berasal dari environment.
 """Shared Indonesian log labels for the dashboard, CSV and report CLI."""
 
 from .env import IRE_LABELS

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Meringkas hasil simulator aturan lama menjadi teks pelaporan yang mudah dibaca pengguna.
 """Laporan pendek: hanya keputusan, angka penting, dan tindak lanjut."""
 
 

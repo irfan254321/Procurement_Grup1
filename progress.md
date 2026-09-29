@@ -1,5 +1,11 @@
 # Progress proyek
 
+## Komentar pembelajaran dan katalog file Python (29 September 2026)
+
+- [x] Komentar pembuka berbahasa Indonesia ditambahkan pada 35 file Python; komentar rinci dekat logika utama Streamlit, layanan, SQLite, vendor, IQL, CTDE, baseline, dan environment.
+- [x] `docs/PANDUAN_FILE_PYTHON.md` menjelaskan fungsi seluruh file Python, peta alur, sintaks penting, dan urutan belajar. README menautkannya.
+- [x] Pemeriksaan sintaks lulus; 20 tes lulus; 35/35 file Python mempunyai komentar pengantar. ZIP unduhan diperbarui.
+
 Dokumen ini mencatat pekerjaan aktif agar sesi berikutnya dapat melanjutkan dari keadaan terakhir. Baca file ini sebelum mengubah kode.
 
 ## Tugas aktif: error Arrow dan 20 skenario (29 September 2026)

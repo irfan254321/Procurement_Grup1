@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Mengubah event MARL menjadi tabel audit dan kalimat UI; irisan log sampai langkah aktif mencegah bocornya hasil masa depan.
 """Kalimat singkat untuk keputusan agen; log lengkap tetap tersedia di pelaporan."""
 from procurement_marl.presentation import REASON, VIOLATION, log_rows, rp
 

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Independent Q learning: setiap agen memiliki tabel Q sendiri dan belajar dari reward tim.
 """Independent tabular Q-learning with a shared reward.
 
 Each agent (IRE, VMI, DA, SLM) has its own Q-table over its discrete local observation
@@ -27,10 +28,13 @@ class IQL:
 
     # ---------------------------------------------------------------- acting
     def q_values(self, agent: str, state: tuple) -> np.ndarray:
+        """Ambil nilai aksi pada state lokal; state baru mulai dengan semua nilai nol."""
+        # setdefault mengembalikan isi lama, atau menyimpan array nol jika belum ada.
         return self.q[agent].setdefault(state, np.zeros(ACTION_DIMS[agent]))
 
     def select(self, agent: str, state: tuple, mask: np.ndarray, epsilon: float) -> int:
         """Epsilon-greedy over the valid actions only."""
+        # flatnonzero menghasilkan indeks aksi yang lolos mask kendala.
         valid = np.flatnonzero(mask)
         if self.rng.random() < epsilon:
             return int(self.rng.choice(valid))
@@ -45,16 +49,21 @@ class IQL:
     def update(self, agent: str, state: tuple, action: int, reward: float,
                next_state: tuple | None, next_mask: np.ndarray | None) -> None:
         """Q(s,a) += alpha * (r + gamma * max_a' Q(s',a') - Q(s,a)). No bootstrap at the end."""
+        # Target Bellman: reward yang didapat sejak giliran agen terakhir,
+        # ditambah nilai terbaik giliran berikutnya setelah diskon gamma.
         target = reward
         if next_state is not None:
             valid = np.flatnonzero(next_mask)
             target += self.gamma * self.q_values(agent, next_state)[valid].max()
         q = self.q_values(agent, state)
+        # alpha mengatur besar koreksi; saat episode selesai next_state=None.
         q[action] += self.alpha * (target - q[action])
 
     def train_episode(self, env: ProcurementEnv, seed: int) -> tuple[float, bool]:
         """Play one training episode. Returns (shared return, consensus)."""
         env.reset(seed=seed)
+        # AEC memberi giliran bergantian; pending menunda pembaruan Q sampai
+        # agen yang sama mendapat observasi berikutnya.
         pending: dict[str, list] = {}      # agent -> [state, action, reward collected since]
         total = 0.0
         while True:

@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Agen vendor berbasis utilitas menawar harga dan termin; mereka bukan empat policy MARL pembeli.
 """Agen vendor berbasis utilitas untuk negosiasi harga dan termin.
 
 Vendor bukan policy MARL pembeli. Mereka merupakan lawan negosiasi otonom
@@ -62,6 +63,8 @@ class VendorNegotiator:
         tinggi saat kapasitas penuh atau relasi lemah, sehingga vendor tidak
         otomatis memberikan harga terendahnya.
         """
+        # Harga reservasi tidak sama dengan floor_price: vendor bisa menahan
+        # margin lebih besar ketika kapasitas tertekan atau hubungan lemah.
         p = self.profile(vendor)
         opening = max(vendor.floor_price, min(vendor.list_price,
                      vendor.initial_offer if opening_override is None else opening_override))
@@ -92,6 +95,8 @@ class VendorNegotiator:
             buyer_progress = min(1.0, progress * (0.70 + 0.25 * urgent_share))
             buyer_offer = round(vendor.floor_price + (opening - vendor.floor_price) * buyer_progress)
             agreed = buyer_offer >= vendor_offer
+            # Maksimum dengan reservation memastikan balasan vendor tidak
+            # menembus batas yang ia pilih untuk negosiasi ini.
             final_offer = max(reservation, min(opening, vendor_offer))
             price_utility = (final_offer - vendor.floor_price) / max(vendor.list_price - vendor.floor_price, 1)
             utility = (price_utility * 0.55 + relation * p.relationship_weight

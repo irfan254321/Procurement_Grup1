@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Mengubah rencana akhir menjadi fitur tabular lalu menjalankan pembanding LR, SVM, Random Forest, dan XGBoost; tidak memilih aksi MARL.
 """Baseline supervised learning untuk menilai keputusan procurement.
 
 Baseline ini terpisah dari IQL/CTDE. Model membaca fitur skenario dan rencana
@@ -47,6 +48,8 @@ def decision_features(scenario: Scenario, result: dict) -> dict[str, float] | No
     prediksi karena belum ada keputusan vendor/pembayaran yang bisa dinilai.
     """
     log = result.get("log", [])
+    # List comprehension mengambil hanya keputusan pembayaran; run yang
+    # berhenti sebelum ada rencana tidak layak diberi label prediksi.
     payments = [event for event in log if event.get("event") == "payment_plan"]
     if not payments:
         return None
@@ -127,6 +130,7 @@ def feature_vector(features: dict[str, float]) -> pd.DataFrame:
 @lru_cache(maxsize=1)
 def load_bundle(path: str | Path = MODEL_PATH) -> dict:
     """Muat model satu kali agar pergantian langkah Streamlit tetap cepat."""
+    # Decorator cache menghindari baca joblib berulang pada setiap rerun UI.
     return joblib.load(Path(path))
 
 

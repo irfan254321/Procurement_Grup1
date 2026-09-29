@@ -1,3 +1,4 @@
+# PANDUAN MAHASISWA: Lapisan SQLite untuk run MARL; transaksi menyimpan metadata dan semua event sehingga riwayat dapat diputar ulang.
 """Penyimpanan riwayat episode MARL ke SQLite."""
 import json
 import sqlite3
@@ -41,6 +42,8 @@ def connect(path: str | Path) -> sqlite3.Connection:
 
 def save_run(db, policy: str, seed: int, scenario: dict, result: dict, report: dict) -> int:
     """Simpan laporan dan seluruh aksi dalam satu transaksi."""
+    # `with db` commit semua INSERT sekaligus; bila satu event gagal, rollback
+    # mencegah run tanpa jejak langkah yang lengkap.
     with db:
         cur = db.execute("""INSERT INTO marl_runs(policy,seed,scenario_json,status,total,rounds,report_json)
                             VALUES(?,?,?,?,?,?,?)""",
