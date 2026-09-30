@@ -107,6 +107,7 @@ def vendor_choice_comparison(scenario, log: list[dict], step: int,
         return rows, f"VMI memilih {selection['vendor']}; biaya pembanding tidak tersedia pada log ini."
     if not alternatives:
         return rows, f"VMI memilih {selection['vendor']}; tidak ada kandidat lain dengan penawaran yang dapat dibandingkan."
+    # pyrefly: ignore [no-matching-overload]
     rival = min(alternatives, key=lambda row: row["Total pembanding"])
     difference = rival["Total pembanding"] - chosen["Total pembanding"]
     if difference > 0:
@@ -117,6 +118,7 @@ def vendor_choice_comparison(scenario, log: list[dict], step: int,
     else:
         reason = f"biayanya sama dengan {rival['Vendor']}"
     return rows, (f"VMI memilih {selection['vendor']} untuk {quantity} unit. "
+                  # pyrefly: ignore [bad-argument-type]
                   f"Biaya pembanding {selection['vendor']} {rp(chosen['Total pembanding'])}, "
                   f"{rival['Vendor']} {rp(rival['Total pembanding'])}; {reason}. "
                   "Total = jumlah unit dikalikan (harga penawaran + transport/unit + risiko/unit). "
