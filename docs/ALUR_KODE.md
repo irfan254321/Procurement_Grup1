@@ -32,11 +32,21 @@ Pengguna hanya mengisi jumlah unit, unit mendesak, anggaran, metode, dan seed. P
 
 ### IRE
 
-IRE menentukan waktu pemenuhan kebutuhan:
+IRE menjadwalkan kebutuhan sesuai prioritas yang dinyatakan pengguna. Jika
+semua unit mendesak, seluruhnya masuk batch bulan pertama. Jika hanya sebagian
+yang mendesak, **tepat sejumlah unit mendesak** menjadi batch bulan pertama dan
+sisanya menjadi batch bulan kedua. Jika tidak ada unit mendesak, seluruhnya
+masuk bulan kedua. Sebagai contoh, input 600 unit dengan 500 mendesak menghasilkan
+500 unit bulan pertama dan 100 unit bulan kedua.
 
-- satu batch pada bulan pertama;
-- dua batch, yaitu kebutuhan mendesak sekarang dan sisanya bulan berikutnya;
-- menunda seluruh permintaan.
+Pada kondisi dana yang terbukti kurang atau setelah siklus sebelumnya gagal,
+IRE juga dapat meminta revisi. `action_mask` menutup pilihan jadwal yang
+bertentangan dengan angka mendesak. Pilihan meminta revisi tetap dipelajari
+oleh IQL/CTDE dalam keadaan yang relevan.
+
+Pembagian batch adalah jadwal **pengiriman/pengadaan**. Bulan pembayaran bisa
+berbeda: SLM memilih bayar cepat, jatuh tempo, atau termin, sehingga kas bulan
+pertama tidak harus turun sebesar seluruh nilai barang bulan pertama.
 
 ### VMI
 
@@ -108,7 +118,7 @@ Baseline supervised learning mempunyai tugas yang berbeda dari agen:
 1. IQL atau CTDE mengendalikan IRE, VMI, DA, dan SLM untuk membuat rencana.
 2. `decision_features()` mengubah rencana akhir menjadi 24 fitur terstruktur, misalnya rasio anggaran, biaya per unit, kas akhir, kualitas vendor, kapasitas, lead time, dan jenis pembayaran.
 3. Logistic Regression, SVM, Random Forest, dan XGBoost mengklasifikasikan keputusan sebagai optimal atau tidak optimal.
-4. XGBoost menjadi pembanding utama pada dashboard karena accuracy dan ROC-AUC test tertinggi pada artefak yang disertakan.
+4. XGBoost menjadi pembanding utama pada dashboard sesuai bagian integrasi AI laporan. Pada artefak v8, ROC-AUC test XGBoost tertinggi tipis, accuracy seri dengan SVM, dan F1 Random Forest lebih tinggi.
 
 Baseline tidak memilih vendor, tidak menegosiasikan harga, dan tidak mengubah status LAYAK/PERLU REVISI/TIDAK FEASIBLE. Status tersebut tetap berasal dari aturan environment.
 

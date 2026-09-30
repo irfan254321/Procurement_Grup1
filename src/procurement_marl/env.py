@@ -22,21 +22,22 @@ from pettingzoo import AECEnv
 from .costs import PAY_DUE, PAY_FAST, PAY_SPLIT, cash_balances, discount_amount, goods_value, payment_schedule
 from .rewards import da_reward, ire_reward, slm_reward, team_reward, vmi_reward
 from .scenario import (CONFIG_DIR, Scenario, cash_diagnosis, composite_scores, eligible_vendors,
-                       load_scenario, sample_scenario, score_fallback)
+                       ire_action_for_scenario, load_scenario, sample_scenario, score_fallback)
 from .vendor_agents import VendorNegotiator
 
 AGENTS = ["IRE", "VMI", "DA", "SLM"]
 # Indeks dalam daftar aksi dipakai model sebagai angka 0, 1, ...; ubah urutan
 # hanya jika model dilatih ulang, karena checkpoint menyimpan arti indeks lama.
 VENDORS = ["A", "B", "C"]
-IRE_ACTIONS = ["teruskan", "minta_klarifikasi", "tunda"]
+IRE_ACTIONS = ["teruskan", "bagi_pesanan", "tunda", "minta_revisi"]
 # Display labels (dashboard, trace). The internal action name stays so tests and checkpoints keep working.
-IRE_LABELS = {"teruskan": "teruskan (satu batch bulan ini)",
-              "minta_klarifikasi": "bagi pesanan (mendesak bulan ini, sisanya bulan depan)",
-              "tunda": "tunda (seluruh permintaan ke bulan depan)"}
+IRE_LABELS = {"teruskan": "teruskan (semua unit mendesak bulan ini)",
+              "bagi_pesanan": "bagi pesanan (tepat mendesak bulan ini, sisanya bulan depan)",
+              "tunda": "tunda (seluruh permintaan ke bulan depan)",
+              "minta_revisi": "minta revisi kebutuhan/pendanaan"}
 DA_ACTIONS = ["penawaran_awal", "penawaran_balik", "minta_alternatif"]
 SLM_ACTIONS = [PAY_FAST, PAY_DUE, PAY_SPLIT, "minta_revisi"]
-ACTION_DIMS = {"IRE": 3, "VMI": 3, "DA": 3, "SLM": 4}
+ACTION_DIMS = {"IRE": 4, "VMI": 3, "DA": 3, "SLM": 4}
 CONFLICT_KEYS = ["any", "budget", "cash", "urgent"]
 DIMS = {"IRE": 8, "VMI": 22, "DA": 12, "SLM": 19}
 STATE_DIM = sum(DIMS.values()) + 4 + 2
@@ -228,6 +229,12 @@ class ProcurementEnv(AECEnv):
         sc = self.scenario
         rest = sc.quantity - sc.urgent_quantity
 
+        if a == 3:
+            # IRE tetap memiliki keputusan yang dipelajari: melanjutkan
+            # pembagian wajib atau mengeskalasi bila kebutuhan/dana mustahil.
+            self._finish_revision_request(None, requester="IRE")
+            return
+
         def new(qty: int, month: int, urgent: int) -> dict:
             return {"qty": qty, "month": month, "urgent": urgent, "vendor": None, "price": None,
                     "excluded": set(), "alt_used": False, "counter_used": False, "da_failed": False, "cheapest": None,
@@ -235,6 +242,10 @@ class ProcurementEnv(AECEnv):
                     "alternative_reference": None, "alternative_no_benefit": False,
                     "quotes": {}}
 
+        # Aksi IRE dibatasi oleh kebutuhan operasional, bukan preferensi
+        # harga model: untuk input 600/500, tepat 500 unit bulan 1 dan 100
+        # bulan 2. Model tetap berjalan pada tahap IRE, tetapi tak dapat
+        # menggeser unit nonmendesak ke bulan 1 pada skenario ini.
         if a == 0:
             self.batches = [new(sc.quantity, 1, sc.urgent_quantity)]
         elif a == 1:
@@ -409,8 +420,8 @@ class ProcurementEnv(AECEnv):
                   cash=self._projected_cash())
         self._after_payment_plan()
 
-    def _finish_revision_request(self, vendor: str) -> None:
-        """SLM menghentikan rencana ketika perubahan input bisnis diperlukan."""
+    def _finish_revision_request(self, vendor: str | None, requester: str = "SLM") -> None:
+        """IRE/SLM menghentikan rencana bila revisi input bisnis diperlukan."""
         diagnosis = self.cash_diagnosis
         proven = bool(diagnosis["infeasible"])
         self.stop_reason = "infeasible_proven" if proven else "revision_requested"
@@ -420,7 +431,7 @@ class ProcurementEnv(AECEnv):
                 if proven else rc["premature_revision"])
         self.rewards = dict.fromkeys(self.agents, team)
         self.violations = violations
-        self._log(agent="SLM", event="revision_request", action="minta_revisi", vendor=vendor,
+        self._log(agent=requester, event="revision_request", action="minta_revisi", vendor=vendor,
                   proven_infeasible=proven, available=diagnosis["available"],
                   lower_bound=diagnosis["lower_bound"], shortfall=diagnosis["shortfall"])
         self._log(agent="ENV", event="diagnosis", total=diagnosis["lower_bound"], cash=[],
@@ -542,7 +553,13 @@ class ProcurementEnv(AECEnv):
             return [True] * ACTION_DIMS[agent]
         sc, b = self.scenario, self.batch
         if agent == "IRE":
-            return [True, sc.urgent_quantity < sc.quantity, True]
+            required = ire_action_for_scenario(sc)
+            # Pada kasus yang masih mungkin layak, IRE wajib menjadwalkan tepat
+            # unit mendesak di bulan 1. Revisi baru boleh diminta jika batas
+            # biaya/kas memang mustahil atau siklus sebelumnya bermasalah.
+            can_request_revision = self.cash_diagnosis["infeasible"] or self.round > 1
+            return [action == required or (action == 3 and can_request_revision)
+                    for action in range(ACTION_DIMS["IRE"])]
         if agent == "VMI":
             mask, _ = self._vendor_mask(b)
             if any(mask):

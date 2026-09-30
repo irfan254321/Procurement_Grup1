@@ -1,5 +1,46 @@
 # Progress proyek
 
+## Penjelasan pilihan vendor pada Proses agen (30 September 2026)
+
+- [x] Koreksi terakhir: empat kartu IRE/VMI/DA/SLM dan kotak pelaku langkah (Vendor atau Evaluator) sekarang langsung di bawah judul langkah. Setelah itu baru alasan pemilihan vendor, penawaran, dan tabel status. AppTest run #6 langkah 39 dan 45 memastikan urutan ini serta 0 exception.
+- [x] Koreksi posisi sesuai gambar pengguna: blok "Mengapa vendor ini dipilih?" sekarang langsung di bawah judul Langkah yang dipilih slider, sebelum tabel Penawaran vendor. AppTest run #6 langkah 45 membuktikan urutan baru, alasan Rp163.800 muncul, dan 0 exception.
+- [x] Posisi tabel perbandingan dipindah ke bawah kartu IRE/VMI/DA/SLM, respons vendor/evaluator, dan ringkasan hasil langkah. Pada run #6 langkah 45, AppTest 0 exception dan alasan selisih batch kedua Rp163.800 tetap tampil.
+- [x] Perbandingan VMI sekarang menampilkan harga penawaran, transport, risiko, total per batch, dan status A/B/C di bawah tabel penawaran. Angka mengikuti langkah yang sedang dibaca, tanpa mengambil keputusan masa depan.
+- [x] Setelah VMI memilih, UI menjelaskan vendor terpilih, biaya alternatif, selisih, rumus total, dan bahwa DA dapat menawar lagi sesudahnya. Jika kebijakan memilih vendor lebih mahal, alasan menyatakan selisih itu secara jujur.
+- [x] Pada run #6 langkah 18, aplikasi menampilkan A Rp9.851.700 dan B Rp9.982.100 untuk 100 unit; A lebih murah Rp130.400. Streamlit AppTest 0 exception, 23 tes proyek lulus.
+
+## Pembagian mendesak sesuai BAB 6 (30 September 2026)
+
+- [x] Pada simulator utama, IRE menjadwalkan tepat `unit_mendesak` pada bulan 1 dan sisa permintaan pada bulan 2. Semua mendesak tetap satu batch bulan 1; tanpa unit mendesak satu batch bulan 2. Permintaan revisi IRE dibuka hanya saat dana terbukti kurang atau setelah siklus pertama gagal.
+- [x] Replay historis BAB 6 mempertahankan tahap awal 1.000 unit Vendor B, lalu usulan 700 B + 300 A; keduanya tetap tidak layak. Ini contoh enam putaran laporan, terpisah dari aturan input umum.
+- [x] IQL dan CTDE v8 masing-masing dilatih ulang 20.000 episode seed 0. Pada 500 skenario evaluasi, konsensus 70,0%/73,2%; permintaan revisi keliru 8,4%/4,4%. Keduanya tetap menolak contoh BAB 6.
+- [x] 22 tes proyek lulus; kasus 600/500 dan 700/100 layak pada seed 0 dengan batch fisik tepat. Kas bulan pertama berbeda karena termin SLM; UI sekarang menjelaskan jadwal pengadaan dekat grafik kas.
+- [x] Evaluasi kualitas 100 skenario terpisah: pembanding menemukan 76 feasible, IQL melewatkan 5 dan CTDE 0. Baseline supervised learning dilatih ulang; angka dan keterbatasannya diperbarui di README. Dua puluh demo dan panduan Markdown/Word telah dibuat ulang.
+- [x] Streamlit AppTest startup dan submit 700/100 tanpa exception; isian 700/100 tetap tersimpan. Struktur tiga DOCX dapat dibaca, dan tabel 20 skenario berisi 20 baris hasil.
+- [x] 35 file disinkronkan ke proyek utama tanpa menimpa SQLite; 22 tes di folder utama lulus dan kedua checkpoint versi 8. SQLite tetap 344.064 byte dengan waktu ubah 06:30:36.
+- [x] ZIP distribusi diperbarui berisi model dan panduan v8, tanpa `.venv` atau database pribadi. Render visual DOCX belum tersedia karena `soffice.exe` tidak ditemukan.
+
+## Identitas ekspor skenario 700/700 dan 700/100 (30 September 2026)
+
+- [x] Dua CSV `2026-09-29T23-29_export*.csv` identik byte demi byte: keduanya ekspor run #4 (700/100), meski database juga memiliki run #3 (700/700).
+- [x] `audit_rows()` sekarang menambahkan `id_skenario`, `jumlah_unit`, dan `unit_mendesak` pada setiap baris; tab Pelaporan menampilkan identitas run tepat di atas jejak. Ini berlaku juga untuk unduhan dari toolbar tabel Streamlit.
+- [x] Tes ekspor diperluas; 20 tes lulus. Riwayat SQLite pengguna tetap utuh.
+
+## Isian Unit mendesak kembali ke 700 (30 September 2026)
+
+- [x] `app.py` memakai key `st.session_state` tetap untuk metode, jumlah, unit mendesak, anggaran, dan seed. `max_value` dinamis pada input mendesak dihapus; validasi `mendesak <= jumlah` tetap dilakukan saat submit.
+- [x] 20 tes proyek lulus. Streamlit AppTest pada salinan proyek: input 700/100 tetap 700/100 setelah submit dan SQLite salinan menyimpan `urgent_quantity=100`; database utama tidak disentuh.
+
+## Dua panduan tambahan versi Word (29 September 2026)
+
+- [x] `docs/ALUR_KODE.docx` dan `docs/20_skenario_uji.docx` dibuat dari sumber Markdown; tabel perbandingan tetap berupa tabel Word. README menautkan kedua format.
+- [x] Struktur kedua DOCX diperiksa. Pratinjau halaman belum dapat dibuat karena LibreOffice tidak tersedia di lingkungan ini.
+
+## Panduan kode versi Word (29 September 2026)
+
+- [x] `docs/PANDUAN_FILE_PYTHON.docx` dibuat dari panduan Markdown dengan 35 entri file, paragraf per modul, alur, sintaks, dan urutan belajar. README menautkan kedua format.
+- [x] Struktur DOCX diperiksa; renderer halaman tidak tersedia karena LibreOffice tidak terpasang, sehingga tampilan visual belum terverifikasi.
+
 ## Komentar pembelajaran dan katalog file Python (29 September 2026)
 
 - [x] Komentar pembuka berbahasa Indonesia ditambahkan pada 35 file Python; komentar rinci dekat logika utama Streamlit, layanan, SQLite, vendor, IQL, CTDE, baseline, dan environment.

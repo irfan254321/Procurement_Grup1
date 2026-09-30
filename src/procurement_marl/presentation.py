@@ -19,7 +19,7 @@ STOP_REASON = {
     "step_limit": "Batas langkah pengaman simulasi tercapai.",
     "single_round_limit": "Evaluasi rencana satu putaran selesai; usulan masih melanggar batasan.",
     "infeasible_proven": "Batas bawah biaya melampaui dana yang tersedia; perubahan termin saja tidak cukup.",
-    "revision_requested": "SLM meminta perubahan pendanaan, jumlah, harga, atau asumsi skenario.",
+    "revision_requested": "Agen meminta perubahan pendanaan, jumlah, harga, atau asumsi skenario.",
 }
 
 

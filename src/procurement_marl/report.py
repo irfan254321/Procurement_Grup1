@@ -29,6 +29,12 @@ class ReportReplayEnv(ProcurementEnv):
     def __init__(self):
         super().__init__(scenario="report")
 
+    def _mask(self, agent: str) -> list[bool]:
+        """Replay tahap historis: proposal awal 1.000, lalu revisi 700/300."""
+        if agent == "IRE" and self.stage_agent() == "IRE":
+            return [self.round == 1, self.round > 1, False, False]
+        return super()._mask(agent)
+
     def _log(self, **entry) -> None:
         if entry.get("event") == "cek_batasan":
             step = 1 if self.round == 1 else 6

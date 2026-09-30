@@ -80,6 +80,6 @@ def run_all() -> list[dict]:
 
 
 if __name__ == "__main__":
-    output = ROOT / "runs" / "demo_scenarios_v7.json"
+    output = ROOT / "runs" / "demo_scenarios_v8.json"
     output.write_text(json.dumps(run_all(), ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"20 skenario selesai: {output}")

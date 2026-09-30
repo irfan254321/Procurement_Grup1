@@ -1,0 +1,27 @@
+{
+  "model_version": 8,
+  "n": 100,
+  "seed_start": 2000,
+  "restricted_benchmark_no_feasible": 24,
+  "benchmark_scope": "satu siklus, DA terima/tawar balik, SLM cepat/jatuh tempo",
+  "results": {
+    "IQL": {
+      "consensus": 71,
+      "feasible_found": 71,
+      "feasible_missed": 5,
+      "better_than_restricted": 0,
+      "consensus_rate": 0.71,
+      "mean_cost_gap_when_both_feasible": 0.0251564605237546,
+      "cost_gap_sample_size": 71
+    },
+    "CTDE": {
+      "consensus": 76,
+      "feasible_found": 76,
+      "feasible_missed": 0,
+      "better_than_restricted": 0,
+      "consensus_rate": 0.76,
+      "mean_cost_gap_when_both_feasible": 0.02370681959111147,
+      "cost_gap_sample_size": 76
+    }
+  }
+}

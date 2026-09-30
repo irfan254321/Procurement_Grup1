@@ -55,6 +55,20 @@ class Scenario:
         return next(v for v in self.vendors if v.name == name)
 
 
+def ire_action_for_scenario(scenario: Scenario) -> int:
+    """Tentukan pembagian kebutuhan sesuai contoh BAB 6.
+
+    0: semua unit mendesak pada bulan 1; 1: tepat kebutuhan mendesak
+    pada bulan 1 dan sisanya bulan 2; 2: tidak ada unit mendesak,
+    sehingga seluruh unit dapat ditempatkan pada bulan 2.
+    """
+    if scenario.urgent_quantity == scenario.quantity:
+        return 0
+    if scenario.urgent_quantity == 0:
+        return 2
+    return 1
+
+
 def _read_yaml(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)

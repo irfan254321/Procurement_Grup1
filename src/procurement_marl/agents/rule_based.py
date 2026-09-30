@@ -20,7 +20,7 @@ class RuleBasedPolicy:
         mask = env.observe(agent)["action_mask"]
         if agent == "IRE":
             wanted = 0 if env.round == 1 else 1
-            return wanted if mask[wanted] else 0
+            return wanted if mask[wanted] else int(mask.argmax())
         if agent == "VMI":
             allowed = [i for i in range(3) if mask[i]]
             used = {b["vendor"] for b in env.batches[:env.batch_idx]}

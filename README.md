@@ -1,8 +1,8 @@
 # Multi-Agent Procurement Simulator
 
-Untuk belajar kode per file, baca [panduan semua file Python](docs/PANDUAN_FILE_PYTHON.md). Komentar berbahasa Indonesia di setiap modul menjelaskan perannya; panduan tersebut menjelaskan sintaks penting dan urutan membaca proyek.
+Untuk belajar kode per file, baca [panduan Word yang mudah dibaca](docs/PANDUAN_FILE_PYTHON.docx) atau [versi Markdown](docs/PANDUAN_FILE_PYTHON.md). Keduanya menjelaskan fungsi setiap modul, sintaks penting, dan urutan membaca proyek.
 
-Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia di [20 skenario uji](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.
+Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia sebagai [dokumen Word 20 skenario uji](docs/20_skenario_uji.docx) dan [versi Markdown](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.
 
 Dashboard Streamlit untuk empat agen **IRE, VMI, DA, SLM** dengan dua pilihan kebijakan yang benar-benar dilatih: **Independent Q-learning (IQL)** dan **CTDE actor-critic**. Vendor A/B/C mempunyai agen negosiasi berbasis utilitas. Setiap vendor yang lolos penyaringan merespons permintaan harga yang sama sebelum VMI memilih pemasok. Penawaran pembeli dan balasan vendor terlihat berdampingan per putaran. DA lalu menerima harga kandidat, menawar lagi, atau meminta vendor alternatif; SLM memeriksa termin dan kas. Vendor tidak menawar di bawah harga minimum masing-masing. Sesuai bagian *Algorithm and AI Integration* pada laporan, proyek juga melatih **Logistic Regression, SVM, Random Forest, dan XGBoost** sebagai baseline supervised learning.
 
@@ -46,33 +46,35 @@ Paket `procurement_marl` berada di folder `src/`. Instalasi editable (`pip insta
 
 Mulai versi 0.10.0, target kas Rp60 juta kembali menjadi **peringatan**, sesuai pilihan pengguna. Rencana dengan kas positif di bawah target dapat berstatus LAYAK jika anggaran, kapasitas, tenggat, dan syarat lain terpenuhi. Kas negatif tetap tidak layak. Pada fixture BAB 6, dana yang tersedia untuk belanja adalah Rp150 juta dikurangi kewajiban lain Rp70 juta, yaitu Rp80 juta; target Rp60 juta dilaporkan terpisah. Run lama tetap tersimpan, tetapi statusnya tidak dinilai ulang otomatis.
 
-Hasil evaluasi model versi 7 setelah 20.000 episode latihan, pada 500 skenario yang sama (seed evaluasi 0–499, seed latihan 0):
+Mulai versi 0.11.0, IRE menjadwalkan tepat `unit mendesak` pada bulan pertama dan sisa permintaan pada bulan kedua. Contoh 600 total / 500 mendesak menghasilkan 500 unit bulan 1 dan 100 unit bulan 2; 700/100 menghasilkan 100 dan 600. Jika seluruh unit mendesak, semuanya masuk bulan pertama. Ini menggeneralisasi usulan 700 sekarang + 300 bulan berikutnya dalam BAB 6. **Bulan pengadaan dan bulan pembayaran berbeda:** SLM dapat memilih bayar cepat, jatuh tempo, atau termin. Karena itu kas akhir bulan pertama tidak selalu naik ketika unit mendesak dikurangi. Lihat jadwal pengadaan dan pembayaran bersama sebelum menafsirkan grafik kas.
+
+Hasil evaluasi model versi 8 setelah 20.000 episode latihan, pada 500 skenario yang sama (seed evaluasi 0–499, seed latihan 0):
 
 | Model | Return tim | Konsensus | Terdeteksi tidak feasible | Minta revisi | Revisi keliru |
 |---|---:|---:|---:|---:|---:|
-| IQL | 17,60 | 71,0% | 20,8% | 20,4% | 0,0% |
-| CTDE | 20,22 | 72,8% | 20,8% | 25,8% | 5,0% |
+| IQL | 19,15 | 70,0% | 20,8% | 29,2% | 8,4% |
+| CTDE | 20,37 | 73,2% | 20,8% | 25,2% | 4,4% |
 
 Sekitar 20% generator latihan sengaja membuat kasus kekurangan dana yang dapat dibuktikan; pada 500 skenario evaluasi angka nyatanya 20,8%. Konsensus dan tidak feasible adalah hasil yang berbeda. Kasus awal BAB 6 tetap ditolak oleh kedua model karena kekurangan dana total, walaupun target kas minimum hanya peringatan.
 
-`scripts/evaluate_quality.py` membandingkan model dengan pencarian seluruh kandidat **satu siklus** yang menggunakan DA terima/tawar balik serta SLM bayar cepat/jatuh tempo. Ini pembanding yang dapat diaudit, bukan bukti optimum global karena revisi termin stokastik dan perbaikan lintas siklus tidak dicakup. Pada 100 skenario terpisah (seed 2000–2099), pembanding menemukan 76 kasus feasible: IQL melewatkan 2, CTDE melewatkan 0. Saat model dan pembanding sama-sama feasible, biaya model rata-rata di atas pembanding sebesar 3,45% (IQL; 74 kasus) dan 2,32% (CTDE; 76 kasus).
+`scripts/evaluate_quality.py` membandingkan model dengan pencarian seluruh kandidat **satu siklus** yang menggunakan DA terima/tawar balik serta SLM bayar cepat/jatuh tempo. Ini pembanding yang dapat diaudit, bukan bukti optimum global karena revisi termin stokastik dan perbaikan lintas siklus tidak dicakup. Pada 100 skenario terpisah (seed 2000–2099), pembanding menemukan 76 kasus feasible: IQL melewatkan 5, CTDE melewatkan 0. Saat model dan pembanding sama-sama feasible, biaya model rata-rata di atas pembanding sebesar 2,52% (IQL; 71 kasus) dan 2,37% (CTDE; 76 kasus). Hasil rinci tersimpan di `runs/quality_v8.json`.
 
-Checkpoint aplikasi memakai seed pelatihan 0. Artefak seed 1 dari versi 6 disimpan sebagai arsip dan **tidak boleh** dipakai dengan aturan versi 7. Angka evaluasi satu seed belum cukup untuk mengklaim optimum global.
+Checkpoint aplikasi memakai seed pelatihan 0. Artefak dari versi sebelumnya tidak boleh dipakai dengan aturan versi 8. Angka evaluasi satu seed belum cukup untuk mengklaim optimum global. Permintaan revisi keliru pada tabel berarti model menghentikan rencana padahal batas bawah dana belum membuktikan mustahil; kondisi ini tetap perlu diperbaiki sebelum penggunaan di luar pembelajaran.
 
 ### Evaluasi baseline supervised learning
 
 Proyek tidak menerima dataset historis perusahaan bersama laporan. Agar bagian algoritma dapat dijalankan tanpa mengaku memakai data riil, `scripts/train_baseline.py` membuat kandidat keputusan dari simulator: **optimal** berarti rencana layak dan biayanya maksimal 3% di atas biaya layak terendah dari kandidat yang dievaluasi pada skenario yang sama. Split 80/20 dilakukan berdasarkan ID skenario, sehingga kandidat dari skenario test tidak muncul di train.
 
-Hasil artefak yang dilatih ulang untuk aturan kas v7, dari 2.180 keputusan pada 199 skenario yang mempunyai kandidat solusi layak:
+Hasil baseline versi 8 berasal dari 1.954 kandidat pada 199 skenario yang mempunyai kandidat layak. Rinciannya ada di `runs/baseline/metrics.json`. Model dilatih pada keputusan dari simulator, bukan pada data pembelian riil.
 
 | Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
 |---|---:|---:|---:|---:|---:|
-| Logistic Regression | 70,9% | 48,6% | **72,5%** | 58,2% | 0,821 |
-| SVM | 78,6% | **65,2%** | 50,0% | 56,6% | 0,840 |
-| Random Forest | 75,3% | 54,5% | 70,8% | 61,6% | 0,835 |
-| XGBoost | **79,7%** | 62,8% | 67,5% | **65,1%** | **0,842** |
+| Logistic Regression | 68,5% | 49,1% | 69,2% | 57,4% | 0,756 |
+| SVM | **70,8%** | **52,6%** | 50,0% | 51,3% | 0,735 |
+| Random Forest | 70,3% | 51,2% | **70,0%** | **59,2%** | 0,780 |
+| XGBoost | **70,8%** | 52,0% | 65,8% | 58,1% | **0,780** |
 
-XGBoost dipakai sebagai pembanding utama karena accuracy, F1, dan ROC-AUC test tertinggi. Logistic Regression mempunyai recall tertinggi, sedangkan SVM mempunyai precision tertinggi. Tabel lengkap serta confusion matrix tetap ditampilkan agar trade-off terlihat. Angka ini hanya berlaku pada data simulasi.
+XGBoost tetap menjadi pembanding utama untuk mengikuti bagian integrasi AI pada laporan dan memiliki ROC-AUC test tertinggi, walau selisihnya dari Random Forest sangat kecil. Accuracy XGBoost seri dengan SVM; F1 dan recall tertinggi justru Random Forest, sedangkan precision tertinggi SVM. Tabel lengkap serta confusion matrix ditampilkan agar perbandingan jujur. Angka ini hanya berlaku pada data simulasi.
 
 ## Penggunaan
 
@@ -93,7 +95,7 @@ Jika DA meminta vendor alternatif tetapi biaya vendor pengganti tidak lebih rend
 
 Konfigurasi vendor aktif disimpan di tabel SQLite `vendor_settings`. Setiap run tetap menyimpan snapshot vendornya sendiri, sehingga mengedit vendor tidak mengubah hasil yang sudah ada. Jumlah vendor tetap tiga agar action space checkpoint IQL dan CTDE tetap cocok. Perubahan nilai yang sangat jauh dari rentang latihan harus diperlakukan sebagai eksperimen terhadap model.
 
-Status hasil dibedakan menjadi **LAYAK**, **PERLU REVISI**, dan **TIDAK FEASIBLE**. Status terakhir hanya dipakai ketika batas bawah biaya sudah melampaui seluruh dana yang tersedia. Penjelasan alur lengkap untuk mahasiswa tersedia di [`docs/ALUR_KODE.md`](docs/ALUR_KODE.md).
+Status hasil dibedakan menjadi **LAYAK**, **PERLU REVISI**, dan **TIDAK FEASIBLE**. Status terakhir hanya dipakai ketika batas bawah biaya sudah melampaui seluruh dana yang tersedia. Penjelasan alur lengkap untuk mahasiswa tersedia sebagai [dokumen Word alur kode](docs/ALUR_KODE.docx) dan [versi Markdown](docs/ALUR_KODE.md).
 
 ## Hubungan dengan laporan
 

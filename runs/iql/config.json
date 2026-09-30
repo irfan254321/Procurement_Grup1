@@ -1,6 +1,6 @@
 {
   "algo": "iql",
-  "model_version": 7,
+  "model_version": 8,
   "episodes": 20000,
   "seed": 0,
   "p_override": null,
@@ -10,9 +10,9 @@
   "eps_end": 0.05,
   "decay_share": 0.7,
   "states": {
-    "IRE": 407,
-    "VMI": 100,
-    "DA": 91,
-    "SLM": 106
+    "IRE": 274,
+    "VMI": 94,
+    "DA": 96,
+    "SLM": 67
   }
 }

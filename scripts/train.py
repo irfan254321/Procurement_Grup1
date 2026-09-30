@@ -28,7 +28,7 @@ from procurement_marl.scenario import sample_scenario
 TRAIN_SEED_OFFSET = 1_000_000
 # Pisahkan seed latihan dari seed evaluasi 0..n-1 agar pengujian tidak
 # sekadar mengulang persis skenario yang dilihat selama pembelajaran.
-MODEL_VERSION = 7
+MODEL_VERSION = 8
 
 
 def quick_eval(policy, n: int = 500, override: float | None = None) -> dict[str, float]:

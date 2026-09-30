@@ -1,0 +1,16 @@
+{
+  "IQL": {
+    "team_return": 19.149945911264567,
+    "consensus": 0.7,
+    "infeasible": 0.208,
+    "revision_request": 0.292,
+    "false_revision": 0.084
+  },
+  "CTDE": {
+    "team_return": 20.372796479400673,
+    "consensus": 0.732,
+    "infeasible": 0.208,
+    "revision_request": 0.252,
+    "false_revision": 0.044
+  }
+}

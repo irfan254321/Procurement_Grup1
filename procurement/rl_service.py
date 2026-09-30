@@ -18,7 +18,7 @@ CHECKPOINTS = {
     "IQL": PROJECT / "runs" / "iql" / "checkpoint.json",
     "CTDE": PROJECT / "runs" / "ctde" / "checkpoint.pt",
 }
-MODEL_VERSION = 7
+MODEL_VERSION = 8
 
 INT_VENDOR_FIELDS = ("list_price", "transport", "risk", "quality", "lead_time", "capacity",
                      "initial_offer", "floor_price", "discount_pct")

@@ -17,11 +17,38 @@ from procurement_marl.env import ProcurementEnv
 from procurement_marl.scenario import cash_diagnosis
 from procurement_marl.evaluate import run_episode
 from procurement.baseline_ml import decision_features
-from procurement.rl_presentation import audit_rows, competition_round_rows
+from procurement.rl_presentation import audit_rows, competition_round_rows, vendor_choice_comparison
 from procurement_marl.vendor_agents import VendorNegotiator
 
 
 class MarlIntegrationTests(unittest.TestCase):
+    def test_ire_follows_report_priority_split(self):
+        """Mendesak adalah batch bulan 1 tepat; sisa baru bulan 2."""
+        cases = (
+            (600, 500, 1, [(500, 1), (100, 2)]),
+            (700, 100, 1, [(100, 1), (600, 2)]),
+            (700, 700, 0, [(700, 1)]),
+            (600, 0, 2, [(600, 2)]),
+        )
+        for quantity, urgent, action, expected in cases:
+            with self.subTest(quantity=quantity, urgent=urgent):
+                env = ProcurementEnv(scenario_from_request(quantity, urgent, 100_000_000))
+                env.reset(seed=0)
+                self.assertEqual(env.observe("IRE")["action_mask"].tolist(),
+                                 [int(index == action) for index in range(4)])
+                env.step(action)
+                self.assertEqual([(b["qty"], b["month"]) for b in env.batches], expected)
+
+    def test_ire_may_request_revision_but_cannot_buy_nonurgent_early(self):
+        """Agen IRE tetap punya keputusan bermakna selain pembagian wajib."""
+        env = ProcurementEnv(scenario_from_request(1000, 700, 100_000_000))
+        env.reset(seed=0)
+        self.assertEqual(env.observe("IRE")["action_mask"].tolist(), [0, 1, 0, 1])
+        env.step(3)
+        self.assertEqual(env.stop_reason, "infeasible_proven")
+        self.assertEqual(env.log[0]["agent"], "IRE")
+        self.assertEqual(env.log[0]["event"], "revision_request")
+
     def test_competition_round_table_serializes_to_arrow(self):
         """Label Awal dan nomor ronde tidak boleh mencampur str/int di Streamlit."""
         import pandas as pd
@@ -36,6 +63,29 @@ class MarlIntegrationTests(unittest.TestCase):
             if rows:
                 self.assertTrue(all(isinstance(row["Putaran"], str) for row in rows))
                 pa.Table.from_pandas(pd.DataFrame(rows), preserve_index=False)
+
+    def test_vendor_comparison_explains_choice_without_future_prices(self):
+        """Alasan VMI memakai harga saat pemilihan, bukan tawaran ulang DA."""
+        scenario = scenario_from_request(700, 100, 100_000_000)
+        env = ProcurementEnv(scenario)
+        env.reset(seed=0)
+        env.step(1)  # Batch pertama tepat 100 unit, kompetisi A/B sudah terjadi.
+        before_choice = len(env.log)
+        rows, message = vendor_choice_comparison(scenario, env.log, before_choice, 1, 0)
+        self.assertIsNone(message)
+        self.assertEqual({row["Vendor"] for row in rows}, {"A", "B", "C"})
+        a = next(row for row in rows if row["Vendor"] == "A")
+        b = next(row for row in rows if row["Vendor"] == "B")
+        self.assertEqual(a["Total pembanding"], 100 * (
+            a["Harga pembanding"] + a["Transport/unit"] + a["Risiko/unit"]))
+        self.assertLess(a["Total pembanding"], b["Total pembanding"])
+        self.assertIsNone(next(row for row in rows if row["Vendor"] == "C")["Total pembanding"])
+
+        env.step(0)  # VMI memilih A; alasan dan selisih baru boleh muncul sekarang.
+        _, message = vendor_choice_comparison(scenario, env.log, len(env.log), 1, 0)
+        self.assertIn("VMI memilih A", message)
+        self.assertIn("lebih murah", message)
+        self.assertIn("sebelum tawar ulang DA", message)
 
     def test_minimum_cash_is_warning_when_balance_stays_positive(self):
         """Target Rp60 juta memberi peringatan, bukan menolak rencana yang likuid."""
@@ -58,8 +108,11 @@ class MarlIntegrationTests(unittest.TestCase):
         rows = audit_rows(
             [{"round": 1, "agent": "ENV", "event": "cek_batasan", "cash": [80, 70, 60, 50],
               "total": 100, "budget_left": 0, "violations": [], "consensus": True}],
-            {"policy": "IQL", "seed": 0, "model": {"model_version": 6}}, 0)
+            {"policy": "IQL", "seed": 0, "quantity": 700, "urgent_quantity": 100,
+             "model": {"model_version": 6}}, 0, run_id=4)
         self.assertEqual([rows[0][f"kas_bulan_{month}"] for month in range(1, 5)], [80, 70, 60, 50])
+        self.assertEqual((rows[0]["id_skenario"], rows[0]["jumlah_unit"], rows[0]["unit_mendesak"]),
+                         (4, 700, 100))
 
     def test_competing_vendors_quote_before_vmi_selects(self):
         """Vendor layak harus menawar lebih dulu, sehingga VMI melihat harga aktual."""
@@ -160,7 +213,7 @@ class MarlIntegrationTests(unittest.TestCase):
     def test_slm_can_request_revision_and_env_proves_cash_shortfall(self):
         env = ProcurementEnv(scenario_from_request(1000, 700, 100_000_000))
         env.reset(seed=0)
-        env.step(0)  # IRE membuat satu batch.
+        env.step(1)  # IRE membagi tepat 700 mendesak dan 300 berikutnya.
         env.step(1)  # VMI memilih vendor B.
         env.step(1)  # DA menawar balik.
         env.step(3)  # SLM meminta perubahan skenario.

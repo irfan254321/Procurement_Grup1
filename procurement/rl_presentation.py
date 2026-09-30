@@ -3,14 +3,20 @@
 from procurement_marl.presentation import REASON, VIOLATION, log_rows, rp
 
 
-def audit_rows(log: list[dict], report: dict, fallback_seed: int) -> list[dict]:
-    """Rakit CSV audit; setiap bulan kas punya kolom tetap untuk semua run."""
+def audit_rows(log: list[dict], report: dict, fallback_seed: int,
+               run_id: int | None = None) -> list[dict]:
+    """Rakit CSV audit lengkap dengan identitas run, input, dan kas empat bulan."""
     model = report.get("model", {})
     rows = []
     for row, raw in zip(log_rows(log), log):
         cash_values = raw.get("cash") or []
         rows.append({
             **row,
+            # Toolbar bawaan st.dataframe memberi nama ekspor berbasis waktu.
+            # Tiga kolom ini memastikan sumber data tetap jelas setelah diunduh.
+            "id_skenario": run_id,
+            "jumlah_unit": report.get("quantity"),
+            "unit_mendesak": report.get("urgent_quantity"),
             "metode": report["policy"],
             "seed_simulasi": report.get("seed", fallback_seed),
             "versi_model": model.get("model_version", "model lama"),
@@ -39,6 +45,82 @@ def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -
                 f"Kita {rp(event['buyer_offer'])} → vendor {rp(event['vendor_offer'])} · "
                 f"{'sepakat' if event['accepted'] else 'lanjut'}")
     return [rows[key] for key in sorted(rows)]
+
+
+def vendor_choice_comparison(scenario, log: list[dict], step: int,
+                             cycle: int, batch: int) -> tuple[list[dict], str | None]:
+    """Bandingkan biaya penawaran yang sudah tampak saat VMI memilih vendor.
+
+    Harga DA setelah pemilihan sengaja tidak dipakai: keputusan VMI dibuat
+    berdasarkan respons kompetisi sebelumnya. Irisan log mencegah tampilan
+    langkah awal membocorkan penawaran atau keputusan dari masa depan.
+    """
+    visible = [item for item in log[:step]
+               if item.get("round") == cycle and item.get("batch") == batch]
+    batches = next((item["batches"] for item in reversed(log[:step])
+                    if item.get("round") == cycle and item.get("agent") == "IRE"
+                    and item.get("batches")), None)
+    if batches is None or batch >= len(batches):
+        return [], None
+    quantity = batches[batch]["qty"]
+    quotes = {item["vendor"]: item for item in visible
+              if item.get("event") == "vendor_quote_ready"}
+    checks = {item["vendor"]: item for item in visible
+              if item.get("event") == "vendor_screening"}
+    selection = next((item for item in reversed(visible)
+                      if item.get("agent") == "VMI" and item.get("vendor")
+                      and item.get("event") is None), None)
+    if not quotes:
+        return [], None
+
+    rows = []
+    for vendor in scenario.vendors:
+        quote = quotes.get(vendor.name)
+        check = checks.get(vendor.name)
+        if quote:
+            total = quantity * (quote["price"] + vendor.transport + vendor.risk)
+            if selection and selection["vendor"] == vendor.name:
+                status = "Dipilih VMI"
+            elif selection and vendor.name in selection.get("masked", {}):
+                status = "Tidak tersedia pada pemilihan ini"
+            else:
+                status = "Dibandingkan"
+        else:
+            total = None
+            labels = {"score": "skor", "capacity": "kapasitas", "deadline": "tenggat",
+                      "not_excluded": "pengecualian"}
+            status = ("Gagal " + ", ".join(labels.get(code, code)
+                                           for code in check.get("failed_checks", []))
+                      if check and not check["passed"] else "Menunggu penawaran")
+        rows.append({"Vendor": vendor.name, "Unit": quantity,
+                     "Harga pembanding": quote["price"] if quote else None,
+                     "Transport/unit": vendor.transport, "Risiko/unit": vendor.risk,
+                     "Total pembanding": total, "Status": status})
+
+    if selection is None:
+        return rows, None
+    chosen = next((row for row in rows if row["Vendor"] == selection["vendor"]), None)
+    alternatives = [row for row in rows if row["Vendor"] != selection["vendor"]
+                    and row["Total pembanding"] is not None
+                    and row["Status"] == "Dibandingkan"]
+    if chosen is None or chosen["Total pembanding"] is None:
+        return rows, f"VMI memilih {selection['vendor']}; biaya pembanding tidak tersedia pada log ini."
+    if not alternatives:
+        return rows, f"VMI memilih {selection['vendor']}; tidak ada kandidat lain dengan penawaran yang dapat dibandingkan."
+    rival = min(alternatives, key=lambda row: row["Total pembanding"])
+    difference = rival["Total pembanding"] - chosen["Total pembanding"]
+    if difference > 0:
+        reason = f"{selection['vendor']} lebih murah {rp(difference)} dari {rival['Vendor']}"
+    elif difference < 0:
+        reason = (f"{selection['vendor']} lebih mahal {rp(-difference)} dari {rival['Vendor']}; "
+                  "pilihan kebijakan ini perlu ditinjau dari skor dan reward")
+    else:
+        reason = f"biayanya sama dengan {rival['Vendor']}"
+    return rows, (f"VMI memilih {selection['vendor']} untuk {quantity} unit. "
+                  f"Biaya pembanding {selection['vendor']} {rp(chosen['Total pembanding'])}, "
+                  f"{rival['Vendor']} {rp(rival['Total pembanding'])}; {reason}. "
+                  "Total = jumlah unit dikalikan (harga penawaran + transport/unit + risiko/unit). "
+                  "Ini harga saat VMI memilih, sebelum tawar ulang DA dan keputusan pembayaran SLM.")
 
 
 def brief_event(event: dict) -> str:
@@ -70,7 +152,7 @@ def brief_event(event: dict) -> str:
         failures = ", ".join(labels.get(x, x) for x in event.get("failed_checks", []))
         return f"Vendor {event['vendor']} gagal pemeriksaan: {failures}."
     if event.get("event") == "revision_request":
-        return (f"SLM meminta revisi: dana tersedia {rp(event['available'])}, sedangkan batas bawah biaya "
+        return (f"{agent} meminta revisi: dana tersedia {rp(event['available'])}, sedangkan batas bawah biaya "
                 f"{rp(event['lower_bound'])}. Kekurangan minimal {rp(event['shortfall'])}.")
     if event.get("event") == "diagnosis":
         return (f"Evaluator membuktikan dana kurang minimal {rp(event['shortfall'])}; "

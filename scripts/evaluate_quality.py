@@ -25,10 +25,14 @@ from procurement_marl.oracle import PlanPolicy
 from procurement_marl.scenario import sample_scenario
 
 
-def plans():
+def plans(scenario):
     """Semua pilihan dengan pembayaran deterministik; tiap batch punya 12 opsi."""
     batch_actions = list(product(range(3), range(2), range(2)))
+    from procurement_marl.scenario import ire_action_for_scenario
+    required = ire_action_for_scenario(scenario)
     for ire, batches in ((0, 1), (1, 2), (2, 1)):
+        if ire != required:
+            continue
         for combo in product(batch_actions, repeat=batches):
             yield (ire, combo)
 
@@ -37,7 +41,7 @@ def cheapest_feasible(scenario, seed: int) -> int | None:
     """Biaya terendah di antara kandidat yang benar-benar lolos pemeriksaan ENV."""
     env = ProcurementEnv(scenario)
     best = None
-    for plan in plans():
+    for plan in plans(scenario):
         result = run_episode(env, PlanPolicy(plan), seed=seed,
                              options={"scenario": scenario}, stop_at_first_check=True)
         if result["consensus"]:
@@ -76,7 +80,7 @@ def evaluate(n: int, start_seed: int, iql_path: Path | None = None,
         summary[name] = row | {"consensus_rate": row["consensus"] / n,
                                "mean_cost_gap_when_both_feasible": sum(gaps) / len(gaps) if gaps else None,
                                "cost_gap_sample_size": len(gaps)}
-    return {"model_version": 7, "n": n, "seed_start": start_seed,
+    return {"model_version": 8, "n": n, "seed_start": start_seed,
             "restricted_benchmark_no_feasible": proven_infeasible,
             "benchmark_scope": "satu siklus, DA terima/tawar balik, SLM cepat/jatuh tempo",
             "results": summary}
@@ -86,7 +90,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--scenarios", type=int, default=100)
     parser.add_argument("--seed-start", type=int, default=2000)
-    parser.add_argument("--out", type=Path, default=ROOT / "runs" / "quality_v6.json")
+    parser.add_argument("--out", type=Path, default=ROOT / "runs" / "quality_v8.json")
     parser.add_argument("--iql", type=Path, default=None)
     parser.add_argument("--ctde", type=Path, default=None)
     args = parser.parse_args()

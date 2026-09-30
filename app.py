@@ -18,7 +18,7 @@ from procurement.rl_service import (CHECKPOINTS, default_vendor_rows, scenario_f
                                     scenario_from_snapshot, simulate, validate_vendor_rows)
 from procurement.rl_storage import (connect, load_events, load_run, load_vendor_settings,
                                     reset_vendor_settings, runs, save_run, save_vendor_settings)
-from procurement.rl_presentation import audit_rows, brief_event
+from procurement.rl_presentation import audit_rows, brief_event, vendor_choice_comparison
 from procurement.baseline_ml import classify_decision, metrics_report
 from procurement.models import Scenario as ReportScenario
 from procurement.simulator import run as report_rule_trace
@@ -133,18 +133,33 @@ active_vendor_rows = load_vendor_settings(db) or default_vendor_rows()
 st.title("Multi-Agent Procurement Simulator")
 st.caption("Empat agen procurement terlatih bernegosiasi dengan agen vendor berbasis utilitas")
 
+# Nilai awal dibuat sekali per sesi. Widget memakai key tetap agar Streamlit
+# mempertahankan perubahan pengguna saat tombol, tab, atau slider memicu rerun.
+for key, default in {
+    "form_policy": "CTDE",
+    "form_quantity": 1000,
+    "form_urgent": 700,
+    "form_budget": 100_000_000,
+    "form_seed": 0,
+}.items():
+    st.session_state.setdefault(key, default)
+
 with st.sidebar:
     st.header("Skenario baru")
     with st.form("new_scenario"):
-        policy_name = st.radio("Metode agen", ["CTDE", "IQL"], horizontal=True)
-        quantity = st.number_input("Jumlah unit", min_value=1, value=1000, step=100)
-        urgent = st.number_input("Unit mendesak", min_value=0, max_value=int(quantity),
-                                 value=min(700, int(quantity)), step=100)
-        budget = st.number_input("Anggaran (Rp)", min_value=1, value=100_000_000, step=1_000_000)
-        seed = st.number_input("Seed simulasi", min_value=0, value=0, step=1,
+        policy_name = st.radio("Metode agen", ["CTDE", "IQL"], horizontal=True, key="form_policy")
+        quantity = st.number_input("Jumlah unit", min_value=1, step=100, key="form_quantity")
+        # max_value yang mengikuti jumlah unit mengubah identitas widget saat
+        # rerun dan dapat mengembalikan isian ke default 700. Hubungan kedua
+        # input diperiksa setelah tombol submit, bukan lewat batas widget.
+        urgent = st.number_input("Unit mendesak", min_value=0, step=100, key="form_urgent")
+        budget = st.number_input("Anggaran (Rp)", min_value=1, step=1_000_000, key="form_budget")
+        seed = st.number_input("Seed simulasi", min_value=0, step=1, key="form_seed",
                                help="Seed sama menghasilkan respons vendor yang dapat diulang.")
         submitted = st.form_submit_button("Buat & jalankan skenario", type="primary")
     st.caption("Tenggat 10 hari, kas awal Rp150 juta, dan kewajiban lain Rp70 juta memakai acuan BAB 6.")
+    st.caption("Unit mendesak adalah jumlah batch bulan pertama; sisanya direncanakan bulan kedua. "
+               "Termin pembayaran dapat jatuh pada bulan yang berbeda.")
     if submitted:
         # Streamlit menjalankan ulang seluruh berkas ketika formulir dikirim.
         # Session state menyimpan id run agar tampilan tetap menunjuk hasil baru.
@@ -187,7 +202,7 @@ with process_tab:
         scenario = scenario_from_snapshot(snapshot)
         log = load_events(db, run_id)
 
-        if report.get("model", {}).get("model_version", 0) != 7:
+        if report.get("model", {}).get("model_version", 0) != 8:
             st.warning("Run arsip memakai versi aturan berbeda; status lama tidak dinilai ulang. "
                        "Jalankan skenario baru untuk melihat hasil versi sekarang.")
 
@@ -222,22 +237,14 @@ with process_tab:
         event = log[step - 1]
         st.subheader(f"Langkah {step} · Siklus {event['round']} · {event.get('reviewer', event['agent'])}")
 
-        # Penawaran ditaruh sebelum kartu agen agar alasan pemilihan mudah dilihat.
+        # Kotak agen dan pelaku langkah tampil langsung sesudah judul langkah.
+        # Setelah pembaca tahu siapa yang sedang bertindak, tabel di bawahnya
+        # memberi rincian harga dan alasan pilihan vendor.
         current_round = event["round"]
         display_batch = event.get("batch")
         if display_batch is None:
             display_batch = next((x["batch"] for x in reversed(log[:step])
                                   if x["round"] == current_round and "batch" in x), 0)
-        st.markdown(f"**Penawaran vendor · batch {display_batch + 1}**")
-        rounds = competition_round_rows(log, step, current_round, display_batch)
-        if rounds:
-            st.dataframe(pd.DataFrame(rounds), hide_index=True, width="stretch")
-            st.caption("Harga per unit. Setiap sel menampilkan tawaran pembeli dan respons vendor pada putaran yang sama.")
-        vendor_rows = vendor_progress_rows(scenario, log, step, current_round)
-        st.dataframe(pd.DataFrame(vendor_rows), hide_index=True, width="stretch")
-
-        # Pernyataan keputusan diletakkan di kartu pelakunya supaya pembaca langsung
-        # melihat siapa yang mengambil keputusan pada langkah rekaman ini.
         message = brief_event(event)
         cards = st.columns(4)
         for card, agent in zip(cards, ("IRE", "VMI", "DA", "SLM")):
@@ -249,8 +256,7 @@ with process_tab:
                 if event["agent"] == agent:
                     st.info("**Keputusan pada langkah ini**\n\n" + message)
 
-        # Vendor mempunyai kebijakan utilitas sendiri, tetapi bukan agen MARL
-        # kelima. Kotak khusus menunjukkan kapan lawan negosiasi sedang berpikir.
+        # Vendor bernegosiasi sebagai lawan, bukan agen MARL pembeli kelima.
         if event["agent"].startswith("VENDOR "):
             with st.container(border=True):
                 st.markdown(f"**{event['agent']} · Agen negosiasi lawan**")
@@ -259,7 +265,7 @@ with process_tab:
                     st.caption(f"Nilai utilitas internal: {event['utility']:.2f}. "
                                "Vendor tidak pernah menawarkan harga di bawah batas minimumnya.")
 
-        # ENV adalah pemeriksa sistem, bukan salah satu dari empat agen pembelajar.
+        # ENV memeriksa rencana, tetapi bukan agen pembelajar tambahan.
         if event["agent"] == "ENV":
             with st.container(border=True):
                 st.markdown("**Evaluator Sistem · Hasil langkah ini**")
@@ -271,6 +277,32 @@ with process_tab:
         elif event.get("event") == "diagnosis":
             st.write(f"Dana tersedia {rp(event['available'])}; batas biaya minimum "
                      f"{rp(event['total'])}; kekurangan {rp(event['shortfall'])}.")
+
+        # Angka pembanding berasal dari penawaran saat VMI memilih, bukan
+        # harga setelah DA menawar lagi. Log dipotong sampai langkah aktif.
+        comparison, choice_reason = vendor_choice_comparison(
+            scenario, log, step, current_round, display_batch)
+        if comparison:
+            st.markdown("**Mengapa vendor ini dipilih?**")
+            st.dataframe(pd.DataFrame([
+                {**row,
+                 "Harga pembanding": rp(row["Harga pembanding"]) if row["Harga pembanding"] is not None else "—",
+                 "Transport/unit": rp(row["Transport/unit"]),
+                 "Risiko/unit": rp(row["Risiko/unit"]),
+                 "Total pembanding": rp(row["Total pembanding"]) if row["Total pembanding"] is not None else "—"}
+                for row in comparison
+            ]), hide_index=True, width="stretch")
+            if choice_reason:
+                st.info(choice_reason)
+            else:
+                st.caption("Penawaran yang sudah masuk. Alasan pilihan tampil setelah VMI memilih vendor.")
+        st.markdown(f"**Penawaran vendor · batch {display_batch + 1}**")
+        rounds = competition_round_rows(log, step, current_round, display_batch)
+        if rounds:
+            st.dataframe(pd.DataFrame(rounds), hide_index=True, width="stretch")
+            st.caption("Harga per unit. Setiap sel menampilkan tawaran pembeli dan respons vendor pada putaran yang sama.")
+        vendor_rows = vendor_progress_rows(scenario, log, step, current_round)
+        st.dataframe(pd.DataFrame(vendor_rows), hide_index=True, width="stretch")
         st.caption("Maju/Mundur membaca jejak keputusan model yang sudah dijalankan; tidak menegosiasikan ulang vendor.")
 
 with report_tab:
@@ -282,7 +314,7 @@ with report_tab:
         log = load_events(db, run_id)
         st.subheader(f"Laporan singkat #{run_id}: {report['status']}")
         model = report.get("model", {})
-        if model.get("model_version", 0) != 7:
+        if model.get("model_version", 0) != 8:
             st.warning("Laporan arsip ini memakai versi aturan berbeda; statusnya tidak dinilai ulang otomatis.")
         total_label = "Batas biaya minimum" if report.get("total_kind") == "batas_bawah" else "Biaya rencana"
         st.write(f"**Metode:** {report['policy']} · **Seed simulasi:** {report.get('seed', saved_run['seed'])} · "
@@ -352,6 +384,16 @@ with report_tab:
                            "mengukur generalisasi pada data simulasi, bukan performa produksi.")
         if report["cash"]:
             st.subheader("Kas akhir per bulan")
+            # Jumlah unit mengikuti keputusan IRE; nominal kas mengikuti
+            # termin SLM. Dua jadwal ini sengaja dijelaskan berdekatan agar
+            # batang grafik tidak disalahartikan sebagai unit yang dikirim.
+            latest_ire = next((item for item in reversed(log)
+                               if item.get("agent") == "IRE" and item.get("batches")), None)
+            if latest_ire:
+                shipment = ", ".join(f"bulan {batch['month']}: {batch['qty']} unit"
+                                     for batch in latest_ire["batches"])
+                st.caption(f"Jadwal pengadaan: {shipment}. Kas mengikuti pilihan bayar SLM; "
+                           "jatuh tempo atau termin dapat memindahkan pembayaran ke bulan berikutnya.")
             cash = pd.DataFrame({"Bulan": range(1, len(report["cash"]) + 1),
                                  "Kas akhir": report["cash"]}).set_index("Bulan")
             st.bar_chart(cash)
@@ -361,8 +403,11 @@ with report_tab:
                 "Nilai": [diagnosis["available"], diagnosis.get("lower_bound", diagnosis.get("total", 0))]
             }, index=["Dana tersedia", "Biaya minimum"])
             st.bar_chart(proof_chart)
-        audit = pd.DataFrame(audit_rows(log, report, saved_run["seed"]))
+        audit = pd.DataFrame(audit_rows(log, report, saved_run["seed"], run_id=run_id))
         with st.expander("Jejak seluruh tahap"):
+            st.caption(f"Skenario #{run_id}: {report['quantity']} unit, "
+                       f"{report['urgent_quantity']} unit mendesak. "
+                       "Identitas ini juga ikut di setiap baris CSV.")
             st.dataframe(audit, hide_index=True, width="stretch")
         if (report["quantity"], report["urgent_quantity"], report["budget"]) == (1000, 700, 100_000_000):
             with st.expander("Pembanding angka BAB 6"):

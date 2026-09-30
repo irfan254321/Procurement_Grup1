@@ -16,7 +16,7 @@ from itertools import product
 
 from .env import ProcurementEnv
 from .evaluate import run_episode
-from .scenario import Scenario, sample_scenario
+from .scenario import Scenario, ire_action_for_scenario, sample_scenario
 
 
 class PlanPolicy:
@@ -36,12 +36,17 @@ class PlanPolicy:
         return wanted if mask[wanted] else int(mask.argmax())
 
 
-def all_plans(deterministic_only: bool = False) -> list[tuple]:
+def all_plans(deterministic_only: bool = False, scenario: Scenario | None = None) -> list[tuple]:
+    """Enumerasi aksi; bila ada skenario, hanya pembagian IRE yang valid."""
     da_options = [0] if deterministic_only else [0, 1]
     slm_options = [0, 1] if deterministic_only else [0, 1, 2]
     per_batch = list(product(range(3), da_options, slm_options))
     plans = []
-    for ire, n_batches in ((0, 1), (1, 2), (2, 1)):
+    choices = ((0, 1), (1, 2), (2, 1))
+    if scenario is not None:
+        required = ire_action_for_scenario(scenario)
+        choices = tuple(pair for pair in choices if pair[0] == required)
+    for ire, n_batches in choices:
         plans += [(ire, combo) for combo in product(per_batch, repeat=n_batches)]
     return plans
 
@@ -49,7 +54,7 @@ def all_plans(deterministic_only: bool = False) -> list[tuple]:
 def is_feasible(scenario: Scenario) -> bool:
     """True if some deterministic plan reaches consensus in round 1."""
     env = ProcurementEnv(scenario=scenario)
-    for plan in all_plans(deterministic_only=True):
+    for plan in all_plans(deterministic_only=True, scenario=scenario):
         result = run_episode(env, PlanPolicy(plan), seed=0, options={"scenario": scenario}, stop_at_first_check=True)
         if result["consensus"]:
             return True
@@ -78,4 +83,5 @@ def expected_return(env: ProcurementEnv, scenario: Scenario, plan: tuple) -> flo
 def best_single_round_plan(scenario: Scenario, env: ProcurementEnv | None = None) -> tuple[float, tuple]:
     """Best expected single-round team return over all plans, and the plan that reaches it."""
     env = env or ProcurementEnv(scenario=scenario)
-    return max(((expected_return(env, scenario, plan), plan) for plan in all_plans()), key=lambda x: x[0])
+    return max(((expected_return(env, scenario, plan), plan)
+                for plan in all_plans(scenario=scenario)), key=lambda x: x[0])
