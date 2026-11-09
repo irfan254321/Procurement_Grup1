@@ -1,5 +1,88 @@
 # Multi-Agent Procurement Simulator
 
+## Dua simulasi dan contoh siap coba
+
+Panel kiri menyediakan **Simulasi MARL** (IQL/CTDE) dan **Simulasi CatBoost**.
+Perusahaan ditampilkan sebagai **PT. Biz Indonesia Market**. Pilih contoh,
+klik **Terapkan contoh**, lalu **Buat & jalankan skenario** untuk mencoba alurnya.
+Ada enam contoh MARL dan lima contoh CatBoost, lengkap dengan hasil pengujian
+di [CONTOH_SIMULASI.md](CONTOH_SIMULASI.md).
+
+Nama vendor menggunakan alias PT fiktif yang konsisten; ID model dan data asli
+tetap dipertahankan. CatBoost mempunyai minimal lima vendor per kategori yang
+tersedia, sedangkan checkpoint MARL mempertahankan tiga slot vendor terlatih.
+
+## Simulasi Penawaran CatBoost (BPI)
+
+Model sudah dilatih ulang. Accuracy Purchase naik menjadi 77,24%, Payment
+62,08%; Price review 94,04% dengan macro-F1 lebih baik. Lihat perbandingan,
+pengendalian overfitting dan batasan di [laporan training ulang](BPI_OFFERS_RETRAINING.md).
+Panel **Hasil transaksi perusahaan yang sudah dibayar** menampilkan bukti
+pelunasan historis, tanggal invoice/pembayaran dan perbandingan prediksi.
+
+Mode **Simulasi CatBoost** memakai tiga model yang telah dilatih
+dari BPI untuk saran lanjut/tinjau pembelian, indikasi revisi harga dan kelompok
+jeda pembayaran. Pilih konteks pembelian, edit nilai penawaran vendor, lalu klik
+**Buat & jalankan skenario**. Tahap IRE/VMI/DA/SLM dan ringkasannya dapat ditelusuri.
+
+Label merupakan pendekatan hasil transaksi; tidak menyediakan nominal tawar
+balik atau termin kontrak asli. Accuracy awal Purchase 69,64%, Price review 95,89%,
+Payment 55,74%. Dua tugas pertama belum melewati baseline mayoritas pada accuracy.
+Rincian label, keterbatasan, sumber dan reproduksi tersedia di
+[BPI_OFFERS_MODEL_CARD.md](BPI_OFFERS_MODEL_CARD.md).
+
+```powershell
+python -m pip install -r requirements.txt
+python -m streamlit run app.py
+# Training ulang memerlukan sumber BPI yang sudah diimpor:
+python scripts/train_bpi_offers.py
+python scripts/check_bpi_offers.py
+```
+
+Model dan katalog yang disertakan dapat dipakai langsung setelah clone. Dataset
+training lokal dan audit simulasi disimpan sebagai database SQLite, dikecualikan
+dari Git. Tidak perlu training ulang setiap membuka aplikasi.
+
+## Upgrade: CatBoost dari BPI Challenge 2019
+
+Mode **CatBoost BPI 2019**: model yang benar-benar dilatih
+dari aktivitas procurement historis. Pilih kasus dari data uji, tentukan berapa
+event yang telah diamati, lalu lihat prediksi aktivitas berikutnya dan pembanding
+kejadian aktual. Ini bukan klaim empat kebijakan IRE/VMI/DA/SLM sudah diganti:
+label aksi simulator lama tidak tersedia langsung pada BPI. Penjelasan sumber,
+label, pembagian data, dan batasan ada di [BPI_MODEL_CARD.md](BPI_MODEL_CARD.md).
+
+Untuk mode BPI saja, dari folder proyek pada Windows:
+
+```powershell
+py -3.14 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-bpi.txt
+.\.venv\Scripts\python.exe scripts/prepare_bpi.py
+.\.venv\Scripts\python.exe -m streamlit run app.py
+```
+
+Impor pertama mengunduh sekitar 729 MB dari 4TU dan membuat database SQLite lokal.
+Model yang disertakan beserta manifest-nya didaftarkan otomatis saat impor;
+tidak perlu melatih ulang setiap membuka aplikasi. Jika model belum ada atau
+ingin mengulang eksperimen:
+
+```powershell
+.\.venv\Scripts\python.exe scripts/train_bpi.py
+.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_bpi*.py" -v
+```
+
+Pada macOS/Linux gunakan Python 3.14 dan `.venv/bin/python` sebagai pengganti
+interpreter Windows. CatBoost dipasang melalui wheel 1.2.10 yang mendukung
+Python 3.14. Gunakan `requirements.txt` untuk sekaligus memasang dependensi
+simulator MARL. Menu **Simulasi MARL** mempertahankan alur sebelumnya.
+
+Database baru menyimpan dataset, event, riwayat training, partisi transaksi, dan
+audit prediksi. Data mentah dan database tidak masuk Git; skrip impor disediakan
+agar pengguna clone dapat membangunnya kembali. Angka pengujian aktual berada
+di `runs/bpi_catboost/metrics.json`; belum ada perbandingan Decision Tree/SVM.
+
+## Simulator MARL sebelumnya
+
 Untuk belajar kode per file, baca [panduan Word yang mudah dibaca](docs/PANDUAN_FILE_PYTHON.docx) atau [versi Markdown](docs/PANDUAN_FILE_PYTHON.md). Keduanya menjelaskan fungsi setiap modul, sintaks penting, dan urutan membaca proyek.
 
 Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia sebagai [dokumen Word 20 skenario uji](docs/20_skenario_uji.docx) dan [versi Markdown](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.

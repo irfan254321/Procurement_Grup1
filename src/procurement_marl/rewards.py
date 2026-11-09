@@ -1,4 +1,4 @@
-# PANDUAN MAHASISWA: Mendefinisikan reward masing-masing agen dan tujuan tim selama pelatihan.
+ # PANDUAN MAHASISWA: Mendefinisikan reward masing-masing agen dan tujuan tim selama pelatihan.
 """Pure reward functions. Our own design, not from the report (see DECISIONS.md)."""
 
 from __future__ import annotations

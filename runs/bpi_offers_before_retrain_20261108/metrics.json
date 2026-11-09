@@ -1,0 +1,279 @@
+{
+  "task_version": 1,
+  "source_sha256": "af63bc687fc4152f2123b05c3af7772b37ef3fce2d3f67f812666c9e356baae7",
+  "source": "https://data.4tu.nl/datasets/35ed7122-966a-484e-a0e1-749b64e3366d",
+  "seed": 42,
+  "features": [
+    "company",
+    "vendor",
+    "spend_area",
+    "sub_spend_area",
+    "item_type",
+    "document_type",
+    "initial_po_value",
+    "month",
+    "weekday"
+  ],
+  "categorical_features": [
+    "company",
+    "vendor",
+    "spend_area",
+    "sub_spend_area",
+    "item_type",
+    "document_type"
+  ],
+  "split": {
+    "method": "Chronological by Purchasing Document; boundary-spanning documents excluded",
+    "cutoff_validation": "2018-09-03T22:00:00+00:00",
+    "cutoff_test": "2018-10-28T23:00:00+00:00",
+    "documents_total": 76349,
+    "documents_excluded_cross_boundary": 27430,
+    "documents_eligible": {
+      "train": 34948,
+      "validation": 2359,
+      "test": 11612
+    }
+  },
+  "extraction": {
+    "all_cases": 251734,
+    "purchase_eligible_full_source": 191278,
+    "price_review_eligible_full_source": 183378,
+    "payment_eligible_full_source": 172181,
+    "invalid_initial_value": 16385
+  },
+  "semantics": {
+    "purchase": {
+      "1": "Pelunasan tercatat tanpa penghapusan item",
+      "0": "Penghapusan tanpa pelunasan, tanpa reaktivasi sesudahnya"
+    },
+    "price_review": {
+      "1": "Change Price setelah PO dibuat",
+      "0": "Tidak teramati pada PO yang dibayar"
+    },
+    "payment": {
+      "0": "0–7 hari",
+      "1": ">7–30 hari",
+      "2": ">30 hari"
+    }
+  },
+  "models": {
+    "purchase": {
+      "label_description": "Pelunasan vs penghapusan PO",
+      "counts": {
+        "train": 30000,
+        "validation": 2283,
+        "test": 8239
+      },
+      "label_counts": {
+        "train": {
+          "1": 28668,
+          "0": 1332
+        },
+        "validation": {
+          "1": 1801,
+          "0": 482
+        },
+        "test": {
+          "1": 7318,
+          "0": 921
+        }
+      },
+      "accuracy": 0.6964437431727152,
+      "macro_f1": 0.5858189286202363,
+      "baseline_accuracy": 0.8882145891491686,
+      "classification_report": {
+        "0": {
+          "precision": 0.24183006535947713,
+          "recall": 0.8034744842562432,
+          "f1-score": 0.37176588796784726,
+          "support": 921.0
+        },
+        "1": {
+          "precision": 0.9650511681791851,
+          "recall": 0.6829734900245968,
+          "f1-score": 0.7998719692726254,
+          "support": 7318.0
+        },
+        "accuracy": 0.6964437431727152,
+        "macro avg": {
+          "precision": 0.6034406167693311,
+          "recall": 0.74322398714042,
+          "f1-score": 0.5858189286202363,
+          "support": 8239.0
+        },
+        "weighted avg": {
+          "precision": 0.8842056000644927,
+          "recall": 0.6964437431727152,
+          "f1-score": 0.7520159550862313,
+          "support": 8239.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          740,
+          181
+        ],
+        [
+          2320,
+          4998
+        ]
+      ],
+      "trees": 150,
+      "sha256": "e7416fd44b1f01d33ad6a7a521ff1bf5f5fd60eb799393e1a833db1082fac6d9"
+    },
+    "price_review": {
+      "label_description": "Revisi harga tercatat",
+      "counts": {
+        "train": 30000,
+        "validation": 1801,
+        "test": 7318
+      },
+      "label_counts": {
+        "train": {
+          "0": 28645,
+          "1": 1355
+        },
+        "validation": {
+          "0": 1765,
+          "1": 36
+        },
+        "test": {
+          "0": 7083,
+          "1": 235
+        }
+      },
+      "accuracy": 0.9588685433178464,
+      "macro_f1": 0.540222529058087,
+      "baseline_accuracy": 0.9678874009292157,
+      "classification_report": {
+        "0": {
+          "precision": 0.9697977279024661,
+          "recall": 0.988281801496541,
+          "f1-score": 0.9789525208027411,
+          "support": 7083.0
+        },
+        "1": {
+          "precision": 0.17,
+          "recall": 0.07234042553191489,
+          "f1-score": 0.10149253731343283,
+          "support": 235.0
+        },
+        "accuracy": 0.9588685433178464,
+        "macro avg": {
+          "precision": 0.569898863951233,
+          "recall": 0.530311113514228,
+          "f1-score": 0.540222529058087,
+          "support": 7318.0
+        },
+        "weighted avg": {
+          "precision": 0.94411414412861,
+          "recall": 0.9588685433178464,
+          "f1-score": 0.9507750001522918,
+          "support": 7318.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          7000,
+          83
+        ],
+        [
+          218,
+          17
+        ]
+      ],
+      "trees": 147,
+      "sha256": "54d120f3b690424dd8571456795c818fa6db6df4c844cdbed266ff5f18555d0c"
+    },
+    "payment": {
+      "label_description": "Kelompok jeda pembayaran",
+      "counts": {
+        "train": 30000,
+        "validation": 1732,
+        "test": 6923
+      },
+      "label_counts": {
+        "train": {
+          "2": 18608,
+          "1": 10226,
+          "0": 1166
+        },
+        "validation": {
+          "1": 1419,
+          "2": 216,
+          "0": 97
+        },
+        "test": {
+          "1": 3777,
+          "2": 2711,
+          "0": 435
+        }
+      },
+      "accuracy": 0.5574173046367182,
+      "macro_f1": 0.42602240867989744,
+      "baseline_accuracy": 0.39159323992488804,
+      "classification_report": {
+        "0": {
+          "precision": 0.18275862068965518,
+          "recall": 0.24367816091954023,
+          "f1-score": 0.20886699507389161,
+          "support": 435.0
+        },
+        "1": {
+          "precision": 0.5783297477019362,
+          "recall": 0.7828964786867885,
+          "f1-score": 0.6652418447694038,
+          "support": 3777.0
+        },
+        "2": {
+          "precision": 0.6471544715447154,
+          "recall": 0.2936185909258576,
+          "f1-score": 0.40395838619639685,
+          "support": 2711.0
+        },
+        "accuracy": 0.5574173046367182,
+        "macro avg": {
+          "precision": 0.4694142799787689,
+          "recall": 0.44006441017739545,
+          "f1-score": 0.42602240867989744,
+          "support": 6923.0
+        },
+        "weighted avg": {
+          "precision": 0.5804257156475425,
+          "recall": 0.5574173046367182,
+          "f1-score": 0.5342491370113552,
+          "support": 6923.0
+        }
+      },
+      "confusion_matrix": [
+        [
+          106,
+          303,
+          26
+        ],
+        [
+          412,
+          2957,
+          408
+        ],
+        [
+          62,
+          1853,
+          796
+        ]
+      ],
+      "trees": 146,
+      "sha256": "06ea77f0eec634918b5d126229727c5d0da9bb50dc6c9fbd61f002e61c266f66"
+    }
+  },
+  "limitations": [
+    "Label merupakan pendekatan hasil transaksi BPI, bukan penerimaan tawaran asli.",
+    "Tidak ada nominal tawar balik, tenggat kontrak, cicilan, atau jaminan vendor paling optimal.",
+    "Prediksi pada awal PO menggunakan snapshot kategori/vendor sebagai konteks yang diasumsikan diketahui.",
+    "Nilai PO anonim, bukan harga per unit atau rupiah. Tidak ada unit mendesak pada sumber.",
+    "Penghapusan dipakai sebagai label negatif usulan; alasan penolakan bisnis tidak tersedia.",
+    "Kasus lintas cutoff dikeluarkan, sehingga kasus panjang/kompleks kurang terwakili.",
+    "Skor model bukan tingkat persetujuan perusahaan atau probabilitas kausal.",
+    "Pemilihan kandidat vendor mengikuti kategori historis; kesetaraan spesifikasi barang tidak dapat dibuktikan."
+  ]
+}

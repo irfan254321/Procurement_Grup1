@@ -1,0 +1,178 @@
+{
+  "status": "PENDING_USER_APPROVAL",
+  "source": {
+    "id": 1,
+    "source": "https://data.4tu.nl/datasets/35ed7122-966a-484e-a0e1-749b64e3366d",
+    "doi": "10.4121/uuid:d06aff4b-79f0-45e6-8ec8-e19730c248f1",
+    "license": "CC BY 4.0",
+    "sha256": "af63bc687fc4152f2123b05c3af7772b37ef3fce2d3f67f812666c9e356baae7",
+    "md5": "4eb909242351193a61e1c15b9c3cc814",
+    "cases": 251734,
+    "events": 1595923,
+    "imported_at": "2026-11-07 15:01:14"
+  },
+  "counts": {
+    "cases": 251734,
+    "events": 1595923,
+    "vendor_transactions": 251734,
+    "payment_behavior_cases": 172197,
+    "payment_over_7_to_30_days": 56604,
+    "payment_over_30_days": 108124,
+    "payment_within_7_days": 7469,
+    "complex_invoice_cases_excluded": 10530,
+    "price_revision_events": 12423,
+    "price_value_unchanged": 12416,
+    "invoice_without_clear_observed": 28086,
+    "quantity_revision_cases": 17590,
+    "price_value_decrease": 7,
+    "payment_invalid_order_excluded": 4,
+    "payment_term_change_events": 7
+  },
+  "unique_vendors": 1975,
+  "broad_category_groups_with_multiple_historical_vendors": 189,
+  "rules": {
+    "status": "PENDING_USER_APPROVAL",
+    "payment_days_thresholds_proposed": [
+      7,
+      30
+    ],
+    "payment_cohort": "exactly one invoice receipt + one clear, no cancellations/debit/subsequent/currency change, valid time order",
+    "vendor": "chosen vendor and PO item value are transaction proxies; not tender offers",
+    "price": "Change Price occurrence is observed; price counteroffers and acceptance absent",
+    "training": "No new model trained; these are draft proxy labels, not the old simulator action ground truth"
+  },
+  "examples": {
+    "vendor": [
+      {
+        "case_id": "2000000000_00001",
+        "vendor": "vendorID_0000",
+        "category": "Facility Management",
+        "observed_po_value": 298.0
+      },
+      {
+        "case_id": "2000000001_00001",
+        "vendor": "vendorID_0001",
+        "category": "Marketing Support Services",
+        "observed_po_value": 557.0
+      },
+      {
+        "case_id": "2000000002_00001",
+        "vendor": "vendorID_0002",
+        "category": "Digital Marketing",
+        "observed_po_value": 76210.0
+      },
+      {
+        "case_id": "2000000003_00001",
+        "vendor": "vendorID_0003",
+        "category": "Office Supplies",
+        "observed_po_value": 28.0
+      }
+    ],
+    "price_revision": [
+      {
+        "case_id": "2000000010_00001",
+        "event_index": 20,
+        "before": 1668264.0,
+        "after": 1668264.0,
+        "direction": "unchanged"
+      },
+      {
+        "case_id": "2000000010_00001",
+        "event_index": 32,
+        "before": 1668264.0,
+        "after": 1668264.0,
+        "direction": "unchanged"
+      },
+      {
+        "case_id": "2000000015_00001",
+        "event_index": 43,
+        "before": 457836.0,
+        "after": 457836.0,
+        "direction": "unchanged"
+      },
+      {
+        "case_id": "2000000016_00001",
+        "event_index": 61,
+        "before": 405009.0,
+        "after": 405009.0,
+        "direction": "unchanged"
+      }
+    ],
+    "payment_behavior": [
+      {
+        "case_id": "2000000000_00001",
+        "elapsed_days": 23.22,
+        "proposed_label": "over_7_to_30_days"
+      },
+      {
+        "case_id": "2000000001_00001",
+        "elapsed_days": 50.9,
+        "proposed_label": "over_30_days"
+      },
+      {
+        "case_id": "2000000002_00001",
+        "elapsed_days": 0.1,
+        "proposed_label": "within_7_days"
+      },
+      {
+        "case_id": "2000000003_00001",
+        "elapsed_days": 23.85,
+        "proposed_label": "over_7_to_30_days"
+      },
+      {
+        "case_id": "2000000003_00002",
+        "elapsed_days": 23.85,
+        "proposed_label": "over_7_to_30_days"
+      },
+      {
+        "case_id": "2000000003_00003",
+        "elapsed_days": 23.85,
+        "proposed_label": "over_7_to_30_days"
+      }
+    ],
+    "payment_term_change": [
+      {
+        "case_id": "4507017460_00010",
+        "event_index": 2,
+        "timestamp": "2018-03-19T17:22:00+00:00",
+        "vendor": "vendorID_0134"
+      },
+      {
+        "case_id": "4507017460_00020",
+        "event_index": 2,
+        "timestamp": "2018-03-19T17:22:00+00:00",
+        "vendor": "vendorID_0134"
+      },
+      {
+        "case_id": "4508046195_00010",
+        "event_index": 1,
+        "timestamp": "2018-07-30T11:41:00+00:00",
+        "vendor": "vendorID_0092"
+      },
+      {
+        "case_id": "4508049973_00010",
+        "event_index": 2,
+        "timestamp": "2018-08-22T09:15:00+00:00",
+        "vendor": "vendorID_0393"
+      },
+      {
+        "case_id": "4508056597_00010",
+        "event_index": 3,
+        "timestamp": "2018-09-20T12:59:00+00:00",
+        "vendor": "vendorID_0393"
+      },
+      {
+        "case_id": "4508060381_00010",
+        "event_index": 2,
+        "timestamp": "2018-10-11T14:50:00+00:00",
+        "vendor": "vendorID_0200"
+      },
+      {
+        "case_id": "4508060381_00020",
+        "event_index": 1,
+        "timestamp": "2018-10-11T14:50:00+00:00",
+        "vendor": "vendorID_0200"
+      }
+    ]
+  }
+}

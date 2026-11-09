@@ -1,0 +1,232 @@
+[
+  {
+    "mode": "MARL",
+    "example": "1. Pembelian ringan",
+    "method": "IQL",
+    "input": {
+      "quantity": 500,
+      "urgent": 50,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Telusuri pembagian pesanan dan hasil kelayakan."
+    },
+    "result": "LAYAK",
+    "cost": 49007850,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "1. Pembelian ringan",
+    "method": "CTDE",
+    "input": {
+      "quantity": 500,
+      "urgent": 50,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Telusuri pembagian pesanan dan hasil kelayakan."
+    },
+    "result": "LAYAK",
+    "cost": 48892000,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "2. Semua unit mendesak",
+    "method": "IQL",
+    "input": {
+      "quantity": 700,
+      "urgent": 700,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Bandingkan satu batch dengan pesanan yang dibagi."
+    },
+    "result": "LAYAK",
+    "cost": 68892600,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "2. Semua unit mendesak",
+    "method": "CTDE",
+    "input": {
+      "quantity": 700,
+      "urgent": 700,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Bandingkan satu batch dengan pesanan yang dibagi."
+    },
+    "result": "LAYAK",
+    "cost": 68637800,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "3. Anggaran ketat",
+    "method": "IQL",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 55000000,
+      "seed": 0,
+      "goal": "Lihat respons agen ketika anggaran lebih ketat."
+    },
+    "result": "PERLU REVISI",
+    "cost": 58062000,
+    "stop_reason": "revision_requested"
+  },
+  {
+    "mode": "MARL",
+    "example": "3. Anggaran ketat",
+    "method": "CTDE",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 55000000,
+      "seed": 0,
+      "goal": "Lihat respons agen ketika anggaran lebih ketat."
+    },
+    "result": "PERLU REVISI",
+    "cost": 58631214,
+    "stop_reason": "cycle_limit"
+  },
+  {
+    "mode": "MARL",
+    "example": "4. Kekurangan dana acuan laporan",
+    "method": "IQL",
+    "input": {
+      "quantity": 1000,
+      "urgent": 700,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Lihat diagnosis kekurangan dana dan permintaan revisi."
+    },
+    "result": "TIDAK FEASIBLE",
+    "cost": 96770000,
+    "stop_reason": "infeasible_proven"
+  },
+  {
+    "mode": "MARL",
+    "example": "4. Kekurangan dana acuan laporan",
+    "method": "CTDE",
+    "input": {
+      "quantity": 1000,
+      "urgent": 700,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Lihat diagnosis kekurangan dana dan permintaan revisi."
+    },
+    "result": "TIDAK FEASIBLE",
+    "cost": 96770000,
+    "stop_reason": "infeasible_proven"
+  },
+  {
+    "mode": "MARL",
+    "example": "5. Bandingkan IQL dengan CTDE",
+    "method": "IQL",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Jalankan input sama dengan IQL dan CTDE."
+    },
+    "result": "LAYAK",
+    "cost": 58828600,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "5. Bandingkan IQL dengan CTDE",
+    "method": "CTDE",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 100000000,
+      "seed": 0,
+      "goal": "Jalankan input sama dengan IQL dan CTDE."
+    },
+    "result": "LAYAK",
+    "cost": 58685000,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "6. Respons vendor dengan seed berbeda",
+    "method": "IQL",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 100000000,
+      "seed": 7,
+      "goal": "Bandingkan dengan seed 0; pilihan model dan respons vendor dapat berbeda."
+    },
+    "result": "LAYAK",
+    "cost": 58828600,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "MARL",
+    "example": "6. Respons vendor dengan seed berbeda",
+    "method": "CTDE",
+    "input": {
+      "quantity": 600,
+      "urgent": 100,
+      "budget": 100000000,
+      "seed": 7,
+      "goal": "Bandingkan dengan seed 0; pilihan model dan respons vendor dapat berbeda."
+    },
+    "result": "LAYAK",
+    "cost": 58685000,
+    "stop_reason": "consensus"
+  },
+  {
+    "mode": "CatBoost",
+    "example": "1. Kantor — anggaran longgar",
+    "context": "Enterprise Services | Office Supplies | Standard | Standard PO",
+    "date": "2018-09-01",
+    "budget": 23561.25,
+    "vendor_count": 5,
+    "result": "LANJUTKAN KE REVIEW PEMBELIAN",
+    "vendor": "PT. Griya Lestari"
+  },
+  {
+    "mode": "CatBoost",
+    "example": "2. Kantor — semua melewati anggaran",
+    "context": "Enterprise Services | Office Supplies | Standard | Standard PO",
+    "date": "2018-09-01",
+    "budget": 0.01,
+    "vendor_count": 5,
+    "result": "SEMUA PENAWARAN MELEBIHI ANGGARAN",
+    "vendor": null
+  },
+  {
+    "mode": "CatBoost",
+    "example": "3. Perangkat IT",
+    "context": "Enterprise Services | ICT Hardware | Standard | Standard PO",
+    "date": "2018-09-01",
+    "budget": 68848.75,
+    "vendor_count": 5,
+    "result": "TINJAU ULANG PENAWARAN",
+    "vendor": "PT. Anugerah Gemilang"
+  },
+  {
+    "mode": "CatBoost",
+    "example": "4. Kemasan",
+    "context": "Packaging | Packaging - Other | Standard | Standard PO",
+    "date": "2018-09-01",
+    "budget": 7797.5,
+    "vendor_count": 5,
+    "result": "TINJAU ULANG PENAWARAN",
+    "vendor": "PT. Adiwangsa Mulya"
+  },
+  {
+    "mode": "CatBoost",
+    "example": "5. Fasilitas — anggaran menengah",
+    "context": "CAPEX & SOCS | Facility Management | Standard | Standard PO",
+    "date": "2018-09-01",
+    "budget": 559.0,
+    "vendor_count": 5,
+    "result": "LANJUTKAN KE REVIEW PEMBELIAN",
+    "vendor": "PT. Lentera Berkah"
+  }
+]

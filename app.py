@@ -1,6 +1,6 @@
 # PANDUAN MAHASISWA: Titik masuk Streamlit: formulir membuat skenario, tab membaca event tersimpan, dan laporan menampilkan hasil akhir.
 # Satu rerun Streamlit mengeksekusi berkas dari atas; session_state mempertahankan pilihan saat tombol/slider berubah.
-"""Dashboard dua kebijakan MARL: jalankan episode, lalu telusuri jejak agen."""
+"""Dashboard CatBoost BPI dan simulator MARL; keduanya memiliki label berbeda."""
 import json
 import sys
 from dataclasses import asdict
@@ -13,6 +13,16 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import pandas as pd
 import streamlit as st
+
+st.set_page_config(page_title="PT. Biz Indonesia Market", layout="wide")
+mode=st.sidebar.radio('Pilih simulasi',['Simulasi MARL','Simulasi CatBoost'],key='simulation_mode')
+if mode=='Simulasi CatBoost':
+    from procurement.bpi_offer_ui import render_offer_page
+    render_offer_page()
+    st.stop()
+from procurement.vendor_display import NamedStreamlit
+from procurement.simulation_examples import MARL_EXAMPLES
+st=NamedStreamlit(st)
 
 from procurement.rl_service import (CHECKPOINTS, default_vendor_rows, scenario_from_request,
                                     scenario_from_snapshot, simulate, validate_vendor_rows)
@@ -125,13 +135,13 @@ def competition_round_rows(log: list[dict], step: int, cycle: int, batch: int) -
     return [rows[key] for key in sorted(rows)]
 
 
-st.set_page_config(page_title="MARL Procurement", layout="wide")
 # connect membuat tabel bila belum ada. Database hanya menyimpan simulasi,
 # bukan melakukan pembelian atau mengirim pembayaran ke sistem eksternal.
 db = connect(ROOT / "data" / "procurement.sqlite3")
 active_vendor_rows = load_vendor_settings(db) or default_vendor_rows()
-st.title("Multi-Agent Procurement Simulator")
+st.title("PT. Biz Indonesia Market")
 st.caption("Empat agen procurement terlatih bernegosiasi dengan agen vendor berbasis utilitas")
+st.caption('Simulasi MARL · IQL / CTDE · nama PT vendor merupakan alias simulasi yang konsisten.')
 
 # Nilai awal dibuat sekali per sesi. Widget memakai key tetap agar Streamlit
 # mempertahankan perubahan pengguna saat tombol, tab, atau slider memicu rerun.
@@ -145,6 +155,15 @@ for key, default in {
     st.session_state.setdefault(key, default)
 
 with st.sidebar:
+    st.header('Contoh simulasi MARL')
+    example=st.selectbox('Pilih contoh',list(MARL_EXAMPLES),key='marl_example')
+    st.caption(MARL_EXAMPLES[example]['goal'])
+    if st.button('Terapkan contoh MARL',key='apply_marl_example'):
+        preset=MARL_EXAMPLES[example]
+        for field,value in [('form_quantity',preset['quantity']),('form_urgent',preset['urgent']),
+                            ('form_budget',preset['budget']),('form_seed',preset['seed'])]:
+            st.session_state[field]=value
+    st.caption('Setelah diterapkan, pilih IQL/CTDE dan klik Buat & jalankan skenario. Contoh memakai konfigurasi vendor aktif.')
     st.header("Skenario baru")
     with st.form("new_scenario"):
         policy_name = st.radio("Metode agen", ["CTDE", "IQL"], horizontal=True, key="form_policy")
@@ -222,7 +241,7 @@ with process_tab:
         d.metric("Batas biaya minimum" if report.get("total_kind") == "batas_bawah" else "Biaya rencana",
                  rp(report["total"]))
 
-        if st.session_state.get("view_run") != run_id:
+        if st.session_state.get("view_run") != run_id or "view_step" not in st.session_state:
             st.session_state["view_run"] = run_id
             st.session_state["view_step"] = 1
         st.session_state["view_step"] = min(st.session_state["view_step"], len(log))
