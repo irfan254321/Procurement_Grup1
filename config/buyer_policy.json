@@ -1,0 +1,11 @@
+{
+  "company": "PT. Biz Indonesia Market",
+  "description": "Kebijakan pembeli untuk simulasi PT. Biz Indonesia Market. Hanya penawaran yang memenuhi anggaran, kapasitas, modal kerja vendor, tenggat kirim, dan batas termin yang bisa masuk peringkat.",
+  "weights": {"price": 45, "delivery": 20, "quality": 20, "risk": 15},
+  "criteria": {
+    "price": "Harga akhir yang lebih rendah mendapat nilai lebih tinggi.",
+    "delivery": "Waktu kirim yang lebih singkat mendapat nilai lebih tinggi.",
+    "quality": "Skor kualitas vendor yang lebih baik mendapat nilai lebih tinggi.",
+    "risk": "Risiko yang lebih rendah mendapat nilai lebih tinggi; VMI memberi sinyal tambahan."
+  }
+}

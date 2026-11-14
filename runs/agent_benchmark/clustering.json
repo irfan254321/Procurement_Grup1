@@ -1,0 +1,147 @@
+{
+  "IRE": {
+    "MiniBatch K-means": {
+      "validation_silhouette": 0.4188724547052352,
+      "test_silhouette": 0.39272025308612873,
+      "test_sizes": {
+        "3": 4017,
+        "2": 2293,
+        "4": 528,
+        "1": 449,
+        "0": 31
+      },
+      "ari_proxy_test": 0.011119674763061162
+    },
+    "Gaussian mixture": {
+      "validation_silhouette": 0.2318185066858331,
+      "test_silhouette": 0.20557390377904505,
+      "test_sizes": {
+        "4": 6365,
+        "1": 902,
+        "0": 51
+      },
+      "ari_proxy_test": 0.053322527659081555
+    },
+    "BIRCH": {
+      "validation_silhouette": 0.4078374297676267,
+      "test_silhouette": 0.37406898666179905,
+      "test_sizes": {
+        "0": 6290,
+        "4": 825,
+        "3": 111,
+        "2": 88,
+        "1": 4
+      },
+      "ari_proxy_test": 0.022341997619506147
+    }
+  },
+  "VMI": {
+    "MiniBatch K-means": {
+      "validation_silhouette": 0.3952117495784658,
+      "test_silhouette": 0.3331324520651742,
+      "test_sizes": {
+        "0": 3708,
+        "2": 3586,
+        "4": 520,
+        "1": 379,
+        "3": 46
+      },
+      "ari_proxy_test": 0.026970966035728395
+    },
+    "Gaussian mixture": {
+      "validation_silhouette": 0.38904973072599197,
+      "test_silhouette": 0.08941494629908077,
+      "test_sizes": {
+        "0": 5299,
+        "1": 1312,
+        "3": 897,
+        "4": 528,
+        "2": 203
+      },
+      "ari_proxy_test": -0.03572144446300451
+    },
+    "BIRCH": {
+      "validation_silhouette": 0.35894241069111643,
+      "test_silhouette": 0.38792394090702914,
+      "test_sizes": {
+        "0": 6867,
+        "3": 902,
+        "4": 300,
+        "1": 166,
+        "2": 4
+      },
+      "ari_proxy_test": -0.039492179294199424
+    }
+  },
+  "DA": {
+    "MiniBatch K-means": {
+      "validation_silhouette": 0.47785035223035105,
+      "test_silhouette": 0.4238778322296171,
+      "test_sizes": {
+        "1": 4014,
+        "4": 1486,
+        "0": 1156,
+        "2": 525,
+        "3": 137
+      },
+      "ari_proxy_test": -0.01334385431255824
+    },
+    "Gaussian mixture": {
+      "validation_silhouette": 0.06503555070849056,
+      "test_silhouette": 0.18950200693306998,
+      "test_sizes": {
+        "1": 7289,
+        "0": 29
+      },
+      "ari_proxy_test": -0.0068412782844166345
+    },
+    "BIRCH": {
+      "validation_silhouette": 0.39472681786208036,
+      "test_silhouette": 0.3710143172248728,
+      "test_sizes": {
+        "0": 6262,
+        "4": 825,
+        "2": 117,
+        "3": 110,
+        "1": 4
+      },
+      "ari_proxy_test": -0.022852588523964115
+    }
+  },
+  "SLM": {
+    "MiniBatch K-means": {
+      "validation_silhouette": 0.49076092188696424,
+      "test_silhouette": 0.4791826817225111,
+      "test_sizes": {
+        "3": 3863,
+        "0": 1343,
+        "4": 754,
+        "2": 498,
+        "1": 465
+      },
+      "ari_proxy_test": 0.032344072066221245
+    },
+    "Gaussian mixture": {
+      "validation_silhouette": 0.13834754726234796,
+      "test_silhouette": 0.2143496629111119,
+      "test_sizes": {
+        "2": 6563,
+        "4": 347,
+        "0": 13
+      },
+      "ari_proxy_test": -0.015842025205864415
+    },
+    "BIRCH": {
+      "validation_silhouette": 0.4550278746627852,
+      "test_silhouette": 0.41964397110680174,
+      "test_sizes": {
+        "1": 5984,
+        "4": 752,
+        "3": 107,
+        "0": 75,
+        "2": 5
+      },
+      "ari_proxy_test": 0.033073345735413984
+    }
+  }
+}
