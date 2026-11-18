@@ -26,6 +26,10 @@
 #floor-person{padding-top:12px}
 #floor-person p{margin-top:6px;font-size:.84rem}
 #floor-person .decision strong{display:block;margin-top:4px}
+.floor-tasks{margin-top:10px;padding:9px 10px;background:#edf5f0;border-radius:8px;color:var(--ink);overflow-wrap:anywhere}
+.floor-tasks h4{margin:0;font-size:.85rem}
+.floor-tasks ul{margin:5px 0 0;padding-left:17px;font-size:.82rem;line-height:1.45}
+.floor-tasks li+li{margin-top:4px}
 .floor-worker{animation:floor-working 1.35s ease-in-out infinite alternate}
 @keyframes floor-working{from{transform:translateY(0)}to{transform:translateY(-3px)}}
 @media(prefers-reduced-motion:reduce){.floor-worker{animation:none}}

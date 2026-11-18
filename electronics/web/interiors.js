@@ -42,7 +42,8 @@ function roomOrders(state){
 
 function roomAction(role,event){
   if(!event)return null;
-  if(role==='carrier')return [event.inspection?'Serah terima dicatat':'Menjemput dan mengantar kiriman','▤',0];
+  if(role==='carrier')return [event.inspection?'Serah terima dicatat':event.shipment==='shipping'?
+    'Menjemput dan mengantar kiriman':'Menyiapkan rute dan jadwal penjemputan','▤',0];
   const inspectionActions={
     inspected:['Memeriksa jumlah dan kondisi barang','📦',1],
     invoice_hold:['Menahan pembayaran dan meminta koreksi','▥',2],
@@ -65,7 +66,7 @@ function roomAction(role,event){
 function roomPeople(role, room, state, currentEvent) {
   const activeOrder = state.phase==='seller' && state.case?.id ? state.case : null;
   const staff = room.staff.map(([task,x,y],i)=>({
-    id:'staff-'+i,name:roomRoleNames[role][i],job:roomRoleNames[role][i],task,x,y,
+    id:'staff-'+i,name:roomRoleNames[role][i],job:roomRoleNames[role][i],task,duties:roomDuties[role]?.[i],x,y,
     live:i===0 && role!=='buyer',
   }));
   if(role==='deal' && currentEvent?.meeting)staff.push({
@@ -192,8 +193,9 @@ function renderInterior() {
   if(!roomKey||!world||!models||$('world').hidden)return;
   const vendor=vendors[roomKey],carrier=carriers[roomKey];
   const role=carrier?'carrier':vendor?'vendor':roomKey,room=floorRooms[role];
-  const belongs=e=>carrier?e.shipments?.some(order=>order.route?.carrier===roomKey)||e.inspection?.carrier===roomKey:
-    vendor?e.role==='vendor'&&(e.meeting?.vendor===roomKey||e.vendor===roomKey||e.inspection?.vendor===roomKey):
+  const ownShipments=e=>(e?.shipments??[]).filter(order=>carrier?order.route?.carrier===roomKey:order.vendor===roomKey);
+  const belongs=e=>carrier?ownShipments(e).length>0||e.inspection?.carrier===roomKey:
+    vendor?e.role==='vendor'&&(e.meeting?.vendor===roomKey||e.vendor===roomKey||e.inspection?.vendor===roomKey||ownShipments(e).length>0):
     role==='deal'?e.role==='deal'||!!e.meeting:role==='finance'?e.role==='finance'||(e.shipment==='delivered'&&!e.inspection):e.role===role;
   const event=world.history.find(belongs);
   const liveEvent=world.history[0];
@@ -220,9 +222,12 @@ function renderInterior() {
     renderRoomDrawing(room,role,roster,moveCustomers,onDuty?event.tick:null);
   }
   const activity=$('floor-activity');
+  const shipments=(vendor||carrier)?ownShipments(event):[];
+  const activityDetail=shipments.length?shipments.map(order=>
+    (carrier?order.vendor:order.route?.carrier??'Pengangkut')+' · '+amount(order.quantity)+' unit').join(' • '):event?.detail;
   const replayFocused=document.activeElement?.id==='floor-replay';
   activity.innerHTML=event?'<div><small>'+esc(onDuty?'Aktivitas giliran ini':'Aktivitas terakhir · Giliran '+event.tick)+
-    '</small><strong>'+esc(onDuty?action[0]:event.title)+'</strong><small>'+esc(event.detail)+'</small></div>'+
+    '</small><strong>'+esc(onDuty?action[0]:event.title)+'</strong><small>'+esc(activityDetail)+'</small></div>'+
     '<button id="floor-replay">Putar ulang</button>':'<small>Belum ada aktivitas simulasi di ruangan ini.</small>';
   if(event){
     const replay=$('floor-replay');
@@ -244,19 +249,29 @@ function renderInterior() {
   $('floor-agent').innerHTML=carrier?'<strong>Tim logistik</strong><span>Penjemputan, pemuatan, dan serah terima kiriman</span>':
     '<strong>'+esc(models.roles[role][0])+'</strong><span>'+esc(models.roles[role][1])+
     '</span><small>Model · '+esc(models.benchmark.agents[role].main)+'</small>';
+  $('floor-roster-title').textContent=vendor||carrier?'Agen di ruangan':'Orang di ruangan';
+  const ownOrders=vendor||carrier?companyOrders(roomKey):[];
+  const order=ownOrders.find(order=>order.status!=='paid')??ownOrders[0];
+  const shippingAgent=(vendor||carrier)&&selectedPerson.id==='staff-1';
+  const orderParty=carrier?order?.vendor:order?.route?.carrier;
+  const orderSummary=order?[order.id,`${amount(order.quantity)} unit ${order.product??'elektronik'}`,orderParty].filter(Boolean).join(' · '):'';
   $('floor-person').innerHTML='<h3>'+esc(selectedPerson.name)+'</h3>'+(selectedPerson.job!==selectedPerson.name?'<small>'+esc(selectedPerson.job)+'</small>':'')+
     '<p>'+esc(selectedPerson.task)+'</p>'+
+    (selectedPerson.duties?'<div class="floor-tasks"><h4>Tugas di '+esc(roomKey)+'</h4><ul>'+
+      selectedPerson.duties.map(task=>'<li>'+esc(task)+'</li>').join('')+'</ul></div>':'')+
     (selectedPerson.jobMotion?'<p class="floor-job-state">'+esc(selectedPerson.jobMotion.label)+'</p>':'')+
+    (shippingAgent?'<div class="decision"><small>Kiriman '+esc(roomKey)+'</small>'+
+      (order?'<strong>'+esc(orderSummary)+'</strong><p>'+esc(companyOrderStatus[order.status])+'</p>':'<p>Belum ada kiriman tercatat.</p>')+'</div>':'')+
     (model?'<p class="floor-model">Model · '+esc(model)+'</p>':'')+
     (customer&&typeof selectedPerson.buyerPrediction==='boolean'?'<p>Prediksi Agent Pembeli · '+(selectedPerson.buyerPrediction?'Beli':'Lewat')+'</p>':'')+
-    (showActivity&&event?'<div class="decision"><small>Aktivitas terakhir · Giliran '+event.tick+'</small><strong>'+esc(event.title)+'</strong><p>'+esc(event.detail)+'</p>'+
+    (showActivity&&event?'<div class="decision"><small>Aktivitas terakhir · Giliran '+event.tick+'</small><strong>'+esc(event.title)+'</strong><p>'+esc(activityDetail)+'</p>'+
       (event.prediction&&event.role===role?'<small>Prediksi · '+esc(event.prediction)+'</small>':'')+'</div>':'');
   let facts='';
   showRoomProducts(role,world.products);
   if(role==='stock')facts=world.products.map(p=>line(p.name,p.units?p.units+' unit':'Stok kosong')).join('');
   if(role==='buyer')facts=line('Antre di lobi',customers.length);
   if(role==='finance')facts=line('Saldo kas',rupiah(world.cash))+line('Anggaran pengadaan',rupiah(world.fund));
-  if(carrier)facts=companyOrders(roomKey).slice(0,4).map(order=>line(order.id,
+  if(carrier)facts=ownOrders.slice(0,4).map(order=>line(order.id,
     order.vendor+' → Gudang BIZ · '+companyOrderStatus[order.status])).join('');
   if(role==='deal'||role==='procurement'||role==='vendor'){
     const offers=world.case?.offers??[];

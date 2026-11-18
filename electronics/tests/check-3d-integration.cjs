@@ -277,7 +277,7 @@ async function check() {
     marker.onclick();
     assert.equal(get('map').hidden, true);
     assert.match(get('floor-drawing').innerHTML, /<svg\b/, 'Draw an SVG room when WebGL is unavailable.');
-    assert.match(get('floor-roster').innerHTML, /Agent|Petugas Dispatch/, 'Show job labels in the roster.');
+    assert.match(get('floor-roster').innerHTML, /Agent/, 'Show agent labels in the roster.');
   }
 
   markers[0].onclick();
@@ -339,6 +339,7 @@ async function check() {
   }
 
   const companyMarker = key => markers.find(marker => marker.dataset.role === key);
+  const selectAgent = id => get('floor-roster').onclick({target:{closest:()=>({dataset:{person:id}})}});
   const selectCompanyTab = key => {
     const button = companyTabs.find(tab => tab.dataset.companyTab === key);
     get('company-nav').onclick({ target: { closest: () => button } });
@@ -349,6 +350,11 @@ async function check() {
   const panel = get('company-panel');
   companyMarker('CloudSoft Corp.').onclick();
   assert.equal(get('company-name').textContent, 'CloudSoft Corp.');
+  assert.match(get('floor-person').innerHTML, /Tugas di CloudSoft Corp\./);
+  assert.match(get('floor-person').innerHTML, /Negosiasikan harga satuan/);
+  selectAgent('staff-1');
+  assert.match(get('floor-person').innerHTML, /Agent Pengiriman Vendor/);
+  assert.match(get('floor-person').innerHTML, /Belum ada kiriman tercatat/);
   selectCompanyTab('profile');
   assert.match(get('company-type').textContent, /pemasok/i);
   assert.match(panel.innerHTML, /Laptop/);
@@ -401,9 +407,20 @@ async function check() {
   assert.match(get('live-scene').innerHTML, /CloudSoft Corp\./);
   assert.equal(timerDelays.at(-1), 5200, 'Autoplay should allow time for the carrier pickup and delivery animation.');
 
+  selectCompanyTab('room');
+  selectAgent('staff-1');
+  assert.match(get('floor-person').innerHTML, /CS-OPEN.*JNE/);
+  assert.doesNotMatch(get('floor-person').innerHTML, /TM-PAID/);
+
   companyMarker('JNE').onclick();
   assert.equal(get('company-name').textContent, 'JNE');
   assert.match(get('floor-title').textContent, /Terminal logistik/i);
+  assert.match(get('floor-roster').innerHTML, /Agent Dispatch.*Agent Angkut/);
+  assert.match(get('floor-person').innerHTML, /Periksa jumlah muatan/);
+  selectAgent('staff-1');
+  assert.match(get('floor-person').innerHTML, /Berhenti untuk mengambil dan memuat barang/);
+  assert.match(get('floor-person').innerHTML, /CS-OPEN.*CloudSoft Corp\./);
+  assert.doesNotMatch(get('floor-person').innerHTML, /CS-PAID/);
   selectCompanyTab('profile');
   assert.match(get('company-type').textContent, /perusahaan logistik/i);
   assert.match(panel.innerHTML, /https:\/\/www\.jne\.co\.id\/jtr-id/);
@@ -427,6 +444,10 @@ async function check() {
 
   companyMarker('TechMart Inc.').onclick();
   assert.equal(get('company-name').textContent, 'TechMart Inc.');
+  assert.match(get('floor-person').innerHTML, /Tugas di TechMart Inc\./);
+  selectAgent('staff-1');
+  assert.match(get('floor-person').innerHTML, /TM-PAID/);
+  assert.doesNotMatch(get('floor-person').innerHTML, /CS-OPEN/);
   assert.equal(panel.hidden, true, 'Changing companies should return to the interior view.');
   selectCompanyTab('profile');
   assert.match(panel.innerHTML, /Laptop/);
