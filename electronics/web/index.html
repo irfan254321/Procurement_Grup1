@@ -16,11 +16,12 @@
       <option value="stock">Stok kosong → restok</option>
       <option value="cash">Stok kosong → kas ditahan</option>
       <option value="damage">Barang rusak → koreksi faktur</option>
+      <option value="supply">Permintaan naik → pasokan terbatas</option>
       <option value="normal">Hari penjualan biasa</option>
     </select>
   </label>
 </section>
-<div class="layout"><section class="world-card"><div class="maphead"><strong>Kantor pusat &amp; kawasan vendor</strong><span>Pilih lantai atau gedung vendor untuk melihat aktivitas</span></div><div id="map"><canvas id="scene" width="1100" height="660" aria-label="Kantor pusat &amp; kawasan vendor elektronik isometrik"></canvas><div id="markers"></div></div>
+<div class="layout"><section class="world-card"><div class="maphead"><div><strong>Kantor pusat &amp; kawasan vendor</strong><span>Pilih lantai atau gedung vendor untuk melihat aktivitas</span></div><div id="map-view-controls" class="map-view-controls" hidden aria-label="Ukuran tampilan distrik"><button id="map-zoom-out" aria-label="Perkecil distrik">−</button><span id="map-zoom-value" aria-live="polite">100%</span><button id="map-zoom-in" aria-label="Perbesar distrik">+</button><button id="map-zoom-reset">Lihat semua</button></div></div><div id="map"><canvas id="scene" width="2000" height="1000" aria-label="Kantor pusat &amp; kawasan vendor elektronik isometrik"></canvas><div id="markers"></div></div>
 <section id="floor-view" hidden aria-labelledby="floor-title">
   <div class="floor-toolbar"><button id="floor-back">← Peta distrik</button><label>Lantai atau gedung <select id="floor-tabs"></select></label></div>
   <div class="floor-heading"><div><h2 id="floor-title"></h2><p id="floor-subtitle"></p></div><span id="floor-status"></span></div>
@@ -36,6 +37,7 @@
   <section class="card" id="restock-holds" hidden><h2>Restok menunggu dana</h2><div id="restock-hold-lines"></div></section>
   <section class="card"><h2>Pelanggan toko</h2><div id="customers" aria-live="polite"></div></section>
 </aside></div>
+<section class="card supplier-section" id="supplier-section" hidden aria-labelledby="supplier-title"><div class="supplier-heading"><div><h2 id="supplier-title">Pasokan &amp; pengiriman</h2><p id="supplier-context"></p></div><span id="supplier-day"></span></div><div id="supplier-list" class="supplier-list"></div><div id="supply-orders" class="supply-orders"></div></section>
 <section class="card journal"><h2>Riwayat dunia</h2><ol id="history"></ol></section></div>
 <section id="profit" hidden>
   <div class="intro"><div><h1>Laba perusahaan</h1><p id="finance-period">Simulasi keuangan BIZ District</p></div></div>
@@ -67,4 +69,4 @@
   </section>
   <section class="card finance-transactions"><h2>Faktur dan transaksi terakhir</h2><div id="transactions"></div></section>
 </section>
-<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Uji akurasi keputusan dari skenario sintetis berbasis riwayat harga elektronik Kaggle.</p></div></div><div id="benchmark"></div></section></main><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/interiors.js"></script></body></html>
+<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Evaluasi keputusan agen dan perkiraan pengiriman pemasok.</p></div></div><div id="benchmark"></div><section id="supplier-benchmark" class="card supplier-section" hidden></section></section></main><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/interiors.js"></script></body></html>

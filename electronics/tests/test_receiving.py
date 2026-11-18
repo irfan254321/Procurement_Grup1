@@ -35,6 +35,10 @@ class ReceivingTests(unittest.TestCase):
         return (world["cash"], world["tax"]["input_vat"],
                 world["reserved"], world["fund"])
 
+    def finish_purchase(self, world):
+        while world["phase"] in {"receive", "invoice_check", "invoice_correction"}:
+            server.step(world, world["mode"])
+
     def test_damage_excludes_stock_and_holds_payment_until_invoice_is_corrected(self):
         world = server.new_world("damage")
         self.advance_to_receipt(world)
@@ -43,11 +47,13 @@ class ReceivingTests(unittest.TestCase):
         stock_before, cost_before = product["units"], product["cost"]
         ordered = shipment["restock"]
         accepted = ordered - 2
-        corrected_cost = round(shipment["agreed"] * accepted, 2)
+        corrected_cost = round(round(shipment["agreed"] * accepted, 2) + shipment["freight"], 4)
         corrected_vat = vat(corrected_cost)
         corrected_invoice = round(corrected_cost + corrected_vat, 4)
-        cash, input_vat, original_invoice, fund = self.balances(world)
-        self.assertEqual(original_invoice, shipment["invoice"])
+        cash, input_vat, reserved, fund = self.balances(world)
+        original_invoice = shipment["invoice"]
+        order_id = shipment["active_order_id"]
+        self.assertGreaterEqual(reserved, original_invoice)
         self.assertGreater(original_invoice, corrected_invoice)
 
         server.step(world, "damage")
@@ -59,33 +65,32 @@ class ReceivingTests(unittest.TestCase):
         self.assertEqual(product["units"], stock_before + accepted)
         self.assertEqual(product["cost"], round(
             (stock_before * cost_before + corrected_cost) / product["units"], 2))
-        self.assertEqual(self.balances(world), (cash, input_vat, original_invoice, fund))
+        self.assertEqual(self.balances(world), (cash, input_vat, reserved, fund))
 
         # An interrupted simulation retains the inspection and outstanding invoice.
         world = json.loads(json.dumps(world))
         server.step(world, "damage")
         self.inspection(world, "invoice_hold")
-        self.assertEqual(self.balances(world), (cash, input_vat, original_invoice, fund))
+        self.assertEqual(self.balances(world), (cash, input_vat, reserved, fund))
 
         server.step(world, "damage")
         self.inspection(world, "invoice_corrected")
-        self.assertEqual(self.balances(world), (cash, input_vat, original_invoice, fund))
+        self.assertEqual(self.balances(world), (cash, input_vat, reserved, fund))
 
         server.step(world, "damage")
         self.inspection(world, "paid")
         paid_balances = (round(cash - corrected_invoice, 4), round(input_vat + corrected_vat, 4),
-                         0, round(fund + original_invoice - corrected_invoice, 4))
+                         round(reserved - original_invoice, 4), round(fund + original_invoice - corrected_invoice, 4))
         self.assertEqual(self.balances(world), paid_balances)
         self.assertEqual(self.product_for_shipment(world)["units"], stock_before + accepted)
-        purchase = world["last_purchase"]
-        self.assertEqual(purchase["quantity"], ordered)
-        self.assertEqual(purchase["received_quantity"], accepted)
-        self.assertEqual(purchase["damaged_quantity"], 2)
-        self.assertEqual(purchase["invoice_original"], original_invoice)
-        self.assertEqual(purchase["cost"], corrected_cost)
-        self.assertEqual(purchase["vat"], corrected_vat)
-        self.assertEqual(purchase["invoice"], corrected_invoice)
-        self.assertEqual(purchase["revenue"], round(purchase["retail"] * accepted, 2))
+        order = next(order for order in world["case"]["orders"] if order["id"] == order_id)
+        self.assertEqual(order["quantity"], ordered)
+        self.assertEqual(order["received_quantity"], accepted)
+        self.assertEqual(order["damaged_quantity"], 2)
+        self.assertEqual(order["invoice_original"], original_invoice)
+        self.assertEqual(order["cost"], corrected_cost)
+        self.assertEqual(order["vat"], corrected_vat)
+        self.assertEqual(order["invoice"], corrected_invoice)
 
         server.step(world, "damage")
         self.assertEqual(self.balances(world), paid_balances)
@@ -178,6 +183,8 @@ class ReceivingTests(unittest.TestCase):
         server.step(world, "stock")
         paid = self.inspection(world, "paid")
         self.assertEqual(laptop["units"], paid["accepted"])
+        self.finish_purchase(world)
+        stock_before_next_sale = laptop["units"]
         self.assertFalse(world["queue"])
         self.assertEqual(world["customer_results"][0]["status"], "Stok kosong")
 
@@ -185,7 +192,7 @@ class ReceivingTests(unittest.TestCase):
         server.step(world, "stock")
         server.step(world, "stock")
         self.assertEqual(world["last_sale"]["customer"], 2)
-        self.assertEqual(laptop["units"], paid["accepted"] - 1)
+        self.assertEqual(laptop["units"], stock_before_next_sale - 1)
         self.assertEqual([result["status"] for result in world["customer_results"]], ["Terlayani", "Stok kosong"])
 
     def test_insufficient_stock_rejects_full_transaction(self):

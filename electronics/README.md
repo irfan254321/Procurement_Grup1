@@ -10,7 +10,7 @@ Siapkan **Python 3.14 64-bit**, koneksi internet untuk mengunduh dependensi, dan
 py -3.14 electronics/install.py
 ```
 
-Installer membuat `electronics/.venv`, memasang dependensi, menyiapkan model bila berkasnya belum tersedia atau versinya berubah, lalu menjalankan server lokal. Tunggu hingga terminal menampilkan alamat server. Jika `py -3.14` gagal menemukan Python, periksa `python --version`. Jika hasilnya Python 3.14, jalankan `python electronics/install.py`.
+Installer membuat `electronics/.venv`, memasang dependensi, mengunduh dataset pemasok Kaggle jika diperlukan, menyiapkan model, lalu menjalankan server lokal. Tunggu hingga terminal menampilkan alamat server. Jika `py -3.14` gagal menemukan Python, periksa `python --version`. Jika hasilnya Python 3.14, jalankan `python electronics/install.py`.
 
 ## Membuka kembali setelah instalasi
 
@@ -32,6 +32,7 @@ SQLite sudah tersedia melalui Python. Saat pertama kali berjalan, server membuat
 - **Lobi dan toko** menampilkan antrean pelayanan, etalase Laptop, Monitor, dan Printer, harga termasuk PPN, serta stok yang tersedia. Transaksi yang kekurangan stok langsung ditutup dan tercatat di **Hasil terakhir**. Pembelian baru bisa diproses setelah barang diterima dan masuk stok jual.
 - **Laba perusahaan** menampilkan grafik pendapatan, laba kotor, dan saldo kas, serta rincian faktur vendor, penjualan, dan posisi pajak.
 - **Model agen** menampilkan metrik validasi dan pengujian serta model pilihan tiap agen.
+- **Pasokan & pengiriman** menampilkan stok tiap vendor, kapasitas tersedia, skor risiko setelah penawaran, serta jumlah, rute, tenggat, dan faktur per kiriman. Gunakan **+**, **−**, atau **Lihat semua** untuk mengatur peta 3D.
 
 Tombol **Mulai ulang skenario** mengembalikan stok, kas, riwayat, dan pencatatan pajak lokal ke kondisi awal skenario terpilih.
 
@@ -40,6 +41,12 @@ Tombol **Mulai ulang skenario** mengembalikan stok, kas, riwayat, dan pencatatan
 1. Di tab **Dunia**, pilih **Barang rusak → koreksi faktur**.
 2. Klik **Mulai ulang skenario** dan ikuti aktivitas gudang, vendor, dan keuangan. Gunakan **Jeda** dan **Giliran berikutnya** untuk melihat tiap keputusan.
 3. Buka **Laba perusahaan** untuk membandingkan faktur awal dengan faktur setelah koreksi, serta jumlah barang layak jual dan rusak.
+
+### Mencoba lonjakan permintaan dan penurunan kapasitas
+
+1. Pilih **Permintaan naik → pasokan terbatas** di tab **Dunia**, lalu klik **Mulai ulang skenario**.
+2. BIZ membutuhkan 30 Laptop dengan tenggat empat hari simulasi. Kapasitas vendor pertama, CloudSoft Corp., turun dari 7 menjadi 4 unit per periode. Buka gedung vendor untuk melihat stok dan sisa kapasitasnya.
+3. Pantau **Pasokan & pengiriman**. Pengadaan mengalokasikan kebutuhan ke beberapa vendor. Begitu dana dicadangkan, peta menampilkan truk untuk kiriman yang berangkat. Gudang memproses kiriman menurut urutan jadwal kedatangan. Keuangan mencocokkan dan membayar setiap faktur.
 
 ## Alur simulasi dan model
 
@@ -57,13 +64,19 @@ Browser meminta giliran berikutnya lewat API. Server Python menjalankan agen yan
 
 Saat stok rendah atau kebutuhan mendatang diperkirakan melebihi persediaan, agen Stock mengajukan restok. Jika dana kurang, permintaan tetap tersimpan dan toko melayani penjualan dari stok yang tersedia. Dana pengadaan diisi kembali dari modal barang yang terjual dan 50% laba kotor positif. Saat kas bebas dan anggaran cukup untuk melanjutkan, Pengadaan memproses permintaan yang tertahan.
 
-Pengadaan membandingkan lima vendor. Tiap vendor mendapat hingga tiga putaran tawar balik. Penawaran final termurah yang disepakati diteruskan ke Keuangan. Dana dicadangkan setelah faktur, kas bebas, anggaran, dan proyeksi laba memenuhi syarat. Vendor mengemas dan mengirim barang. Petugas Penerimaan memeriksa barang dan menambahkan unit yang layak jual ke stok. Petugas Pembayaran mencocokkan pesanan, hasil pemeriksaan, dan faktur sebelum membayar.
+Pengadaan membandingkan penawaran lima vendor. Tiap vendor mendapat hingga tiga putaran tawar balik dan dapat menawarkan sebagian dari kebutuhan. Pengalokasi memilih kombinasi jumlah dan layanan pengiriman yang memenuhi tenggat, stok, kapasitas, anggaran, dan target laba. Biaya yang dibandingkan meliputi barang, ongkir tetap/per unit, PPN simulasi, dan penalti skor risiko. Nilai penalti dihitung dari biaya barang × skor risiko × 0,15.
+
+Stok dan kapasitas vendor disimpan di SQLite. Saat pesanan disetujui, stok dan kapasitasnya berkurang. Setiap 24 giliran kapasitas terisi kembali dan stok bertambah sampai batas simulasi. Rute memakai graf distrik dengan jarak yang ditetapkan skenario. Layanan ekspres memakai koridor selatan dan ongkir lebih tinggi. Hari simulasi mengikuti kedatangan, sedangkan giliran memajukan langkah kerja agen.
+
+Keuangan mencadangkan total semua faktur yang disetujui. Tiap pembayaran kemudian mengurangi kas dan melepas cadangan faktur tersebut. Saat barang rusak, faktur mengurangi nilai barang yang tidak lolos penerimaan. Ongkir tetap menjadi biaya kiriman.
 
 Pada uji barang rusak, dua unit pada kiriman pertama dipisahkan untuk retur. Mode otomatis juga dapat memunculkan barang rusak pada kiriman lain. Keuangan menahan pembayaran sampai vendor menerbitkan faktur pengganti. Kas dan PPN masukan dicatat berdasarkan faktur pengganti, lalu selisih dana dikembalikan ke anggaran pengadaan.
 
 ## Dataset dan pelatihan
 
 CSV `spend_analysis_dataset.csv` memberi acuan produk, vendor, dan harga dari 146 transaksi elektronik dalam 500 baris. Jika CSV belum ada di salinan repositori, unduh arsip sumber dan ekstrak berkas CSV ke `electronics/data/spend_analysis_dataset.csv`. [Company Purchasing Dataset oleh Shahriar Kabir di Kaggle](https://www.kaggle.com/datasets/shahriarkabir/company-purchasing-dataset)
+
+Dataset tambahan [Supply Chain Shipment Pricing Data di Kaggle](https://www.kaggle.com/datasets/divyeshardeshana/supply-chain-shipment-pricing-data) melatih CatBoost untuk memberi skor keterlambatan pemasok. Jadwal di simulator mengikuti jadwal historis yang dikonversi ke hari simulasi. Pada validasi, jadwal acuan menghasilkan galat lebih rendah daripada model regresi. Lihat [sumber, pembagian data, dan hasil uji pemasok](data/supplier/README.md).
 
 Skenario barang rusak menggunakan aturan simulasi. Untuk melatih prediksi risiko kerusakan, gunakan data pemeriksaan penerimaan yang mencakup kiriman layak dan rusak, dengan produk, vendor, pengangkut, jumlah, dan kondisi barang.
 
@@ -94,6 +107,8 @@ Three.js merender distrik, animasi agen, dan interior di browser. Model Poly Piz
 | `install.py` | Instalasi lokal, penyiapan model, dan peluncuran server |
 | `server.py` | API, giliran simulasi, dan penyimpanan SQLite |
 | `domain.py`, `train.py` | Katalog, aturan label, pelatihan, dan evaluasi model |
+| `supply_chain.py` | Stok vendor, pemilihan rute, dan pembagian pesanan |
+| `supplier_data.py`, `supplier_training.py` | Profil pemasok, pelatihan, dan prediksi keterlambatan |
 | `finance.py` | Pencatatan kas, grafik, dan pembayaran pajak |
 | `web/` | Antarmuka, Three.js, dan aset 3D |
 | `data/` | CSV sumber, metrik, model, dan database lokal |
@@ -104,7 +119,7 @@ Three.js merender distrik, animasi agen, dan interior di browser. Model Poly Piz
 Setelah instalasi, jalankan tes penerimaan dan koreksi faktur dari folder proyek.
 
 ```powershell
-.\electronics\.venv\Scripts\python.exe -m unittest discover -s electronics/tests -p test_receiving.py -v
+.\electronics\.venv\Scripts\python.exe -m unittest discover -s electronics/tests -v
 ```
 
 Untuk menjalankan tes tampilan 3D, gunakan Node.js dari folder yang sama.

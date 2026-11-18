@@ -3,3 +3,6 @@ data/*.sqlite3
 data/*.sqlite3-*
 data/models.joblib
 data/server.*.log
+data/supplier/SCMS_Delivery_History_Dataset.csv
+data/supplier/models.joblib
+data/supplier/split_manifest.csv

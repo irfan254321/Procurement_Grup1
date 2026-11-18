@@ -1,0 +1,149 @@
+{
+  "model_version": 2,
+  "dataset": {
+    "title": "Supply Chain Shipment Pricing Data",
+    "kaggle_url": "https://www.kaggle.com/datasets/divyeshardeshana/supply-chain-shipment-pricing-data",
+    "publisher": "USAID / Partnership for Supply Chain Management",
+    "domain": "Health commodity shipments, 2006-2015",
+    "columns": 33,
+    "sha256": "918b992dd3e8d4b64d2a727b2c4ea607603d0c58f19484e73f7b78528c6a8673",
+    "license_note": "Kaggle mirror lists Unknown; original catalog lists CC BY-ND 4.0 and publisher attribution. Original CSV retained unchanged.",
+    "catalog_url": "https://data.amerigeoss.org/dataset/supply-chain-shipment-pricing-data"
+  },
+  "cleaning": {
+    "source_rows": 10324,
+    "eligible_rows": 4587,
+    "excluded": {
+      "missing_order_or_outcome_date": 5732,
+      "inconsistent_or_over_730_day_interval": 5
+    }
+  },
+  "split": {
+    "method": "PO-grouped chronological 70/15/15 boundaries; purge outcomes unavailable at next split",
+    "validation_start": "2013-04-25",
+    "test_start": "2014-04-30",
+    "purged_rows": [
+      156,
+      155,
+      0
+    ],
+    "partitions": [
+      {
+        "name": "train",
+        "rows": 2624,
+        "purchase_orders": 1773,
+        "start": "2006-04-19",
+        "end": "2013-03-06",
+        "late_count": 190
+      },
+      {
+        "name": "validation",
+        "rows": 503,
+        "purchase_orders": 287,
+        "start": "2013-04-25",
+        "end": "2014-04-03",
+        "late_count": 24
+      },
+      {
+        "name": "test",
+        "rows": 1149,
+        "purchase_orders": 412,
+        "start": "2014-04-30",
+        "end": "2015-08-24",
+        "late_count": 33
+      }
+    ]
+  },
+  "features": [
+    "vendor",
+    "country",
+    "shipment_mode",
+    "fulfill_via",
+    "incoterm",
+    "product_group",
+    "sub_classification",
+    "log_quantity",
+    "log_pack_price",
+    "scheduled_days",
+    "order_month",
+    "order_year"
+  ],
+  "categorical_features": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
+  "excluded_input_columns": [
+    "Delivered to Client Date",
+    "Delivery Recorded Date",
+    "ASN/DN #",
+    "Freight Cost (USD)",
+    "Weight (Kilograms)"
+  ],
+  "labels": {
+    "late": "Delivered to Client Date > Scheduled Delivery Date",
+    "lead": "Days from PO Sent to Vendor Date to Delivered to Client Date"
+  },
+  "late": {
+    "model": "CatBoostClassifier",
+    "threshold": 0.06,
+    "threshold_selection": "maximum validation balanced accuracy",
+    "probability_calibrated": false,
+    "class_weights": null,
+    "runtime_label": "Historical-domain model risk score, not calibrated electronics probability",
+    "validation": {
+      "accuracy": 0.8508946322067594,
+      "balanced_accuracy": 0.842553931802366,
+      "precision": 0.21978021978021978,
+      "recall": 0.8333333333333334,
+      "f1": 0.34782608695652173,
+      "roc_auc": 0.8632567849686849,
+      "brier": 0.03623639604011442,
+      "baseline_always_on_time_accuracy": 0.9522862823061631,
+      "baseline_balanced_accuracy": 0.5,
+      "baseline_prior_brier": 0.04604695291775521
+    },
+    "test": {
+      "accuracy": 0.8337684943429069,
+      "balanced_accuracy": 0.6791707396546106,
+      "precision": 0.08854166666666667,
+      "recall": 0.5151515151515151,
+      "f1": 0.1511111111111111,
+      "roc_auc": 0.634557945041816,
+      "brier": 0.024296472743955386,
+      "baseline_always_on_time_accuracy": 0.9712793733681462,
+      "baseline_balanced_accuracy": 0.5,
+      "baseline_prior_brier": 0.02980438571383361
+    }
+  },
+  "lead": {
+    "model": "CatBoostRegressor",
+    "target": "Actual minus scheduled lead days",
+    "selected_model": "ScheduledBaseline",
+    "selection": "Use residual model only when validation MAE beats the known-schedule baseline",
+    "validation": {
+      "mae_days": 0.43538767395626243,
+      "residual_model_mae_days": 1.341370836017257,
+      "baseline_scheduled_mae_days": 0.43538767395626243,
+      "baseline_train_median_mae_days": 44.05765407554672
+    },
+    "test": {
+      "mae_days": 0.26979982593559615,
+      "residual_model_mae_days": 1.501260096146604,
+      "baseline_scheduled_mae_days": 0.26979982593559615,
+      "baseline_train_median_mae_days": 74.66318537859007
+    }
+  },
+  "limitations": [
+    "Profiles and outcomes describe health commodity suppliers, not electronics vendors.",
+    "Local vendor identity mapping, quantities, capacities, routes, and scaled days are simulation assumptions.",
+    "No demand forecasting, stock/capacity prediction, damage prediction, or routing optimality is learned by these models.",
+    "Scheduled delivery is a known requested commitment and is a strong feature; outcomes and actual shipment dates are labels only.",
+    "Late events are rare; consult balanced accuracy, recall, ROC-AUC, Brier score and the majority baseline together.",
+    "Publisher warns against literal item/country lead-time or cost conclusions; forecasts support a clearly labelled cross-domain demonstration."
+  ]
+}

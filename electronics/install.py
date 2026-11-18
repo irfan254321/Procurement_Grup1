@@ -31,6 +31,10 @@ def run():
     print("Memeriksa model agen...", flush=True)
     subprocess.run([str(python), "train.py", "--ensure"], check=True, cwd=ROOT)
 
+    print("Memeriksa dataset dan model pemasok...", flush=True)
+    subprocess.run([str(python), "download_supplier_data.py"], check=True, cwd=ROOT)
+    subprocess.run([str(python), "supplier_training.py", "--ensure"], check=True, cwd=ROOT)
+
     subprocess.run([str(python), "server.py"], check=True, cwd=ROOT)
 
 

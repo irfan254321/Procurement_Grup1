@@ -65,6 +65,23 @@ function fixture() {
 
 async function checkStages() {
   const three = await import('../web/three/three.module.min.js');
+  const {districtBounds,fitDistrictCamera,deliveryPath}=await import('../web/district-3d.mjs');
+  for(const aspect of [.6,1,16/9,2.5]){
+    const camera=new three.OrthographicCamera(-1,1,1,-1,.2,100);
+    fitDistrictCamera(camera,aspect);
+    assert.ok(Math.abs((camera.right-camera.left)/(camera.top-camera.bottom)-aspect)<1e-9);
+    for(const x of [districtBounds.min.x,districtBounds.max.x])for(const y of [districtBounds.min.y,districtBounds.max.y])for(const z of [districtBounds.min.z,districtBounds.max.z]){
+      const point=new three.Vector3(x,y,z).project(camera);
+      assert.ok(Math.abs(point.x)<.94&&Math.abs(point.y)<.94,'The complete district must fit at aspect '+aspect);
+      assert.ok(point.z>-1&&point.z<1,'Tower and lots must remain inside camera clipping planes.');
+    }
+  }
+  const route=deliveryPath({x:16.2,y:6.6});
+  assert.equal(route.length,4);
+  assert.equal(route[1].z,4.7);
+  assert.equal(route[2].z,4.7);
+  assert.equal(route.at(-1).x,5.25);
+  assert.equal(route.at(-1).z,3.22);
   const { buildRoomStage, showroomPositions } = await import('../web/room-stage.mjs');
   const renderModule = await import('../web/room-3d.mjs');
   assert.equal(typeof renderModule.createRoom3D, 'function');
@@ -179,6 +196,25 @@ async function check() {
   vm.runInContext('render()', context);
   assert.equal(get('restock-holds').hidden, true);
 
+  state.day=4;
+  state.suppliers={ 'CloudSoft Corp.': {
+    stock:{Laptop:5,Monitor:8,Printer:3},capacity:10,capacity_remaining:2,lead_days:3,
+    late_probability:.28,source_vendor:'Acme <Healthcare>',domain_transfer:true,
+  }};
+  state.case.orders=[{id:'PO-1',vendor:'CloudSoft Corp.',quantity:2,cost:200,freight:5,invoice:227.55,
+    status:'shipping',route:{name:'Jalur Utama',mode:'Darat',path:['CloudSoft Corp.','Hub Utara','Gudang BIZ']},arrival_day:7}];
+  vm.runInContext('render()',context);
+  assert.equal(get('supplier-section').hidden,false);
+  assert.match(get('supplier-day').textContent,/Hari simulasi 4/);
+  assert.match(get('supplier-list').innerHTML,/Kapasitas tersedia.*2 unit/);
+  assert.match(get('supplier-list').innerHTML,/Laptop · 5 unit/);
+  assert.match(get('supplier-list').innerHTML,/Acme &lt;Healthcare&gt;/);
+  assert.match(get('supplier-context').textContent,/belum .*divalidasi.*elektronik/);
+  assert.match(get('supply-orders').innerHTML,/PO-1.*Dikirim/);
+  assert.match(get('supply-orders').innerHTML,/Ongkir.*Rp50[.]000/);
+  assert.match(get('supply-orders').innerHTML,/Jalur Utama/);
+  delete state.case.orders;
+
   const markers = get('markers').children;
   assert.equal(markers.length, 7);
   for (const marker of markers) {
@@ -245,7 +281,7 @@ async function check() {
     const standby = vm.runInContext('roomJobs(' + JSON.stringify(role) + ', event, false)', context);
     assert.ok(Object.values(standby).every(job => job.kind === 'idle'), role + ' must not show stale transaction motions.');
   }
-  console.log('Checked startup, stale-server feedback, restock holds, customer closures, showroom stock, roster and SVG fallback.');
+  console.log('Checked responsive district framing, road delivery paths, supplier/partial-order display, startup, stock, roster and SVG fallback.');
 }
 
 check().catch(error => {

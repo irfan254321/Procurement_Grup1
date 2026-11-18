@@ -2,19 +2,56 @@ import * as THREE from './three/three.module.min.js';
 import {studio,softBox,makeStudioActor} from './studio.mjs';
 import {loadPolyAssets,placePoly} from './poly-assets.mjs';
 
+export const districtBounds = new THREE.Box3(new THREE.Vector3(-.8,-.6,-.7),new THREE.Vector3(21.7,6.4,10.2));
+
+// Fit the complete district in camera space, including its tower and outer lots.
+// This keeps the same world visible when the browser or the map panel changes size.
+export function fitDistrictCamera(camera,aspect){
+  const center=districtBounds.getCenter(new THREE.Vector3());
+  camera.position.copy(center).add(new THREE.Vector3(25,19,30));
+  camera.lookAt(center);
+  camera.updateMatrixWorld();
+  const corner=new THREE.Vector3();
+  let halfWidth=0,halfHeight=0;
+  for(const x of [districtBounds.min.x,districtBounds.max.x]){
+    for(const y of [districtBounds.min.y,districtBounds.max.y]){
+      for(const z of [districtBounds.min.z,districtBounds.max.z]){
+        corner.set(x,y,z).applyMatrix4(camera.matrixWorldInverse);
+        halfWidth=Math.max(halfWidth,Math.abs(corner.x));
+        halfHeight=Math.max(halfHeight,Math.abs(corner.y));
+      }
+    }
+  }
+  const ratio=Math.max(.25,aspect||1);
+  halfHeight=Math.max(halfHeight,halfWidth/ratio)*1.07;
+  halfWidth=halfHeight*ratio;
+  Object.assign(camera,{left:-halfWidth,right:halfWidth,top:halfHeight,bottom:-halfHeight});
+  camera.updateProjectionMatrix();
+  return camera;
+}
+
+export function deliveryPath(vendor,route=[]){
+  const lane=route.includes('Hub Selatan')?5.77:route.includes('Hub Utara')?3.70:4.7;
+  return [
+    new THREE.Vector3(vendor.x+.58,0,vendor.y+.43),
+    new THREE.Vector3(vendor.x+.58,0,lane),
+    new THREE.Vector3(5.25,0,lane),
+    new THREE.Vector3(5.25,0,3.22),
+  ];
+}
+
 export async function createDistrict(canvas,offices,vendors,markers){
   const assets=await loadPolyAssets(['office','truck']);
   const renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(1100,660,false);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setSize(1400,700,false);
   renderer.domElement.className='district-webgl';
   renderer.domElement.setAttribute('aria-hidden','true');
   const scene=new THREE.Scene();
   scene.background=new THREE.Color('#d6e8ed');
   studio(renderer,scene);
-  const camera=new THREE.OrthographicCamera(-10.65,10.65,6.39,-6.39,.2,75);
-  camera.position.set(20,14,21);
-  camera.lookAt(6.85,1.9,3.35);
-  camera.updateMatrixWorld();
+  const camera=new THREE.OrthographicCamera(-15,15,8,-8,.2,100);
+  fitDistrictCamera(camera,2);
   const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
   function mesh(parent,geometry,color,x,y,z){
     const object=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color,roughness:.74}));
@@ -23,24 +60,26 @@ export async function createDistrict(canvas,offices,vendors,markers){
   }
   const box=(x,y,z,w,h,d,color,parent=scene)=>mesh(parent,softBox(w,h,d,.14),color,x,y,z);
   const point=new THREE.Vector3(), anchors=new Map();
-  const podium=box(6.8,-.27,3.55,14.5,.52,8.05,'#aac88e');
+  const podium=box(10.45,-.27,4.7,22,.52,10.6,'#aac88e');
   podium.castShadow=false;
-  const road=box(6.85,-.029,3.67,14,.07,.95,'#70828e');
+  const road=box(10.45,-.029,4.7,21.7,.07,1.15,'#70828e');
   road.castShadow=false;
-  box(6.35,-.028,3.7,1,.075,7.35,'#70828e').castShadow=false;
-  for(let x=.5;x<14;x+=.83)box(x,.015,3.67,.37,.014,.043,'#ffefc2').castShadow=false;
-  for(const z of [3.13,4.21])box(7,.018,z,13.9,.052,.16,'#dddcc0').castShadow=false;
-  for(const [x,z,size] of [[1.1,2.4,.9],[2,5.9,1.05],[5.5,1.15,.8],[11.8,.74,.95],[13.4,2.55,.9],[8.1,6.65,.8],[12.8,6.65,.83],[.55,5.15,.85]]){
+  for(const z of [3.70,5.77])box(12.7,-.029,z,15.55,.07,.58,'#87959a').castShadow=false;
+  for(const x of [7.1,12.0,17.0])box(x,-.028,4.7,.85,.075,9.5,'#70828e').castShadow=false;
+  box(5.25,-.028,4.52,.85,.075,3.1,'#70828e').castShadow=false;
+  for(let x=.5;x<21;x+=.83)box(x,.015,4.7,.37,.014,.043,'#ffefc2').castShadow=false;
+  for(const z of [4.05,5.35])box(10.45,.018,z,21.5,.052,.16,'#dddcc0').castShadow=false;
+  for(const [x,z,size] of [[1.1,1,.9],[2,7.7,1.05],[5.7,1.15,.8],[11.2,.15,.95],[19.1,2.4,.9],[8.2,8.95,.8],[18.9,8.6,.83],[.55,6.15,.85],[20.5,6.6,.9],[13.1,9.1,.8]]){
     mesh(scene,new THREE.CylinderGeometry(.085,.14,.78,10),'#987555',x,.4,z);
     for(const [dx,dy,dz,color] of [[0,.94,0,'#588e6d'],[-.25,1.12,.05,'#69a872'],[.15,1.36,-.08,'#8bb872']]){
       mesh(scene,new THREE.SphereGeometry(size*.34,19,13),color,x+dx,dy,z+dz);
     }
   }
-  for(const x of [1,3,5.15,8.65,10.75,12.7]){
-    mesh(scene,new THREE.CylinderGeometry(.026,.048,.56,8),'#5c7079',x,.28,3.14);
-    mesh(scene,new THREE.SphereGeometry(.092,12,8),'#fff1ae',x,.59,3.14);
+  for(const x of [1,3,5.15,8.65,10.75,13,15.3,18,20.7]){
+    mesh(scene,new THREE.CylinderGeometry(.026,.048,.56,8),'#5c7079',x,.28,4.05);
+    mesh(scene,new THREE.SphereGeometry(.092,12,8),'#fff1ae',x,.59,4.05);
   }
-  for(const [x,z] of [[1.65,5.1],[8.2,5.85],[10.8,.95]]){
+  for(const [x,z] of [[1.65,7.1],[7.9,8.6],[14.6,.45]]){
     box(x,.13,z,.72,.22,.34,'#9b7659');
     box(x,.24,z-.13,.72,.11,.08,'#ab8965');
   }
@@ -71,10 +110,11 @@ export async function createDistrict(canvas,offices,vendors,markers){
     figure.prop.visible=false;
     cast.push({role,figure});
     floors.set(role,deck);
-    anchors.set(role,[2.18,y+.5,3.23]);
+    anchors.set(role,[1.87,y+.5,3.3]);
   }
   for(const [name,o] of Object.entries(vendors)){
     const x=o.x+.58,z=o.y+.43;
+    box(x,-.025,(z+4.7)/2,.46,.06,Math.abs(z-4.7)+1.1,'#87959a').castShadow=false;
     box(x,.09,z,1.94,.18,1.72,'#e3d6b9');
     const office=assets.office&&placePoly(scene,assets.office,{
       x,y:.16,z,width:1.76,height:o.floors*.74+.22,depth:1.57,
@@ -114,7 +154,9 @@ export async function createDistrict(canvas,offices,vendors,markers){
       wheel.rotation.x=Math.PI/2;
     }
   }
-  let frame=0,world,moveTime=-1,lastEvent;
+  truck.visible=false;
+  const fleet=new Map();
+  let frame=0,world,moveTime=-1,lastEvent,lastStamp;
   function draw(time){
     frame=0;
     if(!canvas.parentElement?.getClientRects().length)return;
@@ -133,38 +175,78 @@ export async function createDistrict(canvas,offices,vendors,markers){
       if(!figure.root.visible)return;
       const t=reduce.matches?1:THREE.MathUtils.clamp((time-moveTime-index*180)/1750,0,1);
       const stride=t<1?Math.sin(time/78):0;
-      figure.root.position.set(THREE.MathUtils.lerp(6.05,3.55,t)+index*.36,0,4.22+index*.12);
+      figure.root.position.set(THREE.MathUtils.lerp(6.05,3.55,t)+index*.36,0,5.35+index*.12);
       figure.legs[0].rotation.x=stride*.45;
       figure.legs[1].rotation.x=-stride*.45;
       figure.body.position.y=Math.abs(stride)*.035;
     });
-    const vendor=lastEvent?.shipment==='shipping'&&vendors[lastEvent.vendor];
-    truck.visible=!!vendor;
-    if(vendor){
-      const t=reduce.matches?1:Math.max(0,Math.min((time-moveTime)/3300,1));
-      const start=vendor.x+.45;
-      truck.position.set(THREE.MathUtils.lerp(start,4.75,t),0,3.68);
-      truck.rotation.y=Math.PI;
-    }
+    for(const vehicle of fleet.values())vehicle.visible=false;
+    const shipments=lastEvent?.shipment==='shipping'
+      ?(lastEvent.shipments?.length?lastEvent.shipments:[{vendor:lastEvent.vendor}]):[];
+    shipments.forEach((shipment,index)=>{
+      const vendor=vendors[shipment.vendor];
+      if(!vendor)return;
+      const key=shipment.vendor;
+      let vehicle=fleet.get(key);
+      if(!vehicle){vehicle=truck.clone(true);scene.add(vehicle);fleet.set(key,vehicle)}
+      vehicle.visible=true;
+      const t=reduce.matches?1:Math.max(0,Math.min((time-moveTime-index*180)/3300,1));
+      const points=deliveryPath(vendor,shipment.route?.path),segments=points.slice(1).map((point,i)=>point.distanceTo(points[i]));
+      let remaining=t*segments.reduce((a,b)=>a+b,0),segment=0;
+      while(segment<segments.length-1&&remaining>segments[segment])remaining-=segments[segment++];
+      vehicle.position.lerpVectors(points[segment],points[segment+1],Math.min(1,remaining/segments[segment]));
+      const direction=points[segment+1].clone().sub(points[segment]);
+      vehicle.rotation.y=Math.atan2(-direction.z,direction.x);
+    });
     renderer.render(scene,camera);
     frame=requestAnimationFrame(draw);
   }
-  const vendorOffsets=[[-3.7,-2.6],[3.8,-.9],[-4.6,-1.4],[-1.8,3.6],[4.2,1.7]];
-  let vendorIndex=0;
-  for(const button of markers.children){
-    const anchor=anchors.get(button.dataset.role);
-    if(!anchor)continue;
-    point.set(...anchor).project(camera);
-    const [dx,dy]=offices[button.dataset.role]?[0,0]:vendorOffsets[vendorIndex++]??[0,0];
-    button.style.left=(50+50*point.x+dx)+'%';
-    button.style.top=(50-50*point.y+dy)+'%';
+  let viewWidth=1400,viewHeight=700;
+  function positionMarkers(){
+    for(const button of markers.children){
+      const anchor=anchors.get(button.dataset.role);
+      if(!anchor)continue;
+      point.set(...anchor).project(camera);
+      const office=offices[button.dataset.role];
+      const floor=!!office;
+      button.classList.toggle('floor-marker',floor);
+      const width=button.offsetWidth||170;
+      const minLeft=floor?width+8:width/2+8;
+      const maxLeft=viewWidth-(floor?8:width/2+8);
+      const left=THREE.MathUtils.clamp((.5+.5*point.x)*viewWidth,minLeft,maxLeft);
+      const compactOffset=floor&&viewWidth<600?(office.level-2.5)*16:0;
+      const top=THREE.MathUtils.clamp((.5-.5*point.y)*viewHeight-(!floor?16:0)-compactOffset,20,viewHeight-20);
+      button.style.left=100*left/viewWidth+'%';
+      button.style.top=100*top/viewHeight+'%';
+      button.hidden=Math.abs(point.x)>1.12||Math.abs(point.y)>1.12;
+    }
+  }
+  function resize(){
+    const rect=canvas.parentElement.getBoundingClientRect();
+    if(!rect.width||!rect.height)return;
+    viewWidth=rect.width;viewHeight=rect.height;
+    renderer.setSize(viewWidth,viewHeight,false);
+    fitDistrictCamera(camera,viewWidth/viewHeight);
+    positionMarkers();
+    if(!frame)frame=requestAnimationFrame(draw);
   }
   canvas.hidden=true;
   canvas.after(renderer.domElement);
+  const observer=typeof ResizeObserver==='function'?new ResizeObserver(resize):null;
+  observer?.observe(canvas.parentElement);
+  window.addEventListener('resize',resize);
+  resize();
   return {update(state){
     world=state;
     const event=world?.history[0];
-    if(event!==lastEvent){lastEvent=event;moveTime=performance.now()}
+    const stamp=event&&[event.tick,event.title,event.shipment,event.vendor].join(':');
+    if(stamp!==lastStamp){lastStamp=stamp;moveTime=performance.now()}
+    lastEvent=event;
     if(!frame)frame=requestAnimationFrame(draw);
+  },setZoom(value){
+    camera.zoom=THREE.MathUtils.clamp(value,.8,1.8);
+    camera.updateProjectionMatrix();positionMarkers();
+    if(!frame)frame=requestAnimationFrame(draw);
+    return camera.zoom;
   }};
 }

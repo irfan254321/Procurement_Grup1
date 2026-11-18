@@ -252,6 +252,7 @@ function renderInterior() {
   if(role==='deal'||role==='procurement'||role==='vendor'){
     const offers=world.case?.offers??[];
     facts=offers.filter(o=>!vendor||o.vendor===roomKey).map(o=>line(o.vendor,o.accepted?rupiah(o.price)+' / unit':'Gagal sepakat')).join('');
+    if(vendor&&world.suppliers?.[roomKey])facts=supplierFacts(world.suppliers[roomKey])+facts;
   }
   $('floor-facts').innerHTML=facts;
 }
