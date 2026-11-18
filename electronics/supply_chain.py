@@ -12,6 +12,30 @@ from finance import vat
 
 SUPPLY_VERSION = 1
 HISTORICAL_DAYS_PER_SIM_DAY = 30
+SUPPLIER_REPLENISH_TICKS = 24
+ROUTE_PUBLIC_FIELDS = ("name", "mode", "path", "distance", "carrier", "capacity")
+# Route lengths, capacities, costs, and time factors belong to the district
+# simulator. The linked company sources describe only their actual businesses.
+CARRIERS = {
+    "JNE": {
+        "description": "JNE menyediakan layanan JTR untuk kiriman besar melalui jalur darat dan laut.",
+        "source_url": "https://www.jne.co.id/jtr-id", "capacity": 8,
+        "hub_legs": {"Hub Utara": 4, "Hub Selatan": 7}, "warehouse_leg": 4,
+        "fixed_tariff_factor": 1.24, "unit_tariff_factor": 1.24, "transit_factor": .76,
+    },
+    "J&T Cargo": {
+        "description": "J&T Cargo melayani pengiriman kargo dan menawarkan layanan antarkota melalui darat.",
+        "source_url": "https://www.jtcargo.id/serviceProducts", "capacity": 12,
+        "hub_legs": {"Hub Utara": 7, "Hub Selatan": 4}, "warehouse_leg": 4,
+        "fixed_tariff_factor": 1.02, "unit_tariff_factor": 1.06, "transit_factor": .94,
+    },
+    "Pos Logistik Indonesia": {
+        "description": "Anak usaha Pos Indonesia yang bergerak di bidang transportasi, pergudangan, dan pengiriman kargo.",
+        "source_url": "https://admin-piol.posindonesia.co.id/media/AR%20POS%202024%20HiRes.pdf", "capacity": 16,
+        "hub_legs": {"Hub Utara": 6, "Hub Selatan": 5}, "warehouse_leg": 5,
+        "fixed_tariff_factor": 1.24, "unit_tariff_factor": .86, "transit_factor": 1.06,
+    },
+}
 
 
 @lru_cache(maxsize=1)
@@ -20,15 +44,18 @@ def supplier_profiles():
     return get_supplier_profiles()
 
 
+def supplier_names(catalog):
+    return sorted({vendor["name"] for product in catalog for vendor in product["vendors"]})
+
+
 def init_supply(world, catalog):
     world.setdefault("day", 0)
     world.setdefault("purchase_count", 0)
     if world.get("supply_version") == SUPPLY_VERSION:
         return
     profiles = supplier_profiles()
-    names = sorted({vendor["name"] for product in catalog for vendor in product["vendors"]})
     suppliers = {}
-    for index, name in enumerate(names):
+    for index, name in enumerate(supplier_names(catalog)):
         profile = profiles[index % len(profiles)]
         capacity = [7, 10, 14, 9, 12][index % 5]
         if world.get("opening") == "supply" and index == 0:
@@ -47,7 +74,7 @@ def init_supply(world, catalog):
 
 def refresh_supply(world):
     # Replenishment is a stated simulator rule, not a trained inventory forecast.
-    if world["tick"] - world.get("supply_replenished_tick", 0) < 24:
+    if world["tick"] - world.get("supply_replenished_tick", 0) < SUPPLIER_REPLENISH_TICKS:
         return
     for supplier in world["suppliers"].values():
         supplier["capacity_remaining"] = supplier["capacity"]
@@ -75,39 +102,72 @@ def shortest_path(graph, start, finish):
     return [], float("inf")
 
 
+def freight_services(vendor, index):
+    """Return each simulator route and tariff as rates against unit price."""
+    supplier_legs = [("Hub Utara", 5 + index * 2), ("Hub Selatan", 9 + index)]
+    routes = []
+    for carrier, settings in CARRIERS.items():
+        graph = {hub: [(carrier, distance)] for hub, distance in settings["hub_legs"].items()}
+        graph[carrier] = [("Gudang BIZ", settings["warehouse_leg"])]
+        for name, source_mode, speed, multiplier, allowed_legs in (
+            ("Reguler", "Truck", 1, 1, supplier_legs),
+            ("Ekspres", "Air", .75, 1.7, supplier_legs[1:]),
+        ):
+            graph[vendor] = allowed_legs
+            path, distance = shortest_path(graph, vendor, "Gudang BIZ")
+            routes.append({
+                "name": name, "mode": "Darat", "path": path, "distance": distance,
+                "carrier": carrier, "capacity": settings["capacity"],
+                "fixed_rate": .012 * distance / 10 * multiplier * settings["fixed_tariff_factor"],
+                "unit_rate": .004 * multiplier * settings["unit_tariff_factor"],
+                "source_mode": source_mode, "speed": speed * settings["transit_factor"],
+            })
+    return routes
+
+
+def carrier_catalog():
+    return {carrier: {
+        "description": settings["description"], "source_url": settings["source_url"],
+        "capacity": settings["capacity"], "terminal": carrier,
+        "capacity_unit": "unit per kiriman",
+    } for carrier, settings in CARRIERS.items()}
+
+
+def supplier_freight_catalog(catalog):
+    fields = (*ROUTE_PUBLIC_FIELDS, "fixed_rate", "unit_rate")
+    return {vendor: {"services": [
+        {field: service[field] for field in fields}
+        for service in freight_services(vendor, index)
+    ]} for index, vendor in enumerate(supplier_names(catalog))}
+
+
 def quote_routes(world, vendor, quantity, unit_price):
     from supplier_data import predict_supply
     supplier = world["suppliers"][vendor]
-    index = supplier["index"]
-    graph = {
-        vendor: [("Hub Utara", 5 + index * 2), ("Hub Selatan", 9 + index)],
-        "Hub Utara": [("Simpang BIZ", 7)],
-        "Hub Selatan": [("Simpang BIZ", 5)],
-        "Simpang BIZ": [("Gudang BIZ", 3)],
-    }
-    regular = shortest_path(graph, vendor, "Gudang BIZ")
-    # The express service uses a dedicated southern corridor and slower
-    # handling is compressed by its service profile, independently of length.
-    express_graph = {**graph, vendor: [graph[vendor][1]]}
-    express = shortest_path(express_graph, vendor, "Gudang BIZ")
     routes = []
-    for name, mode, speed, multiplier, (path, distance) in [
-        ("Reguler", "Truck", 1, 1, regular),
-        ("Ekspres", "Air", .75, 1.7, express),
-    ]:
-        prediction = predict_supply(supplier["profile"], quantity, mode=mode)
+    predictions = {}
+    for service in freight_services(vendor, supplier["index"]):
+        source_mode = service["source_mode"]
+        if source_mode not in predictions:
+            predictions[source_mode] = predict_supply(supplier["profile"], quantity, mode=source_mode)
+        prediction = predictions[source_mode]
         source_days = float(prediction["predicted_days"])
-        lead_days = max(1, min(12, ceil(source_days / HISTORICAL_DAYS_PER_SIM_DAY * speed)))
+        lead_days = max(1, min(12, ceil(source_days / HISTORICAL_DAYS_PER_SIM_DAY * service["speed"])))
         risk = max(0, min(1, float(prediction["late_probability"])))
         routes.append({
-            "name": name, "mode": "Darat", "source_mode": mode, "path": path, "distance": distance,
+            **{field: service[field] for field in ROUTE_PUBLIC_FIELDS},
+            "source_mode": source_mode,
             "lead_days": lead_days, "late_probability": risk,
             "source_prediction_days": round(source_days, 2),
-            "fixed_freight": round(unit_price * .012 * distance / 10 * multiplier, 4),
-            "unit_freight": round(unit_price * .004 * multiplier, 4),
+            "fixed_freight": round(unit_price * service["fixed_rate"], 4),
+            "unit_freight": round(unit_price * service["unit_rate"], 4),
             "domain_transfer": True,
         })
-    supplier.update(lead_days=routes[0]["lead_days"], late_probability=routes[0]["late_probability"])
+    # Summarize the fastest quoted route with enough space for the request.
+    eligible = [route for route in routes if route["capacity"] >= quantity]
+    fastest = min(eligible or routes, key=lambda route: (
+        route["lead_days"], route["fixed_freight"] + route["unit_freight"] * quantity))
+    supplier.update(lead_days=fastest["lead_days"], late_probability=fastest["late_probability"])
     return routes
 
 
@@ -117,7 +177,8 @@ def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, co
     Pareto frontiers retain both invoice cost and risk-adjusted objective, so a
     cheaper feasible combination isn't lost merely because a risky one scores
     differently. At most one route is activated per supplier; freight is charged
-    once per activated shipment. No partial/infeasible plan is called complete.
+    once per activated shipment. Carrier limits apply per shipment. No
+    partial/infeasible plan is called complete.
     """
     if quantity <= 0 or quantity > 40 or budget < 0:
         return None
@@ -131,8 +192,9 @@ def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, co
         for route in offer["routes"]:
             if route["lead_days"] > deadline_days:
                 continue
+            shipment_capacity = min(capacity, route.get("capacity", capacity))
             for previous_quantity, previous in frontiers.items():
-                for count in range(1, min(capacity, quantity - previous_quantity) + 1):
+                for count in range(1, min(shipment_capacity, quantity - previous_quantity) + 1):
                     goods = round(offer["price"] * count, 2)
                     freight = round(route["fixed_freight"] + route["unit_freight"] * count, 4)
                     cost = round(goods + freight, 4)

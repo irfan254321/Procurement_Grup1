@@ -7,7 +7,7 @@ import sqlite3
 import sys
 import types
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -52,6 +52,23 @@ class AllocationTests(unittest.TestCase):
         routes = [route("Reguler"), route("Ekspres", days=1, fixed=2)]
         self.assertIsNone(supply_chain.allocate_orders(
             [offer("A", 10, 2, routes)], 3, 100, 3))
+
+    def test_optimizer_uses_carrier_capacity_deadline_and_freight(self):
+        routes = [
+            dict(route(days=2, fixed=1), carrier="Pos Logistik Indonesia", capacity=8),
+            dict(route(days=1, fixed=4), carrier="J&T Cargo", capacity=12),
+            dict(route(days=1, fixed=2), carrier="JNE", capacity=4),
+        ]
+        offers = [offer("A", 10, 12, routes)]
+        for quantity, deadline, carrier in (
+            (4, 2, "Pos Logistik Indonesia"),
+            (4, 1, "JNE"),
+            (10, 2, "J&T Cargo"),
+        ):
+            with self.subTest(quantity=quantity, deadline=deadline):
+                plan = supply_chain.allocate_orders(offers, quantity, 200, deadline)
+                self.assert_quantity(plan, quantity)
+                self.assertEqual(plan[0]["route"]["carrier"], carrier)
 
     def test_deadline_excludes_cheaper_slow_shipments(self):
         plan = supply_chain.allocate_orders(
@@ -132,21 +149,38 @@ class InventoryAndRoutingTests(unittest.TestCase):
 
     def test_model_days_conversion_is_explicit_and_preserves_historical_prediction(self):
         world = self.initialized_world()
-        model = types.SimpleNamespace(predict_supply=lambda *args, **kwargs: {
-            "predicted_days": 110, "late_probability": .25})
+        model = types.SimpleNamespace(predict_supply=Mock(return_value={
+            "predicted_days": 110, "late_probability": .25}))
         with patch.dict(sys.modules, {"supplier_data": model}):
             routes = supply_chain.quote_routes(world, "A", 8, 100)
-        self.assertEqual([r["lead_days"] for r in routes], [4, 3])
+        self.assertEqual({call.kwargs["mode"] for call in model.predict_supply.call_args_list}, {"Truck", "Air"})
+        self.assertEqual(model.predict_supply.call_count, 2)
+        self.assertEqual([r["lead_days"] for r in routes], [3, 3, 4, 3, 4, 3])
         self.assertTrue(all(r["source_prediction_days"] == 110 for r in routes))
         self.assertTrue(all(r["domain_transfer"] for r in routes))
         self.assertEqual(world["suppliers"]["A"]["late_probability"], .25)
+
+    def test_tariff_catalog_and_route_quote_agree_for_each_carrier(self):
+        world = self.initialized_world()
+        model = types.SimpleNamespace(predict_supply=Mock(return_value={
+            "predicted_days": 110, "late_probability": .25}))
+        services = supply_chain.supplier_freight_catalog(self.catalog())["A"]["services"]
+        with patch.dict(sys.modules, {"supplier_data": model}):
+            routes = supply_chain.quote_routes(world, "A", 5, 123.45)
+        self.assertEqual({route["carrier"] for route in routes}, set(supply_chain.CARRIERS))
+        for service, route in zip(services, routes, strict=True):
+            self.assertEqual(route["path"], service["path"])
+            self.assertEqual(route["path"][-2], route["carrier"])
+            self.assertEqual(route["capacity"], supply_chain.CARRIERS[route["carrier"]]["capacity"])
+            self.assertEqual(route["fixed_freight"], round(123.45 * service["fixed_rate"], 4))
+            self.assertEqual(route["unit_freight"], round(123.45 * service["unit_rate"], 4))
 
 
 class SplitPurchaseIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        import server
-        cls.server = server
+        import agent
+        cls.server = agent
 
     def persisted(self, world):
         """Use the production loader, so case/order aliases must survive JSON."""
@@ -190,6 +224,10 @@ class SplitPurchaseIntegrationTests(unittest.TestCase):
                                   if order["status"] == "paid" and order["id"] not in paid_ids]
                     self.assertEqual(len(newly_paid), 1)
                     order = newly_paid[0]
+                    self.assertEqual(event["inspection"]["carrier"], order["route"]["carrier"])
+                    self.assertIn(order["route"]["carrier"], supply_chain.CARRIERS)
+                    self.assertLessEqual(order["quantity"], order["route"]["capacity"])
+                    self.assertLessEqual(order["arrival_day"], order["deadline_day"])
                     paid_ids.add(order["id"])
                     original = order.get("invoice_original", order["invoice"])
                     self.assertAlmostEqual(cash_before - world["cash"], order["invoice"], places=4)

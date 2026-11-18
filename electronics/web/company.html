@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>__COMPANY_NAME__ | BIZ District</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/format.js"></script>
+  <script defer src="/company-dashboard.js"></script>
+  <script defer src="/company-page.js"></script>
+</head>
+<body>
+  <header class="company-site-header">
+    <a href="/" class="brand"><span class="diamond" aria-hidden="true"></span><strong>BIZ District</strong></a>
+    <a class="company-site-back" href="/">← Kembali ke distrik</a>
+  </header>
+  <main class="company-site" id="company-site" data-company="__COMPANY_NAME__">
+    <article class="company-dashboard" aria-labelledby="company-name">
+      <div class="company-masthead">
+        <div class="company-identity">
+          <span id="company-initials" class="company-initials" aria-hidden="true"></span>
+          <div><p id="company-type" class="company-kicker">Perusahaan BIZ District</p><h1 id="company-name">__COMPANY_NAME__</h1></div>
+        </div>
+        <div class="company-site-actions"><span id="company-context" class="company-context"></span><button id="company-refresh" type="button">Segarkan data</button></div>
+      </div>
+      <nav id="company-nav" class="company-nav" aria-label="Halaman perusahaan">
+        <a data-company-tab="profile" href="#profil">Profil</a>
+        <a data-company-tab="rules" href="#aturan">Aturan</a>
+        <a data-company-tab="logistics" href="#biaya-logistik">Biaya logistik</a>
+      </nav>
+      <p id="company-page-status" class="company-page-status" role="status">Memuat data perusahaan…</p>
+      <div id="company-panel" class="company-panel" hidden></div>
+    </article>
+  </main>
+</body>
+</html>

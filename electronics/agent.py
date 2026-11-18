@@ -2,14 +2,17 @@ import json
 import re
 import sqlite3
 from contextlib import closing
+from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from random import Random, SystemRandom
+from urllib.parse import urlsplit
 
-from finance import apply_tax_action, free_cash, initialize_finance, track_finance, vat
+from finance import VAT_RATE, apply_tax_action, free_cash, initialize_finance, track_finance, vat
 from domain import AGENTS, DATA, FEATURES, MIN_MARKUP, ROOT, load_models, make_catalog, read_purchases
 from supplier_data import load_supplier_models
-from supply_chain import (init_supply, refresh_supply, quote_routes, allocate_orders,
-                          activate_order, active_order, summarize_purchase)
+from supply_chain import (SUPPLIER_REPLENISH_TICKS, init_supply, refresh_supply, quote_routes,
+                          allocate_orders, activate_order, active_order, summarize_purchase,
+                          carrier_catalog, supplier_freight_catalog)
 
 CATALOG = make_catalog(read_purchases())
 trained = load_models()
@@ -23,6 +26,36 @@ SUPPLIER_REPORT = supplier_bundle["report"]
 DB = DATA / "electronics.sqlite3"
 OPENINGS = ("healthy", "normal", "stock", "cash", "damage", "supply")
 SCENARIOS = ("auto", *OPENINGS)
+RESTOCK_THRESHOLD = 3
+NEGOTIATION_ROUNDS = 3
+OFFER_OPENING_MULTIPLIER = 1.10
+OFFER_FLOOR_MULTIPLIER = .90
+COMPANY_NAMES = {
+    "biz": "PT. Biz Indonesia Market",
+    "cloudsoft": "CloudSoft Corp.",
+    "furniworks": "FurniWorks Ltd.",
+    "officesupplies": "OfficeSupplies Co.",
+    "quickdeliver": "QuickDeliver Ltd.",
+    "techmart": "TechMart Inc.",
+    "jne": "JNE",
+    "jt-cargo": "J&T Cargo",
+    "pos-logistik": "Pos Logistik Indonesia",
+}
+COMPANY_PAGES = {f"/{slug}/": name for slug, name in COMPANY_NAMES.items()}
+COMPANY_POLICY = {
+    "restock_threshold": RESTOCK_THRESHOLD,
+    "supplier_replenish_ticks": SUPPLIER_REPLENISH_TICKS,
+    "negotiation_rounds": NEGOTIATION_ROUNDS,
+    "offer_opening_multiplier": OFFER_OPENING_MULTIPLIER,
+    "offer_floor_multiplier": OFFER_FLOOR_MULTIPLIER,
+    "min_markup": round(MIN_MARKUP - 1, 4),
+    "vat_rate": VAT_RATE,
+    "freight_tax_note": "Ongkir sebelum PPN. Faktur mengenakan PPN simulasi pada biaya barang dan ongkir.",
+    "carrier_simulation_note": "Tarif, kapasitas dan waktu tempuh berasal dari skenario simulasi. Kapasitas berlaku per kiriman.",
+    "carriers": carrier_catalog(),
+    "suppliers": supplier_freight_catalog(CATALOG),
+    "pages": {name: path for path, name in COMPANY_PAGES.items()},
+}
 
 
 def rupiah(value):
@@ -115,12 +148,14 @@ def meeting(w, speaker, action, amount):
 
 def record_receipt(w, role, title, detail, state):
     case = w["case"]
+    order = active_order(w)
+    carrier = (order or {}).get("route", {}).get("carrier")
     record(w, role, title, detail)
     w["history"][0].update(vendor=case["vendor"], inspection={
         "state": state, "product": case["product"], "vendor": case["vendor"],
         "ordered": case["restock"], "accepted": case["received_quantity"],
         "damaged": case["damaged_quantity"],
-        "order_id": case.get("active_order_id"),
+        "order_id": case.get("active_order_id"), "carrier": carrier,
     })
 
 
@@ -288,9 +323,9 @@ def step(w, mode):
         projected = (q if c.get("stock_shortage") else 0) + sum(
             order["quantity"] for order in w["queue"] if order["product"] == p["name"] and order["buy"])
         needs_order = record(w, "stock", "Periksa rak dan gudang",
-                             f"{p['name']} · sisa {p['units']} unit, permintaan tercatat {projected}, titik pesan 3.",
-                             vector=[p["units"], projected, 3])
-        low_stock = p["units"] <= 3 or c.get("stock_shortage") or (projected > 0 and needs_order)
+                             f"{p['name']} · sisa {p['units']} unit, permintaan tercatat {projected}, titik pesan {RESTOCK_THRESHOLD}.",
+                             vector=[p["units"], projected, RESTOCK_THRESHOLD])
+        low_stock = p["units"] <= RESTOCK_THRESHOLD or c.get("stock_shortage") or (projected > 0 and needs_order)
         if p["name"] in w["restock_holds"]:
             w["history"][0]["detail"] += " Permintaan restok aktif. Keuangan menunggu dana tersedia."
             w["phase"] = "buyer"
@@ -329,8 +364,8 @@ def step(w, mode):
             c["vendor_index"] += 1
             w["phase"] = "vendor_open" if c["vendor_index"] < len(c["candidates"]) else "compare"
             return
-        c.update(vendor=v["name"], ask=round(v["price"]*1.10,2),
-                 floor=round(v["price"]*.90,2), cap=v["capacity"], round=0,
+        c.update(vendor=v["name"], ask=round(v["price"] * OFFER_OPENING_MULTIPLIER, 2),
+                 floor=round(v["price"] * OFFER_FLOOR_MULTIPLIER, 2), cap=v["capacity"], round=0,
                  quote_quantity=min(c["restock"], v["capacity"]))
         c.pop("agreed", None)
         record(w, "vendor", "Harga pembuka",
@@ -360,7 +395,7 @@ def step(w, mode):
             c["ask"] = round(max(c["floor"], (c["ask"]+max(price,c["floor"]))/2),2)
             w["history"][0]["detail"] += f" Vendor menawarkan balik {rupiah(c['ask'])}."
             meeting(w, "vendor", "counter", c["ask"])
-            w["phase"] = "counter" if c["round"] < 3 else "vendor_result"
+            w["phase"] = "counter" if c["round"] < NEGOTIATION_ROUNDS else "vendor_result"
     elif phase == "vendor_result":
         price = c.get("agreed", c["ask"])
         accepted = "agreed" in c and predict("deal", [price, c["ceiling"], c["floor"]])
@@ -383,8 +418,12 @@ def step(w, mode):
         if plan:
             c.update(orders=plan, vendor=plan[0]["vendor"],
                      agreed=round(sum(order["goods_cost"] for order in plan)/quantity, 4))
+            def route_label(order):
+                route = order["route"]
+                return " ".join(part for part in (route.get("carrier"), route["name"]) if part)
+
             record(w, "procurement", "Vendor terpilih",
-                   " · ".join(f"{order['vendor']}: {order['quantity']} unit via {order['route']['name']} ({order['lead_days']} hari simulasi)" for order in plan)
+                   " · ".join(f"{order['vendor']}: {order['quantity']} unit via {route_label(order)} ({order['lead_days']} hari simulasi)" for order in plan)
                    + f". Alokasi memenuhi {quantity} unit dengan biaya termasuk ongkir/PPN dan prior risiko; tenggat {c['deadline_days']} hari.")
             w["history"][0].update(vendor=plan[0]["vendor"], allocations=plan)
             w["phase"] = "finance"
@@ -585,7 +624,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         scripts = (
-            "app.js", "finance.js", "scenes.js", "interiors.js", "room-jobs.js",
+            "app.js", "format.js", "company-page.js", "finance.js", "scenes.js", "interiors.js",
+            "room-jobs.js", "company-dashboard.js",
             "room-3d.mjs", "room-stage.mjs", "district-3d.mjs", "studio.mjs", "poly-assets.mjs",
             "three/three.module.min.js", "three/three.core.min.js", "three/GLTFLoader.js",
             "three/BufferGeometryUtils.js", "three/SkeletonUtils.js",
@@ -598,14 +638,19 @@ class Handler(BaseHTTPRequestHandler):
             **{f"/assets/{name}.glb": (f"assets/{name}.glb", "model/gltf-binary")
                for name in ("laptop", "monitor", "printer", "office", "sofa", "truck")},
         }
-        if self.path in assets:
-            name, mime = assets[self.path]
+        path = urlsplit(self.path).path
+        company = COMPANY_PAGES.get(path.rstrip("/") + "/")
+        if company is not None:
+            markup = (ROOT / "web" / "company.html").read_text(encoding="utf-8")
+            self.send_data(markup.replace("__COMPANY_NAME__", escape(company)).encode("utf-8"), "text/html")
+        elif path in assets:
+            name, mime = assets[path]
             content = (ROOT/"web"/name).read_bytes()
             self.send_data(content,mime)
-        elif self.path == "/api/models":
+        elif path == "/api/models":
             self.send_data({"roles": AGENTS, "benchmark": REPORT, "scenarios": SCENARIOS,
-                            "supplier_model": SUPPLIER_REPORT})
-        elif self.path == "/api/world":
+                            "supplier_model": SUPPLIER_REPORT, "company_policy": COMPANY_POLICY})
+        elif path == "/api/world":
             with connect() as db:
                 self.send_data(load_world(db))
         else:

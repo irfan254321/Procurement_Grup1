@@ -6,6 +6,7 @@ const vm = require('node:vm');
 const web = path.join(__dirname, '..', 'web');
 
 function element(tag = '') {
+  const attributes = new Map();
   return {
     tagName: tag.toUpperCase(),
     style: {},
@@ -19,7 +20,8 @@ function element(tag = '') {
     append(...children) { this.children.push(...children); },
     appendChild(child) { this.append(child); },
     replaceChildren(...children) { this.children = children; },
-    setAttribute() {},
+    setAttribute(name, value) { attributes.set(name, String(value)); },
+    getAttribute(name) { return attributes.get(name) ?? null; },
     addEventListener() {},
     querySelectorAll: () => [],
     querySelector: () => null,
@@ -29,10 +31,33 @@ function element(tag = '') {
 
 function fixture() {
   const vendor = 'CloudSoft Corp.';
+  const secondVendor = 'TechMart Inc.';
   const roles = ['buyer', 'seller', 'stock', 'finance', 'procurement', 'deal', 'vendor'];
   const metadata = {
     scenarios: ['auto', 'healthy', 'normal', 'stock', 'cash', 'damage'],
     roles: Object.fromEntries(roles.map(role => [role, [role, 'Tugas agen']])),
+    company_policy: {
+      restock_threshold: 3,
+      supplier_replenish_ticks: 24,
+      negotiation_rounds: 3,
+      offer_opening_multiplier: 1.1,
+      offer_floor_multiplier: .9,
+      min_markup: .15,
+      carriers: {
+        JNE: { description: 'Layanan kargo JNE', source_url: 'https://www.jne.co.id/jtr-id', capacity: 8 },
+        'J&T Cargo': { description: 'Layanan kargo J&T Cargo', capacity: 12 },
+        'Pos Logistik Indonesia': { description: 'Layanan Pos Logistik Indonesia', capacity: 16 },
+      },
+      suppliers: {
+        [vendor]: { services: [
+          { name: 'Reguler', distance: 15, path: [vendor, 'Hub Utara', 'JNE', 'Gudang BIZ'], carrier: 'JNE', capacity: 8, mode: 'Darat', fixed_rate: .018, unit_rate: .004 },
+          { name: 'Ekspres', distance: 17, path: [vendor, 'Hub Selatan', 'J&T Cargo', 'Gudang BIZ'], carrier: 'J&T Cargo', capacity: 12, mode: 'Darat', fixed_rate: .03468, unit_rate: .0068 },
+        ] },
+        [secondVendor]: { services: [
+          { name: 'Reguler', distance: 18, path: [secondVendor, 'Hub Utara', 'JNE', 'Gudang BIZ'], carrier: 'JNE', capacity: 8, mode: 'Darat', fixed_rate: .02, unit_rate: .004 },
+        ] },
+      },
+    },
     benchmark: {
       agents: Object.fromEntries(roles.map(role => [role, {
         main: 'Model uji',
@@ -55,9 +80,9 @@ function fixture() {
     waiting: [order(8), order(11), order(12)],
     customer_results: [{ id: 8, product: 'Laptop', status: 'Stok tidak cukup' }],
     products: [
-      { name: 'Laptop', units: 4, retail: 150, vendors: [{ name: vendor }] },
-      { name: 'Monitor', units: 0, retail: 90, vendors: [{ name: vendor }] },
-      { name: 'Printer', units: 2, retail: 110, vendors: [{ name: vendor }] },
+      { name: 'Laptop', units: 4, retail: 150, vendors: [{ name: vendor, price: 100 }, { name: secondVendor, price: 110 }] },
+      { name: 'Monitor', units: 0, retail: 90, vendors: [{ name: vendor, price: 60 }] },
+      { name: 'Printer', units: 2, retail: 110, vendors: [{ name: vendor, price: 80 }] },
     ],
   };
   return { state, metadata };
@@ -65,7 +90,7 @@ function fixture() {
 
 async function checkStages() {
   const three = await import('../web/three/three.module.min.js');
-  const {districtBounds,fitDistrictCamera,deliveryPath}=await import('../web/district-3d.mjs');
+  const {districtBounds,fitDistrictCamera,deliveryPath,shipmentMotion,shipmentPose}=await import('../web/district-3d.mjs');
   for(const aspect of [.6,1,16/9,2.5]){
     const camera=new three.OrthographicCamera(-1,1,1,-1,.2,100);
     fitDistrictCamera(camera,aspect);
@@ -82,6 +107,29 @@ async function checkStages() {
   assert.equal(route[2].z,4.7);
   assert.equal(route.at(-1).x,5.25);
   assert.equal(route.at(-1).z,3.22);
+
+  const supplier = { x:16.2, y:6.6 };
+  const carrier = { name:'JNE', x:8.2, y:13.2 };
+  const motion = shipmentMotion(supplier, ['CloudSoft Corp.', 'Hub Selatan', carrier.name, 'Gudang BIZ'], carrier);
+  const departure = shipmentPose(motion, 0);
+  const pickup = shipmentPose(motion, 1250);
+  const loading = shipmentPose(motion, 1600);
+  const delivery = shipmentPose(motion, 1970);
+  const arrival = shipmentPose(motion, 4450);
+  assert.equal(departure.phase, 'approach');
+  assert.equal(departure.position.x, carrier.x+.58);
+  assert.ok(departure.position.z >= carrier.y && departure.position.z <= carrier.y+3);
+  assert.equal(pickup.phase, 'pickup');
+  assert.equal(pickup.position.x, supplier.x+.58);
+  assert.ok(Math.abs(pickup.position.z-(supplier.y+.43)) < 1.1, 'Loading should happen at the supplier bay.');
+  assert.equal(loading.phase, 'pickup');
+  assert.ok(loading.position.equals(pickup.position));
+  assert.ok(loading.load > 0 && loading.load < 1);
+  assert.equal(delivery.phase, 'delivery');
+  assert.ok(delivery.position.equals(pickup.position));
+  assert.ok(motion.delivery.points.some(point => point.equals(departure.position)), 'The delivery leg should revisit the carrier terminal.');
+  assert.equal(arrival.phase, 'arrived');
+  assert.ok(arrival.position.equals(route.at(-1)), 'Carrier deliveries and direct deliveries end at Gudang BIZ.');
   const { buildRoomStage, showroomPositions } = await import('../web/room-stage.mjs');
   const renderModule = await import('../web/room-3d.mjs');
   assert.equal(typeof renderModule.createRoom3D, 'function');
@@ -109,10 +157,15 @@ async function check() {
     if (!nodes.has(id)) nodes.set(id, element());
     return nodes.get(id);
   };
+  const companyTabs = ['room', 'profile', 'rules', 'logistics'].map(tab => ({
+    ...element('button'), dataset: { companyTab: tab },
+  }));
+  get('company-nav').querySelectorAll = () => companyTabs;
   let ready;
   let fetchCount=0;
   let autoResetStatus = 200;
   const actions = [];
+  const timerDelays = [];
   const document = {
     getElementById: get,
     createElement: element,
@@ -133,7 +186,7 @@ async function check() {
     },
     requestAnimationFrame() {},
     performance: { now: () => 100 },
-    setTimeout() {},
+    setTimeout(_, delay) { timerDelays.push(delay); },
     clearTimeout() {},
   });
 
@@ -141,6 +194,7 @@ async function check() {
   const html = fs.readFileSync(path.join(web, 'index.html'), 'utf8');
   const scripts = [...html.matchAll(/<script defer src="\/([^"]+)"/g)].map(match => match[1]);
   assert.ok(scripts.includes('room-jobs.js'));
+  assert.ok(scripts.indexOf('company-dashboard.js') >= 0 && scripts.indexOf('company-dashboard.js') < scripts.indexOf('interiors.js'));
   for (const file of scripts) {
     if(file==='interiors.js'){
       await new Promise(resolve => setImmediate(resolve));
@@ -216,12 +270,14 @@ async function check() {
   delete state.case.orders;
 
   const markers = get('markers').children;
-  assert.equal(markers.length, 7);
+  assert.equal(markers.length, 11);
+  assert.deepEqual(markers.filter(marker=>marker.className.includes('carrier-marker')).map(marker=>marker.dataset.role),
+    ['JNE','J&T Cargo','Pos Logistik Indonesia']);
   for (const marker of markers) {
     marker.onclick();
     assert.equal(get('map').hidden, true);
     assert.match(get('floor-drawing').innerHTML, /<svg\b/, 'Draw an SVG room when WebGL is unavailable.');
-    assert.match(get('floor-roster').innerHTML, /Agent/, 'Show job labels in the roster.');
+    assert.match(get('floor-roster').innerHTML, /Agent|Petugas Dispatch/, 'Show job labels in the roster.');
   }
 
   markers[0].onclick();
@@ -281,7 +337,125 @@ async function check() {
     const standby = vm.runInContext('roomJobs(' + JSON.stringify(role) + ', event, false)', context);
     assert.ok(Object.values(standby).every(job => job.kind === 'idle'), role + ' must not show stale transaction motions.');
   }
-  console.log('Checked responsive district framing, road delivery paths, supplier/partial-order display, startup, stock, roster and SVG fallback.');
+
+  const companyMarker = key => markers.find(marker => marker.dataset.role === key);
+  const selectCompanyTab = key => {
+    const button = companyTabs.find(tab => tab.dataset.companyTab === key);
+    get('company-nav').onclick({ target: { closest: () => button } });
+    assert.equal(button.getAttribute('aria-pressed'), 'true');
+    assert.equal(get('company-room').hidden, key !== 'room');
+    assert.equal(get('company-panel').hidden, key === 'room');
+  };
+  const panel = get('company-panel');
+  companyMarker('CloudSoft Corp.').onclick();
+  assert.equal(get('company-name').textContent, 'CloudSoft Corp.');
+  selectCompanyTab('profile');
+  assert.match(get('company-type').textContent, /pemasok/i);
+  assert.match(panel.innerHTML, /Laptop/);
+  assert.match(panel.innerHTML, /Monitor/);
+  assert.match(panel.innerHTML, /Printer/);
+  selectCompanyTab('rules');
+  assert.match(panel.innerHTML, /24\s+giliran/i);
+  assert.match(panel.innerHTML, /3\s+putaran/i);
+  selectCompanyTab('logistics');
+  assert.match(panel.innerHTML, /Reguler/);
+  assert.match(panel.innerHTML, /Ekspres/);
+  assert.match(panel.innerHTML, /Belum ada.*(?:kiriman|pesanan)/i);
+  assert.match(panel.innerHTML, /Rp22[.]000/);
+  const httpCallsBeforeEstimate = fetchCount;
+  panel.onchange({ target: { id: 'company-estimate-quantity', value: '7' } });
+  assert.match(panel.innerHTML, /Rp46[.]000/);
+  panel.onchange({ target: { id: 'company-estimate-product', value: 'Monitor' } });
+  assert.match(panel.innerHTML, /Rp27[.]600/);
+  panel.onchange({ target: { id: 'company-estimate-quantity', value: '90' } });
+  assert.match(panel.innerHTML, /company-estimate-quantity[^>]*value="40"/);
+  assert.match(panel.innerHTML, /Maks\. 8 unit/);
+  assert.match(panel.innerHTML, /Maks\. 12 unit/);
+  assert.equal(fetchCount, httpCallsBeforeEstimate, 'Estimating freight should not send a transaction.');
+
+  const purchaseOrder = (id, vendor, status, freight, carrier='JNE') => ({
+    id, vendor, status, freight, product:'Laptop', quantity:2, unit_cost:100, cost:200+freight,
+    goods_cost:200, invoice:227.55, route:{name:'Reguler',carrier,path:[vendor,'Hub Utara',carrier,'Gudang BIZ']},
+    arrival_day:7, deadline_day:8,
+  });
+  const paid = purchaseOrder('CS-PAID', 'CloudSoft Corp.', 'paid', 10, 'J&T Cargo');
+  const shipping = purchaseOrder('CS-OPEN', 'CloudSoft Corp.', 'shipping', 5);
+  const other = purchaseOrder('TM-PAID', 'TechMart Inc.', 'paid', 90);
+  state.purchase_orders = [{ product:'Laptop', orders:[paid, other] }];
+  state.last_purchase = { product:'Laptop', orders:[{ ...paid }, shipping] };
+  state.case.orders = [purchaseOrder(undefined, 'CloudSoft Corp.', 'proposed', 42)];
+  vm.runInContext('renderInterior()', context);
+  assert.equal((panel.innerHTML.match(/data-company-order="CS-PAID"/g) ?? []).length, 1,
+    'A settled order retained in purchase history and the latest batch should be counted once.');
+  assert.match(panel.innerHTML, /data-company-order="CS-OPEN"/);
+  assert.doesNotMatch(panel.innerHTML, /TM-PAID|Rp420[.]000/);
+  assert.match(panel.innerHTML, /id="company-paid-freight"[^>]*>\s*Rp100[.]000/);
+  assert.match(panel.innerHTML, /id="company-open-freight"[^>]*>\s*Rp50[.]000/);
+
+  state.tick++;
+  state.scene='vendor';
+  state.history=[{tick:state.tick, role:'vendor', shipment:'shipping', vendor:shipping.vendor,
+    title:'Barang dalam perjalanan', detail:'Kiriman dalam perjalanan.', shipments:[shipping]}];
+  vm.runInContext('render(); playing=true; schedule(); playing=false;', context);
+  assert.match(get('live-scene').innerHTML, /JNE/);
+  assert.match(get('live-scene').innerHTML, /CloudSoft Corp\./);
+  assert.equal(timerDelays.at(-1), 5200, 'Autoplay should allow time for the carrier pickup and delivery animation.');
+
+  companyMarker('JNE').onclick();
+  assert.equal(get('company-name').textContent, 'JNE');
+  assert.match(get('floor-title').textContent, /Terminal logistik/i);
+  selectCompanyTab('profile');
+  assert.match(get('company-type').textContent, /perusahaan logistik/i);
+  assert.match(panel.innerHTML, /https:\/\/www\.jne\.co\.id\/jtr-id/);
+  selectCompanyTab('rules');
+  assert.match(panel.innerHTML, /8\s+unit per kiriman/);
+  assert.match(panel.innerHTML, /terminal pengangkut/);
+  selectCompanyTab('logistics');
+  assert.match(panel.innerHTML, /data-company-order="CS-OPEN"/);
+  assert.match(panel.innerHTML, /data-company-order="TM-PAID"/);
+  assert.doesNotMatch(panel.innerHTML, /CS-PAID|Ekspres/);
+  assert.match(panel.innerHTML, /id="company-paid-freight"[^>]*>\s*Rp900[.]000/);
+  assert.match(panel.innerHTML, /id="company-open-freight"[^>]*>\s*Rp50[.]000/);
+  panel.onchange({ target: { id:'company-estimate-vendor', value:'TechMart Inc.' } });
+  assert.match(panel.innerHTML, /Rp26[.]400/);
+
+  companyMarker('J&T Cargo').onclick();
+  selectCompanyTab('logistics');
+  assert.match(panel.innerHTML, /data-company-order="CS-PAID"/);
+  assert.doesNotMatch(panel.innerHTML, /CS-OPEN|TM-PAID/);
+  assert.match(panel.innerHTML, /id="company-paid-freight"[^>]*>\s*Rp100[.]000/);
+
+  companyMarker('TechMart Inc.').onclick();
+  assert.equal(get('company-name').textContent, 'TechMart Inc.');
+  assert.equal(panel.hidden, true, 'Changing companies should return to the interior view.');
+  selectCompanyTab('profile');
+  assert.match(panel.innerHTML, /Laptop/);
+  assert.doesNotMatch(panel.innerHTML, /Monitor|Printer/);
+  selectCompanyTab('logistics');
+  assert.match(panel.innerHTML, /data-company-order="TM-PAID"/);
+  assert.doesNotMatch(panel.innerHTML, /CS-PAID|CS-OPEN/);
+
+  companyMarker('finance').onclick();
+  assert.equal(get('company-name').textContent, 'PT. Biz Indonesia Market');
+  selectCompanyTab('profile');
+  assert.match(get('company-type').textContent, /distributor/i);
+  assert.match(panel.innerHTML, /6\s+lantai/);
+  assert.match(panel.innerHTML, /2\s+perusahaan/);
+  assert.match(panel.innerHTML, /Pengangkut terdaftar.*3\s+perusahaan/);
+  selectCompanyTab('rules');
+  assert.match(panel.innerHTML, /15\s*%/);
+  selectCompanyTab('logistics');
+  assert.match(panel.innerHTML, /data-company-order="TM-PAID"/);
+  assert.match(panel.innerHTML, /data-company-order="CS-PAID"/);
+  assert.match(panel.innerHTML, /id="company-paid-freight"[^>]*>\s*Rp1[.]000[.]000/);
+  companyMarker('stock').onclick();
+  assert.equal(panel.hidden, false, 'Moving between BIZ floors should preserve the selected company tab.');
+  selectCompanyTab('room');
+  get('floor-back').onclick();
+  assert.equal(get('floor-view').hidden, true);
+  assert.equal(get('map').hidden, false);
+
+  console.log('Checked district framing, carrier pickup and delivery, company dashboards, stock, roster and SVG fallback.');
 }
 
 check().catch(error => {

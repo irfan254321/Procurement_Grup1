@@ -2,10 +2,6 @@ const financeTaxNames={vat:'PPN',pbb:'PBB-P2',pph_badan:'PPh Badan',pph21:'PPh P
 const financeMoney=new Intl.NumberFormat('id-ID',{notation:'compact',maximumFractionDigits:1});
 let taxBusy=false;
 
-function customerPriceLabel(price){
-  return rupiah(price * (1+(world?.tax?.rate??0)))+(world?.tax?' termasuk PPN':'');
-}
-
 function drawFinanceChart(series){
   const canvas=$('finance-chart');
   const width=canvas.clientWidth;

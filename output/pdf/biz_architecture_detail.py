@@ -99,7 +99,7 @@ def draw_complete(report):
            'Putar, jeda, langkah, reset.<br/>Menampilkan 6 lantai, 5 vendor, pelanggan, kiriman, grafik dan riwayat.', size=12)
     d.node(376, 960, 396, 108, '2  HTTP API + TRANSAKSI',
            'GET world/models; POST step/reset.<br/>BEGIN IMMEDIATE: baca world, jalankan satu fase, simpan JSON, kirim respons.', size=12)
-    d.node(800, 960, 480, 108, '3  ORKESTRATOR: server.step()',
+    d.node(800, 960, 480, 108, '3  ORKESTRATOR: agent.step()',
            'Pilih fase aktif berdasarkan phase dan case. Bentuk fitur peran; panggil main; terapkan aturan; catat event. Katalog dan model dimuat saat server mulai.', size=12)
     d.node(1308, 960, right - 1308, 108, '4  MEMORI: SQLite / world',
            'tick, phase, products, cash, fund, reserved, queue, case, restock_requests, restock_holds, history, tax.', size=11.8)
@@ -170,7 +170,7 @@ def draw_complete(report):
     d.badge('A', right - 20, 310)
     d.text('Hijau: data/aksi runtime dan umpan balik state. Biru putus-putus: pipeline offline. Peran pendukung, truk, pemeriksaan kerusakan, serta pencocokan faktur berjalan dari event/aturan.',
            48, 91, right - 48, 11, 14, MUTED)
-    d.text('Rujukan: server.py:11-16,69-103,128-539; domain.py:14-85; train.py:26-113; finance.py:14-86; web/app.js:20-27.',
+    d.text('Rujukan: agent.py:11-16,69-103,128-539; domain.py:14-85; train.py:26-113; finance.py:14-86; web/app.js:20-27.',
            48, 69, right - 48, 9, 11, MUTED)
 
 
@@ -215,7 +215,7 @@ def draw_workflow(report):
     ]
     for x, width, title, body in exception_specs:
         d.node(x, 72, width, 100, title, body, color=RED, fill=LIGHTRED, size=10.3)
-    d.text('Rujukan: server.py:128-469. Jalur utama memakai model + aturan; pengemasan, kiriman, inspeksi, kerusakan dan pembayaran merupakan fase aturan.',
+    d.text('Rujukan: agent.py:128-469. Jalur utama memakai model + aturan; pengemasan, kiriman, inspeksi, kerusakan dan pembayaran merupakan fase aturan.',
            48, 61, 1094, 8.2, 10, MUTED)
 
 

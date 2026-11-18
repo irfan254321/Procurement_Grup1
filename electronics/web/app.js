@@ -1,10 +1,5 @@
-const $ = id => document.getElementById(id);
-const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const amount = n => new Intl.NumberFormat('id-ID',{maximumFractionDigits:2}).format(n);
-const rupiah = n => 'Rp'+new Intl.NumberFormat('id-ID',{maximumFractionDigits:0}).format(n*10000);
 const moneyFeatures = new Set(['harga pengadaan','kas bebas','dana tersedia','potensi penjualan','harga jual','kesediaan bayar',
   'penawaran','harga acuan','tawaran pembeli','harga minimum','tawaran penjual','batas pembeli']);
-const percent = n => (100*n).toFixed(2).replace('.',',')+'%';
 const openingLabels = {
   healthy:'stok banyak dan kas sehat',
   stock:'stok kosong',
@@ -27,8 +22,10 @@ const offices = {
  deal:{name:'Negosiasi',color:'#d28491',icon:'⇄',level:5,x:3,y:3},
 };
 const vendorLots=[[8.2,.8,2],[12.2,.8,3],[16.2,.8,2],[9.8,6.6,2],[15.0,6.6,3]];
+const carrierLots=[[8.2,13.2,'#3f70bb'],[15,13.2,'#b6524c'],[21.8,13.2,'#b47836']];
 const colors=['#76aa86','#5b8cb3','#c4936a','#8c86b8','#6c9da5'];
 const vendors={};
+const carriers={};
 const canvas = $('scene'), ctx = canvas.getContext('2d');
 let world, models, selected='stock', timer, busy=false, playing=true;
 let movement=0, paintedTick=-1, district3D;
@@ -36,12 +33,12 @@ let districtZoom=1;
 function activateDistrict(){
   if(!window.WebGL2RenderingContext)return;
   import('/district-3d.mjs').then(async({createDistrict})=>{
-    district3D=await createDistrict(canvas,offices,vendors,$('markers'));
+    district3D=await createDistrict(canvas,offices,vendors,$('markers'),carriers);
     district3D.update(world);
     $('map-view-controls').hidden=false;
   }).catch(error=>console.warn('Peta 2D digunakan.',error));
 }
-const project=(x,y,z=0)=>[600+(x-y)*55,380+(x+y-5)*20-z];
+const project=(x,y,z=0)=>[730+(x-y)*45,333+(x+y-5)*16-z];
 function poly(points,color,stroke){
   ctx.beginPath();
   points.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y));
@@ -93,23 +90,41 @@ function tower(t, latest){
   const [sx,sy]=project(x+2.83,y+1.55,300);
   ctx.save();ctx.translate(sx,sy);ctx.rotate(-.4);ctx.textAlign='center';ctx.font='bold 24px Trebuchet MS';ctx.fillStyle='#e9fbd8';ctx.fillText('BIZ',0,0);ctx.restore();
 }
+function fallbackTruckPosition(vendor, terminal, elapsed){
+  const warehouse={x:5.1,y:3.55};
+  const travel=(from,to,progress)=>[from.x+(to.x-from.x)*progress,from.y+(to.y-from.y)*progress];
+  if(!terminal)return travel(vendor,warehouse,Math.max(0,Math.min(1,elapsed/1450)));
+  if(elapsed<1250)return travel(terminal,vendor,Math.max(0,elapsed/1250));
+  if(elapsed<1970)return [vendor.x,vendor.y];
+  if(elapsed<3100)return travel(vendor,terminal,(elapsed-1970)/1130);
+  return travel(terminal,warehouse,Math.min(1,(elapsed-3100)/1350));
+}
 function draw(t){
   if(district3D)return;
   if($('map').hidden){requestAnimationFrame(draw);return;}
   ctx.fillStyle='#e5f2d4';ctx.fillRect(0,0,2000,1000);
   const latest=world?.history[0];
-  for(let x=0;x<22;x++)for(let y=0;y<10;y++){
-    const street=y===4||x===7||x===12||x===17;
+  for(let x=0;x<27;x++)for(let y=0;y<17;y++){
+    const street=y===4||y===11||x===7||x===12||x===17||x===23;
     tile(x,y,1,1,0,street?'#829e92':(x+y)%2?'#bbdca4':'#b1d49c','#ffffff17');
     if(y===4)tile(x+.17,y+.48,.55,.06,1,'#dce5cd');
   }
   const objects=[[9,()=>tower(t,latest)]];
   for(const o of Object.values(vendors))objects.push([o.x+o.y+1,()=>vendorBuilding(o)]);
+  for(const o of Object.values(carriers))objects.push([o.x+o.y+2,()=>{
+    block(o.x,o.y,3,2,58,0,o.color,'#edf1e9','#a1b4b2');
+    block(o.x+.17,o.y+2,2.65,.08,29,4,'#718784','#53706e','#7d9592');
+  }]);
   for(const [x,y] of [[1,1],[2,8],[6,1],[19,2.7],[20.5,6.5],[8,9],[13.1,9.2]])objects.push([x+y,()=>tree(x,y)]);
-  if(latest?.shipment==='shipping'&&vendors[latest.vendor]){
-    const start=vendors[latest.vendor],f=Math.min(1,Math.max(0,(t-movement)/3400));
-    const x=start.x+(5.1-start.x)*f,y=start.y+(3.55-start.y)*f;
-    objects.push([x+y,()=>{block(x,y,.7,.36,18,0,'#fff3bd','#ebd687','#b7823c');block(x-.26,y,.26,.36,12,0,'#6fadd4','#568dad','#426d97')}]);
+  if(latest?.shipment==='shipping'){
+    const shipments=latest.shipments?.length?latest.shipments:[{vendor:latest.vendor}];
+    for(const shipment of shipments){
+      const start=vendors[shipment.vendor],terminal=carriers[shipment.route?.carrier];
+      if(!start)continue;
+      const elapsed=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?4450:t-movement;
+      const [x,y]=fallbackTruckPosition(start,terminal,elapsed);
+      objects.push([x+y,()=>{block(x,y,.7,.36,18,0,terminal?.color??'#fff3bd','#ebd687','#b7823c');block(x-.26,y,.26,.36,12,0,'#6fadd4','#568dad','#426d97')}]);
+    }
   }
   objects.sort((a,b)=>a[0]-b[0]).forEach(([,paint])=>paint());
   requestAnimationFrame(draw);
@@ -129,6 +144,14 @@ async function api(path,method='GET',payload){
   return result;
 }
 function line(name,value){return '<div class="line"><span>'+esc(name)+'</span><strong>'+esc(value)+'</strong></div>'}
+function activeShipments(event){
+  if(event?.shipment!=='shipping')return '';
+  const shipments=(event.shipments??[]).filter(order=>order.route?.carrier);
+  if(!shipments.length)return '';
+  const rows=shipments.map(order=>'<li><div><strong>'+esc(order.route.carrier)+'</strong><span>'+esc(order.quantity)+' unit</span></div>'+
+    '<p>Terminal → Jemput di '+esc(order.vendor)+' → Gudang BIZ</p></li>');
+  return '<section class="active-shipments" aria-label="Kiriman aktif"><h3>Penjemputan dan pengantaran</h3><ul>'+rows.join('')+'</ul></section>';
+}
 function supplierFacts(supplier){
   if(!supplier)return '';
   return '<div class="supplier-stock">'+Object.entries(supplier.stock??{}).map(([product,quantity])=>
@@ -151,6 +174,7 @@ function renderSuppliers(){
   $('supply-orders').innerHTML=orders.length?'<h3>Pembagian pesanan dan kiriman</h3><div class="supply-order-list">'+orders.map(order=>
     '<article class="supply-order"><strong>'+esc(order.vendor)+' · '+esc(amount(order.quantity))+' unit</strong><small>'+esc([order.id,statusLabels[order.status]??'Direncanakan'].filter(Boolean).join(' · '))+'</small>'+
     line('Biaya barang',rupiah(order.goods_cost??order.cost??0))+line('Ongkir',rupiah(order.freight??0))+line('Total faktur',rupiah(order.invoice??0))+
+    (order.route?.carrier?line('Pengangkut',order.route.carrier):'')+
     (order.route?line('Layanan',order.route.name)+line('Rute',(order.route.path??[]).slice(1).join(' → ')):'')+
     (order.arrival_day==null?'':line('Perkiraan tiba','Hari '+amount(order.arrival_day)))+
     (order.deadline_day==null?'':line('Tenggat','Hari '+amount(order.deadline_day)))+
@@ -178,31 +202,33 @@ function render(next){
     }
     else if(latest?.inspection)panel.innerHTML=inspectionScene(latest);
     else if(latest?.meeting)panel.innerHTML=negotiationScene({company:'PT. Biz Indonesia Market',...latest.meeting});
-    else if(latest?.shipment)panel.innerHTML=shippingScene(latest.shipment,
+    else if(latest?.shipment)panel.innerHTML=activeShipments(latest)||shippingScene(latest.shipment,
       latest.shipments?.length>1?`${latest.shipments.length} kiriman pemasok`:latest.vendor);
     else panel.replaceChildren();
   }
   $('clock').textContent='Giliran '+world.tick;
   const empty=world.products.some(p=>!p.units);
   for(const button of $('markers').children){
-    const key=button.dataset.role,o=offices[key]||vendors[key];
+    const key=button.dataset.role,o=offices[key]||vendors[key]||carriers[key];
     button.classList.toggle('selected',key===selected);
-    button.classList.toggle('current',key===world.scene||key===active||latest?.shipments?.some(order=>order.vendor===key));
+    const activeShipment=latest?.shipments?.some(order=>order.vendor===key||order.route?.carrier===key)??false;
+    button.classList.toggle('current',key===world.scene||key===active||key===latest?.inspection?.carrier||activeShipment);
     button.classList.toggle('empty',key==='seller'&&empty);
     const label=(o.level!==undefined?'L'+(o.level+1)+' · ':'')+o.name+(key==='seller'&&empty?' · STOK KOSONG':'');
-    const shortLabel=o.level!==undefined?'L'+(o.level+1):'V'+(o.index+1);
+    const shortLabel=o.level!==undefined?'L'+(o.level+1):(carriers[key]?'K':'V')+(o.index+1);
     button.innerHTML='<span class="marker-full">'+esc(label)+'</span><span class="marker-short" aria-hidden="true">'+esc(shortLabel)+'</span>';
     button.setAttribute('aria-label',label);
     button.title=label;
     button.setAttribute('aria-pressed',key===selected);
   }
-  const vendor=vendors[selected],role=vendor?'vendor':selected,o=vendor||offices[selected];
-  const agent=models.roles[role], event=world.history.find(e=>vendor?
+  const vendor=vendors[selected],carrier=carriers[selected],role=vendor?'vendor':selected,o=vendor||carrier||offices[selected];
+  const agent=models.roles[role], event=world.history.find(e=>carrier?
+    e.shipments?.some(order=>order.route?.carrier===selected)||e.inspection?.carrier===selected:vendor?
     (e.meeting?.vendor===selected||e.vendor===selected||e.inspection?.vendor===selected||e.shipments?.some(order=>order.vendor===selected)):e.role===role);
   const agentModel=models.benchmark.agents[role];
-  $('inspector').innerHTML='<h2>'+esc(o.name)+'</h2><p>'+esc(vendor?o.floors+' lantai · pemasok elektronik':agent[1])+'</p>'+
+  $('inspector').innerHTML='<h2>'+esc(o.name)+'</h2><p>'+esc(carrier?'Terminal dan pengiriman ke Gudang BIZ':vendor?o.floors+' lantai · pemasok elektronik':agent[1])+'</p>'+
     '<div class="decision">'+(event?'<strong>'+esc(event.title)+'</strong><p>'+esc(event.detail)+'</p>':'<p>Menunggu giliran agen.</p>')+'</div>'+
-    '<small>Model utama · '+esc(agentModel.main)+'</small>'+
+    (agentModel?'<small>Model utama · '+esc(agentModel.main)+'</small>':'')+
     (event?.prediction?'<p>Prediksi: '+esc(event.prediction)+'</p><details><summary>Masukan model</summary>'+
       Object.entries(event.features).map(([n,v])=>line(n,moneyFeatures.has(n)?rupiah(v):amount(v))).join('')+'</details>':'');
   if(vendor&&world.suppliers?.[selected])$('inspector').innerHTML+='<div class="decision"><strong>Kondisi pemasok</strong>'+supplierFacts(world.suppliers[selected])+'</div>';
@@ -281,7 +307,13 @@ function benchmark(){
     line('MAE model regresi',amount(lead.residual_model_mae_days)+' hari')+line('MAE jadwal acuan',amount(lead.baseline_scheduled_mae_days)+' hari')+
     '<p>MAE lebih kecil lebih baik. Metode waktu dipilih dari validasi. Waktu historis dibagi 30 dan dibatasi 1–12 hari untuk simulasi; akurasinya belum diuji pada elektronik.</p></div></div>';
 }
-function schedule(){clearTimeout(timer);if(playing&&models)timer=setTimeout(advance,Number($('pace').value))}
+function schedule(){
+  clearTimeout(timer);
+  if(!playing||!models)return;
+  const event=world?.history[0];
+  const dispatch=event?.tick===world.tick&&event.shipment==='shipping'&&event.shipments?.some(order=>order.route?.carrier);
+  timer=setTimeout(advance,Math.max(Number($('pace').value),dispatch?5200:0));
+}
 function pause(){playing=false;clearTimeout(timer);$('play').textContent='▶ Putar dunia'}
 async function change(path,payload){
   if(busy||!models)return;
@@ -300,10 +332,10 @@ async function change(path,payload){
 async function advance(){await change('/api/step/'+activeMode(world));schedule()}
 let followActivity=true;
 function markers(){
- for(const [key,o] of Object.entries({...offices,...vendors})){
+ for(const [key,o] of Object.entries({...offices,...vendors,...carriers})){
    const button=document.createElement('button');
    const position=o.level===undefined?project(o.x+.8,o.y+.8,o.floors*31+20):project(o.x+.68,o.y+3,o.level*62+31);
-   button.className='office';button.dataset.role=key;button.style.left=position[0]/20+'%';button.style.top=position[1]/10+'%';
+   button.className='office'+(carriers[key]?' carrier-marker':'');button.dataset.role=key;button.style.left=position[0]/20+'%';button.style.top=position[1]/10+'%';
    button.textContent=o.name;button.onclick=()=>{followActivity=false;selected=key;render();openInterior(key)};
    $('markers').append(button);
  }
@@ -350,7 +382,8 @@ document.querySelectorAll('.tab').forEach(button=>button.onclick=()=>{
 document.addEventListener('DOMContentLoaded',async()=>{
  try{
   if(typeof roomOrders!=='function'||typeof renderInterior!=='function'||typeof roomJobs!=='function'
-      ||typeof negotiationScene!=='function'||typeof shippingScene!=='function'||typeof inspectionScene!=='function'){
+      ||typeof renderCompanyDashboard!=='function'||typeof negotiationScene!=='function'
+      ||typeof shippingScene!=='function'||typeof inspectionScene!=='function'){
     throw new Error('Berkas tampilan belum lengkap. Muat ulang halaman untuk melanjutkan.');
   }
   const [initial,metadata]=await Promise.all([api('/api/world'),api('/api/models')]);
@@ -358,6 +391,10 @@ document.addEventListener('DOMContentLoaded',async()=>{
   $('scenario').value=activeMode(initial);
   const names=[...new Set(initial.products.flatMap(p=>p.vendors.map(v=>v.name)))].sort();
   names.forEach((name,i)=>{const [x,y,floors]=vendorLots[i];vendors[name]={name,x,y,floors,index:i,color:colors[i]}});
+  Object.keys(models.company_policy?.carriers??{}).forEach((name,i)=>{
+    const [x,y,color]=carrierLots[i];
+    carriers[name]={name,x,y,color,floors:1,index:i};
+  });
   markers();render(initial);benchmark();activateDistrict();
   if(playing){$('play').textContent='⏸ Jeda';schedule()}
  }catch(error){

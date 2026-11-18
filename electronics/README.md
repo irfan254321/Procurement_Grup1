@@ -17,7 +17,7 @@ Installer membuat `electronics/.venv`, memasang dependensi, mengunduh dataset pe
 Jalankan server langsung dari PowerShell di folder proyek.
 
 ```powershell
-.\electronics\.venv\Scripts\python.exe electronics/server.py
+.\electronics\.venv\Scripts\python.exe electronics/agent.py
 ```
 
 Biarkan PowerShell terbuka selama aplikasi dipakai. Tekan **Ctrl+C** untuk menghentikan server. Jika port 8081 masih terpakai, cek terminal lama dan hentikan server di sana. Jika lingkungan Python belum ada atau dependensi di `requirements.txt` berubah, jalankan kembali perintah instalasi. [Buka BIZ District di localhost:8081](http://127.0.0.1:8081)
@@ -33,6 +33,8 @@ SQLite sudah tersedia melalui Python. Saat pertama kali berjalan, server membuat
 - **Laba perusahaan** menampilkan grafik pendapatan, laba kotor, dan saldo kas, serta rincian faktur vendor, penjualan, dan posisi pajak.
 - **Model agen** menampilkan metrik validasi dan pengujian serta model pilihan tiap agen.
 - **Pasokan & pengiriman** menampilkan stok tiap vendor, kapasitas tersedia, skor risiko setelah penawaran, serta jumlah, rute, tenggat, dan faktur per kiriman. Gunakan **+**, **−**, atau **Lihat semua** untuk mengatur peta 3D.
+- Klik lantai BIZ, gedung pemasok, atau terminal pengangkut untuk membuka **Profil**, **Aturan**, dan **Biaya logistik** perusahaan. Biaya logistik merangkum ongkir pada faktur terbuka dan dibayar. Kalkulator dapat membandingkan estimasi biaya tetap dan biaya per unit untuk sebuah kiriman.
+- Klik **nama perusahaan** di dalam gedung untuk membuka situs lokalnya. [TechMart](http://127.0.0.1:8081/techmart/), [BIZ](http://127.0.0.1:8081/biz/), dan [J&T Cargo](http://127.0.0.1:8081/jt-cargo/) dapat dibuka langsung. Setiap situs memuat profil, aturan, dan biaya logistik. Bagian biaya memperlihatkan rute dan jarak simulasi yang memengaruhi ongkir.
 
 Tombol **Mulai ulang skenario** mengembalikan stok, kas, riwayat, dan pencatatan pajak lokal ke kondisi awal skenario terpilih.
 
@@ -46,7 +48,9 @@ Tombol **Mulai ulang skenario** mengembalikan stok, kas, riwayat, dan pencatatan
 
 1. Pilih **Permintaan naik → pasokan terbatas** di tab **Dunia**, lalu klik **Mulai ulang skenario**.
 2. BIZ membutuhkan 30 Laptop dengan tenggat empat hari simulasi. Kapasitas vendor pertama, CloudSoft Corp., turun dari 7 menjadi 4 unit per periode. Buka gedung vendor untuk melihat stok dan sisa kapasitasnya.
-3. Pantau **Pasokan & pengiriman**. Pengadaan mengalokasikan kebutuhan ke beberapa vendor. Begitu dana dicadangkan, peta menampilkan truk untuk kiriman yang berangkat. Gudang memproses kiriman menurut urutan jadwal kedatangan. Keuangan mencocokkan dan membayar setiap faktur.
+3. Pantau **Pasokan & pengiriman**. Pengadaan mengalokasikan kebutuhan ke beberapa vendor dan memilih layanan pengiriman. Setelah pemasok mengemas pesanan, kendaraan berangkat dari terminal pengangkut, berhenti menjemput barang di vendor, lalu mengantar ke Gudang BIZ. Gudang memproses kiriman menurut urutan jadwal kedatangan. Keuangan mencocokkan dan membayar setiap faktur.
+
+Pengangkut yang dapat dipilih adalah [JNE](https://www.jne.co.id/jtr-id), [J&T Cargo](https://www.jtcargo.id/serviceProducts), dan [Pos Logistik Indonesia](https://admin-piol.posindonesia.co.id/media/AR%20POS%202024%20HiRes.pdf). Kapasitas per kiriman, ongkir, rute, dan jadwal yang terlihat di aplikasi adalah parameter simulasi. Rujukan resmi digunakan untuk identitas dan profil perusahaan.
 
 ## Alur simulasi dan model
 
@@ -64,9 +68,9 @@ Browser meminta giliran berikutnya lewat API. Server Python menjalankan agen yan
 
 Saat stok rendah atau kebutuhan mendatang diperkirakan melebihi persediaan, agen Stock mengajukan restok. Jika dana kurang, permintaan tetap tersimpan dan toko melayani penjualan dari stok yang tersedia. Dana pengadaan diisi kembali dari modal barang yang terjual dan 50% laba kotor positif. Saat kas bebas dan anggaran cukup untuk melanjutkan, Pengadaan memproses permintaan yang tertahan.
 
-Pengadaan membandingkan penawaran lima vendor. Tiap vendor mendapat hingga tiga putaran tawar balik dan dapat menawarkan sebagian dari kebutuhan. Pengalokasi memilih kombinasi jumlah dan layanan pengiriman yang memenuhi tenggat, stok, kapasitas, anggaran, dan target laba. Biaya yang dibandingkan meliputi barang, ongkir tetap/per unit, PPN simulasi, dan penalti skor risiko. Nilai penalti dihitung dari biaya barang × skor risiko × 0,15.
+Pengadaan membandingkan penawaran lima vendor. Tiap vendor mendapat hingga tiga putaran tawar balik dan dapat menawarkan sebagian dari kebutuhan. Pengalokasi memilih kombinasi jumlah, pengangkut, dan layanan pengiriman yang memenuhi tenggat, stok, kapasitas, anggaran, dan target laba. Biaya yang dibandingkan meliputi barang, ongkir tetap/per unit, PPN simulasi, dan penalti skor risiko. Nilai penalti dihitung dari biaya barang × skor risiko × 0,15.
 
-Stok dan kapasitas vendor disimpan di SQLite. Saat pesanan disetujui, stok dan kapasitasnya berkurang. Setiap 24 giliran kapasitas terisi kembali dan stok bertambah sampai batas simulasi. Rute memakai graf distrik dengan jarak yang ditetapkan skenario. Layanan ekspres memakai koridor selatan dan ongkir lebih tinggi. Hari simulasi mengikuti kedatangan, sedangkan giliran memajukan langkah kerja agen.
+Stok dan kapasitas vendor disimpan di SQLite. Saat pesanan disetujui, stok dan kapasitasnya berkurang. Setiap 24 giliran kapasitas terisi kembali dan stok bertambah sampai batas simulasi. Rute memakai graf distrik dengan terminal pengangkut sebagai bagian perjalanan. Layanan ekspres memakai koridor selatan, dengan ongkir dan waktu tempuh yang berbeda dari layanan reguler. Hari simulasi mengikuti kedatangan, sedangkan giliran memajukan langkah kerja agen.
 
 Keuangan mencadangkan total semua faktur yang disetujui. Tiap pembayaran kemudian mengurangi kas dan melepas cadangan faktur tersebut. Saat barang rusak, faktur mengurangi nilai barang yang tidak lolos penerimaan. Ongkir tetap menjadi biaya kiriman.
 
@@ -105,7 +109,7 @@ Three.js merender distrik, animasi agen, dan interior di browser. Model Poly Piz
 | Lokasi | Isi |
 | --- | --- |
 | `install.py` | Instalasi lokal, penyiapan model, dan peluncuran server |
-| `server.py` | API, giliran simulasi, dan penyimpanan SQLite |
+| `agent.py` | API, giliran simulasi, dan penyimpanan SQLite |
 | `domain.py`, `train.py` | Katalog, aturan label, pelatihan, dan evaluasi model |
 | `supply_chain.py` | Stok vendor, pemilihan rute, dan pembagian pesanan |
 | `supplier_data.py`, `supplier_training.py` | Profil pemasok, pelatihan, dan prediksi keterlambatan |

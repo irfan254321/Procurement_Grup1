@@ -241,7 +241,7 @@ content = [
         ('Konfigurasi aturan', 'domain.py dan finance.py; ambang serta asumsi simulasi.'),
     ]),
     ('MESIN KEPUTUSAN', [
-        ('Orkestrator terpusat', 'server.step(): satu fase per giliran.'),
+        ('Orkestrator terpusat', 'agent.step(): satu fase per giliran.'),
         ('Inferensi tujuh peran', 'Pembeli - CatBoost<br/>Penjual - Random Forest<br/>Stock - Logistic Regression<br/>Pengadaan - SVM<br/>Vendor - Gradient Boosting<br/>Negosiasi - KNN<br/>Keuangan - XGBoost'),
         ('Hasil', 'Prediksi kelas biner dipadukan dengan aturan, lalu dicatat sebagai event.'),
     ]),
@@ -326,7 +326,7 @@ report.page('Bagaimana komponen terhubung', 'Penjelasan diagram dan batas tanggu
 report.table(['Komponen', 'Isi pada implementasi kita'], [
     ['1. Persepsi', 'Data numerik dari kondisi dunia: stok, kebutuhan, harga, kapasitas, kas, dan faktur. CSV dipakai untuk membentuk katalog dan acuan skenario.'],
     ['2. Pengetahuan', 'Katalog dalam memori, classifier tersimpan, serta world JSON di SQLite. State disimpan kembali setelah setiap aksi.'],
-    ['3. Mesin keputusan', 'server.step() memilih fase yang aktif, memanggil classifier terkait, menerapkan aturan, lalu mencatat event.'],
+    ['3. Mesin keputusan', 'agent.step() memilih fase yang aktif, memanggil classifier terkait, menerapkan aturan, lalu mencatat event.'],
     ['4. Tujuan/kendala', 'Pelayanan pelanggan, ketersediaan barang, harga yang disepakati, dana memadai, serta kecocokan faktur. Batas ini tertulis dalam kode.'],
     ['5. Pembelajaran', 'train.py melatih dan mengevaluasi model sebelum aplikasi dipakai. Runtime membaca model utama yang sudah tersimpan.'],
     ['6. Aksi', 'Perubahan kondisi simulasi, transaksi, reservasi dana, kiriman dan pembayaran; hasilnya divisualisasikan di browser.'],
@@ -336,7 +336,7 @@ report.p('<b>Browser meminta langkah</b> melalui POST /api/step/{mode}. Server m
 report.p('GET /api/world membaca kondisi aktif; GET /api/models mengambil peran dan metrik; POST /api/reset/{mode} membuat kondisi awal baru. Server yang dibuka kembali memakai database lokal yang sama.')
 report.box('Makna umpan balik', 'Hasil penjualan atau pengadaan mengubah observasi giliran berikutnya. Umpan balik ini memperbarui <b>state operasional</b>. Pelatihan ulang dilakukan dengan menjalankan skrip training secara terpisah.')
 report.p('Diagram mengadaptasi tata letak referensi, tetapi tidak menambahkan sensor fisik, LLM, knowledge graph, vector database, critic/reward RL, atau aktuator robot yang tidak tersedia dalam kode.', 'small')
-report.source('[K1] server.py:26-35, 69-103, 170-539; [K2] domain.py:9-47; [K4] train.py:70-113.')
+report.source('[K1] agent.py:26-35, 69-103, 170-539; [K2] domain.py:9-47; [K4] train.py:70-113.')
 
 # 04 - workflow.
 report.page('Alur kerja dari awal sampai akhir', 'Penjualan menghasilkan kebutuhan; pengadaan memulihkan stok; faktur dibayar setelah cocok')
@@ -353,7 +353,7 @@ report.table(['Tahap', 'Proses dan hasil'], [
 ], [104, W - 104], small=True)
 report.heading('Ketika proses belum bisa dilanjutkan')
 report.p('<b>Dana kurang:</b> permintaan masuk restock_holds dan dapat dilanjutkan setelah dana cukup. <b>Semua vendor gagal sepakat:</b> percobaan restok ditunda 18 giliran. <b>Stok kurang saat penjualan:</b> transaksi pelanggan ditutup; pelanggan itu tidak otomatis menunggu kiriman.', 'small')
-report.source('[K1] server.py:128-469; [K3] finance.py:14-53.')
+report.source('[K1] agent.py:128-469; [K3] finance.py:14-53.')
 
 # 05 - floors.
 report.page('Agen di dalam enam lantai BIZ', 'Model memberi prediksi; karakter pendukung memperlihatkan pembagian pekerjaan')
@@ -381,7 +381,7 @@ report.heading('Contoh kiriman rusak: pesan 10, terima layak 8')
 report.p('Misalkan harga yang disepakati Rp1.000.000 per unit. Pembelian 10 unit memiliki biaya dasar Rp10.000.000 dan faktur Rp11.100.000 dengan asumsi PPN simulasi 11%. Dana itu dicadangkan setelah pembelian disetujui.')
 report.p('Jika 2 unit rusak, hanya 8 unit masuk stok. Faktur untuk 10 unit ditahan. Vendor menerbitkan faktur pengganti Rp8.880.000 untuk 8 unit, terdiri dari biaya Rp8.000.000 dan PPN Rp880.000. Setelah cocok, Keuangan membayar dan mengembalikan selisih reservasi Rp2.220.000 ke dana restok.')
 report.p('Contoh angka di atas menjelaskan aturan, bukan kutipan satu transaksi historis. Skenario damage memunculkan dua unit rusak pada kiriman pertama. Mode auto juga dapat menimbulkan kerusakan secara acak; belum ada model prediksi kerusakan.', 'small')
-report.source('[K1] server.py:398-469; [K6] web/interiors.js:68-74; [K8] web/district-3d.mjs:105-147.')
+report.source('[K1] agent.py:398-469; [K6] web/interiors.js:68-74; [K8] web/district-3d.mjs:105-147.')
 
 # 07 - dataset.
 report.page('Dataset yang digunakan', 'Transaksi sumber dipakai sebagai acuan untuk membentuk contoh keputusan berlabel')
@@ -423,7 +423,7 @@ report.table(['Algoritme', 'Bagaimana mengambil keputusan', 'Peran utama terpili
 ], [100, 288, W - 388], small=True)
 report.box('Mengapa setiap agen memakai algoritme berbeda?', 'Pemilihan memaksimalkan <b>total balanced accuracy validasi</b> dengan syarat tujuh algoritme utama tidak berulang. Jadi model utama tidak selalu memiliki skor tertinggi untuk agennya secara individual. Penugasan ini adalah pilihan eksperimen proyek, bukan sifat wajib masing-masing algoritme.')
 report.p('Empat cadangan per peran juga disimpan, sehingga artefak memuat 35 model. Saat berjalan, server hanya memanggil model main. Tidak ada voting antarmodel cadangan atau perpindahan otomatis ke cadangan.', 'small')
-report.source('[K4] train.py:26-38, 76-108; [K1] server.py:69-72. Definisi algoritme: [A1]-[A7].')
+report.source('[K4] train.py:26-38, 76-108; [K1] agent.py:69-72. Definisi algoritme: [A1]-[A7].')
 
 # 09 - three agents.
 report.page('Model untuk pelanggan, toko, dan stok', 'Masukan model adalah angka; kelas keluarannya disaring oleh kondisi bisnis')
@@ -448,7 +448,7 @@ report.model('3', 'Stock', 'Logistic Regression',
     'Model memengaruhi kebutuhan mendatang saat permintaan positif. Stok &lt;=3 atau kekurangan stok dapat memicu restok langsung melalui aturan.',
     'Stok 8, permintaan 6, titik pesan 3 memberi sisa proyeksi 2 sehingga labelnya Restok perlu. Pelaksanaan tetap menunggu dana dan giliran.',
     'StandardScaler + LogisticRegression; pengaturan classifier lainnya default.')
-report.source('[K2] domain.py:22-29, 72-82; [K1] server.py:128-144, 206-275; [K4] train.py:26-65.')
+report.source('[K2] domain.py:22-29, 72-82; [K1] agent.py:128-144, 206-275; [K4] train.py:26-65.')
 
 # 10 - three agents.
 report.page('Model untuk pengadaan dan negosiasi', 'Memisahkan prioritas, respons vendor, dan penyaringan kesepakatan')
@@ -473,7 +473,7 @@ report.model('6', 'Negosiasi', 'KNN',
     'Pada vendor_result, menjadi syarat kesepakatan setelah vendor menerima. Pada counter, prediksi hanya dicatat; nilai tawar berasal dari rumus.',
     'Floor 90, harga 95, batas pembeli 100 berada dalam rentang label Sepakat. KNN tidak menghitung nominal 95 itu.',
     'StandardScaler + KNeighborsClassifier(n_neighbors=19).')
-report.source('[K1] server.py:276-356; [K2] domain.py:22-29, 82-85; [K4] train.py:26-38.')
+report.source('[K1] agent.py:276-356; [K2] domain.py:22-29, 82-85; [K4] train.py:26-38.')
 
 # 11 - finance and explicit business controls.
 report.page('Model keuangan dan aturan persetujuan', 'Prediksi kelayakan dibandingkan dengan perhitungan yang dapat ditelusuri')
@@ -493,7 +493,7 @@ report.table(['Pemeriksaan', 'Aturan yang digunakan'], [
 report.heading('Pencadangan, penerimaan, dan pembayaran')
 report.p('Ketika pembelian disetujui, fund berkurang dan reserved bertambah; kas belum dibayar ke vendor. Setelah barang diperiksa, faktur dicocokkan dengan jumlah layak jual. Saat cocok, kas berkurang, PPN masukan dicatat, reserved dilepas, dan selisih faktur koreksi kembali ke fund.')
 report.p('Sistem juga mencatat pendapatan, HPP, laba kotor, saldo kas, dan pajak simulasi. PPN 11% adalah asumsi yang dipakai kode. Tagihan pajak lain dimasukkan melalui formulir; pencatatan ini tidak mengirim pembayaran ke bank atau instansi pajak.', 'small')
-report.source('[K1] server.py:147-148, 357-469; [K3] finance.py:14-86; [K4] train.py:37.')
+report.source('[K1] agent.py:147-148, 357-469; [K3] finance.py:14-86; [K4] train.py:37.')
 
 # 12 - metrics/backups/limits.
 report.page('Evaluasi dan batas pembacaan hasil', 'Skor di bawah berasal dari metrics.json yang disertakan di proyek')
@@ -519,7 +519,7 @@ report.source('[K4] train.py:70-108; [K9] data/metrics.json. Angka dibulatkan du
 report.page('Rujukan dan cara reproduksi', 'Kode lokal menjadi acuan perilaku; dokumentasi resmi menjelaskan algoritmenya')
 report.heading('Rujukan implementasi dalam folder electronics/')
 for text in [
-    '<b>[K1] server.py:</b> inferensi 69-83; pengatur fase 170-469; API dan penyimpanan 472-539.',
+    '<b>[K1] agent.py:</b> inferensi 69-83; pengatur fase 170-469; API dan penyimpanan 472-539.',
     '<b>[K2] domain.py:</b> daftar agen/fitur 14-29; katalog 59-68; label 72-85.',
     '<b>[K3] finance.py:</b> PPN simulasi, pencatatan, kas bebas dan setoran 14-86.',
     '<b>[K4] train.py:</b> sembilan kandidat 26-38; generator 41-65; split/pemilihan/artefak 70-113.',
@@ -541,7 +541,7 @@ refs = [
 for code, title, url in refs:
     report.p(f'<b>[{code}]</b> <link href="{escape(url)}" color="#086FAD">{escape(title)}</link>', 'small', after=5)
 report.heading('Perintah dari folder utama repositori')
-report.p('Instalasi dan penyiapan model: <font face="Calibri-Bold">py -3.14 electronics/install.py</font><br/>Training ulang: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/train.py</font><br/>Jalankan aplikasi: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/server.py</font>', 'small')
+report.p('Instalasi dan penyiapan model: <font face="Calibri-Bold">py -3.14 electronics/install.py</font><br/>Training ulang: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/train.py</font><br/>Jalankan aplikasi: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/agent.py</font>', 'small')
 report.p('Model dan dataset yang ada tidak diubah untuk membuat dokumen ini. Rentang tanggal dan jumlah baris dihitung dari CSV lokal; skor diekstrak dari metrics.json. Dokumentasi algoritme resmi ditinjau untuk penjelasan konsep.', 'small')
 digest = hashlib.sha256((ROOT / 'electronics/data/spend_analysis_dataset.csv').read_bytes()).hexdigest()
 report.p('Identitas dataset (SHA-256):<br/>' + digest, 'tiny')

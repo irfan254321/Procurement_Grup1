@@ -21,11 +21,27 @@
     </select>
   </label>
 </section>
-<div class="layout"><section class="world-card"><div class="maphead"><div><strong>Kantor pusat &amp; kawasan vendor</strong><span>Pilih lantai atau gedung vendor untuk melihat aktivitas</span></div><div id="map-view-controls" class="map-view-controls" hidden aria-label="Ukuran tampilan distrik"><button id="map-zoom-out" aria-label="Perkecil distrik">−</button><span id="map-zoom-value" aria-live="polite">100%</span><button id="map-zoom-in" aria-label="Perbesar distrik">+</button><button id="map-zoom-reset">Lihat semua</button></div></div><div id="map"><canvas id="scene" width="2000" height="1000" aria-label="Kantor pusat &amp; kawasan vendor elektronik isometrik"></canvas><div id="markers"></div></div>
+<div class="layout"><section class="world-card"><div class="maphead"><div><strong>Kantor pusat, pemasok, dan terminal logistik</strong><span>Pilih lantai atau gedung untuk membuka dashboard perusahaan</span><small class="map-mobile-legend">L · Lantai BIZ &nbsp; V · Pemasok &nbsp; K · Pengangkut</small></div><div id="map-view-controls" class="map-view-controls" hidden aria-label="Ukuran tampilan distrik"><button id="map-zoom-out" aria-label="Perkecil distrik">−</button><span id="map-zoom-value" aria-live="polite">100%</span><button id="map-zoom-in" aria-label="Perbesar distrik">+</button><button id="map-zoom-reset">Lihat semua</button></div></div><div id="map"><canvas id="scene" width="2000" height="1000" aria-label="Distrik 3D BIZ, pemasok, dan terminal logistik"></canvas><div id="markers"></div></div>
 <section id="floor-view" hidden aria-labelledby="floor-title">
   <div class="floor-toolbar"><button id="floor-back">← Peta distrik</button><label>Lantai atau gedung <select id="floor-tabs"></select></label></div>
   <div class="floor-heading"><div><h2 id="floor-title"></h2><p id="floor-subtitle"></p></div><span id="floor-status"></span></div>
-  <div class="floor-layout">
+  <section id="company-dashboard" class="company-dashboard" aria-labelledby="company-name">
+    <div class="company-masthead">
+      <div class="company-identity">
+        <span id="company-initials" class="company-initials" aria-hidden="true"></span>
+        <div><p id="company-type" class="company-kicker"></p><h3><a id="company-name" class="company-page-link" href="/biz/"></a></h3></div>
+      </div>
+      <span id="company-context" class="company-context"></span>
+    </div>
+    <nav id="company-nav" class="company-nav" aria-label="Dashboard perusahaan">
+      <button type="button" data-company-tab="room" aria-controls="company-room" aria-pressed="true">Ruangan</button>
+      <button type="button" data-company-tab="profile" aria-controls="company-panel" aria-pressed="false">Profil</button>
+      <button type="button" data-company-tab="rules" aria-controls="company-panel" aria-pressed="false">Aturan</button>
+      <button type="button" data-company-tab="logistics" aria-controls="company-panel" aria-pressed="false">Biaya logistik</button>
+    </nav>
+    <div id="company-panel" class="company-panel" hidden></div>
+  </section>
+  <div class="floor-layout" id="company-room">
     <div class="floor-scene"><div id="floor-drawing"></div><div id="floor-showroom" hidden></div><div id="floor-activity"></div><div id="floor-facts"></div></div>
     <div class="floor-directory"><div id="floor-agent"></div><h3>Orang di ruangan</h3><div id="floor-roster"></div><div id="floor-person"></div></div>
   </div>
@@ -69,4 +85,4 @@
   </section>
   <section class="card finance-transactions"><h2>Faktur dan transaksi terakhir</h2><div id="transactions"></div></section>
 </section>
-<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Evaluasi keputusan agen dan perkiraan pengiriman pemasok.</p></div></div><div id="benchmark"></div><section id="supplier-benchmark" class="card supplier-section" hidden></section></section></main><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/interiors.js"></script></body></html>
+<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Evaluasi keputusan agen dan perkiraan pengiriman pemasok.</p></div></div><div id="benchmark"></div><section id="supplier-benchmark" class="card supplier-section" hidden></section></section></main><script defer src="/format.js"></script><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/company-dashboard.js"></script><script defer src="/interiors.js"></script></body></html>

@@ -35,7 +35,7 @@ def run():
     subprocess.run([str(python), "download_supplier_data.py"], check=True, cwd=ROOT)
     subprocess.run([str(python), "supplier_training.py", "--ensure"], check=True, cwd=ROOT)
 
-    subprocess.run([str(python), "server.py"], check=True, cwd=ROOT)
+    subprocess.run([str(python), "agent.py"], check=True, cwd=ROOT)
 
 
 if __name__ == "__main__":

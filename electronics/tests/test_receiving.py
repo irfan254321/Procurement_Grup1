@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import server
+import agent as server
 from finance import vat
 
 
@@ -243,3 +243,26 @@ class ReceivingTests(unittest.TestCase):
             world = request("/api/step/auto", "POST")
             self.assertEqual(world["tick"], 1)
             self.assertEqual(world["opening"], reset["opening"])
+
+    def test_company_sites_have_direct_urls_for_all_companies(self):
+        from html import escape
+
+        def get(path):
+            handler = object.__new__(server.Handler)
+            handler.path = path
+            responses = []
+            handler.send_data = lambda body, mime="application/json", status=200: responses.append((body, mime, status))
+            handler.do_GET()
+            return responses[0]
+
+        metadata, _, _ = get("/api/models")
+        policy = metadata["company_policy"]
+        pages = policy["pages"]
+        self.assertEqual(set(pages), {"PT. Biz Indonesia Market", *policy["suppliers"], *policy["carriers"]})
+        self.assertEqual(pages["TechMart Inc."], "/techmart/")
+        for name, path in pages.items():
+            with self.subTest(company=name):
+                body, mime, status = get(path.rstrip("/") + "?view=profile")
+                self.assertEqual((mime, status), ("text/html", 200))
+                self.assertIn(f'data-company="{escape(name)}"', body.decode("utf-8"))
+        self.assertEqual(get("/perusahaan-tidak-ada/")[2], 404)

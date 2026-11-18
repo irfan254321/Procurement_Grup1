@@ -2,13 +2,24 @@ import * as THREE from './three/three.module.min.js';
 import {studio,softBox,makeStudioActor} from './studio.mjs';
 import {loadPolyAssets,placePoly} from './poly-assets.mjs';
 
-export const districtBounds = new THREE.Box3(new THREE.Vector3(-.8,-.6,-.7),new THREE.Vector3(21.7,6.4,10.2));
+export const districtBounds = new THREE.Box3(new THREE.Vector3(-.8,-.6,-.7),new THREE.Vector3(26.4,6.4,16.2));
+
+const depotX=5.25;
+const depotZ=3.22;
+const freightLane=15.13;
+const pickupDriveMs=1250;
+const loadingMs=720;
+const deliveryDriveMs=2480;
+
+function lotCenter(lot){
+  return {x:lot.x+.58,z:lot.y+.43};
+}
 
 // Fit the complete district in camera space, including its tower and outer lots.
 // This keeps the same world visible when the browser or the map panel changes size.
 export function fitDistrictCamera(camera,aspect){
   const center=districtBounds.getCenter(new THREE.Vector3());
-  camera.position.copy(center).add(new THREE.Vector3(25,19,30));
+  camera.position.copy(center).add(new THREE.Vector3(23,24,31));
   camera.lookAt(center);
   camera.updateMatrixWorld();
   const corner=new THREE.Vector3();
@@ -30,17 +41,77 @@ export function fitDistrictCamera(camera,aspect){
   return camera;
 }
 
-export function deliveryPath(vendor,route=[]){
+export function deliveryPath(vendor,route=[],carrier){
   const lane=route.includes('Hub Selatan')?5.77:route.includes('Hub Utara')?3.70:4.7;
-  return [
-    new THREE.Vector3(vendor.x+.58,0,vendor.y+.43),
-    new THREE.Vector3(vendor.x+.58,0,lane),
-    new THREE.Vector3(5.25,0,lane),
-    new THREE.Vector3(5.25,0,3.22),
-  ];
+  const origin=lotCenter(vendor);
+  const points=[[origin.x,origin.z],[origin.x,lane]];
+  if(carrier){
+    const terminal=lotCenter(carrier);
+    const approach=terminal.x+2.15;
+    points.push([approach,lane],[approach,freightLane],[terminal.x,freightLane],[depotX,freightLane]);
+  }else{
+    points.push([depotX,lane]);
+  }
+  points.push([depotX,depotZ]);
+  return points.filter(([x,z],index)=>!index||x!==points[index-1][0]||z!==points[index-1][1])
+    .map(([x,z])=>new THREE.Vector3(x,0,z));
 }
 
-export async function createDistrict(canvas,offices,vendors,markers){
+function motionLeg(points){
+  const lengths=points.slice(1).map((point,index)=>point.distanceTo(points[index]));
+  return {points,lengths,distance:lengths.reduce((total,length)=>total+length,0)};
+}
+
+export function shipmentMotion(vendor,route=[],carrier){
+  const direct=deliveryPath(vendor,route);
+  if(!carrier)return {approach:null,delivery:motionLeg(direct)};
+  const viaTerminal=deliveryPath(vendor,route,carrier);
+  const terminal=lotCenter(carrier);
+  const depotIndex=viaTerminal.findIndex(point=>point.x===terminal.x&&point.z===freightLane);
+  const pickup=viaTerminal[0].clone();
+  const curb=viaTerminal[1].z-pickup.z;
+  pickup.z+=Math.sign(curb)*Math.min(.99,Math.abs(curb)*.7);
+  viaTerminal[0]=pickup;
+  direct[0]=pickup;
+  const approach=viaTerminal.slice(0,depotIndex+1).reverse();
+  const delivery=route.includes(carrier.name)?viaTerminal:direct;
+  return {approach:motionLeg(approach),delivery:motionLeg(delivery)};
+}
+
+function legPose(leg,progress){
+  if(progress>=1){
+    const start=leg.points.at(-2),end=leg.points.at(-1);
+    return {position:end.clone(),angle:Math.atan2(start.z-end.z,end.x-start.x)};
+  }
+  let remaining=leg.distance*Math.max(0,progress);
+  let segment=0;
+  while(segment<leg.lengths.length-1&&remaining>leg.lengths[segment]){
+    remaining-=leg.lengths[segment++];
+  }
+  const start=leg.points[segment],end=leg.points[segment+1];
+  return {
+    position:start.clone().lerp(end,Math.min(1,remaining/leg.lengths[segment])),
+    angle:Math.atan2(start.z-end.z,end.x-start.x),
+  };
+}
+
+export function shipmentPose(motion,elapsedMs){
+  let elapsed=elapsedMs;
+  if(motion.approach){
+    if(elapsed<pickupDriveMs){
+      return {...legPose(motion.approach,elapsed/pickupDriveMs),phase:'approach',load:0};
+    }
+    elapsed-=pickupDriveMs;
+    if(elapsed<loadingMs){
+      return {...legPose(motion.approach,1),phase:'pickup',load:elapsed/loadingMs};
+    }
+    elapsed-=loadingMs;
+  }
+  const phase=elapsed<deliveryDriveMs?'delivery':'arrived';
+  return {...legPose(motion.delivery,elapsed/deliveryDriveMs),phase,load:1};
+}
+
+export async function createDistrict(canvas,offices,vendors,markers,carriers={}){
   const assets=await loadPolyAssets(['office','truck']);
   const renderer=new THREE.WebGLRenderer({antialias:true});
   renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
@@ -50,6 +121,11 @@ export async function createDistrict(canvas,offices,vendors,markers){
   const scene=new THREE.Scene();
   scene.background=new THREE.Color('#d6e8ed');
   studio(renderer,scene);
+  const sun=scene.children.find(light=>light.isDirectionalLight&&light.castShadow);
+  sun.target.position.set(12.8,0,7.75);
+  sun.position.set(1,17,12.75);
+  Object.assign(sun.shadow.camera,{left:-19,right:19,top:19,bottom:-19,far:60});
+  sun.shadow.camera.updateProjectionMatrix();
   const camera=new THREE.OrthographicCamera(-15,15,8,-8,.2,100);
   fitDistrictCamera(camera,2);
   const reduce=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -60,16 +136,25 @@ export async function createDistrict(canvas,offices,vendors,markers){
   }
   const box=(x,y,z,w,h,d,color,parent=scene)=>mesh(parent,softBox(w,h,d,.14),color,x,y,z);
   const point=new THREE.Vector3(), anchors=new Map();
-  const podium=box(10.45,-.27,4.7,22,.52,10.6,'#aac88e');
+  const podium=box(12.8,-.27,7.75,27.2,.52,16.9,'#aac88e');
   podium.castShadow=false;
-  const road=box(10.45,-.029,4.7,21.7,.07,1.15,'#70828e');
+  const road=box(12.65,-.029,4.7,26.1,.07,1.15,'#70828e');
   road.castShadow=false;
-  for(const z of [3.70,5.77])box(12.7,-.029,z,15.55,.07,.58,'#87959a').castShadow=false;
+  for(const z of [3.70,5.77])box(15.4,-.029,z,20.3,.07,.58,'#87959a').castShadow=false;
   for(const x of [7.1,12.0,17.0])box(x,-.028,4.7,.85,.075,9.5,'#70828e').castShadow=false;
-  box(5.25,-.028,4.52,.85,.075,3.1,'#70828e').castShadow=false;
-  for(let x=.5;x<21;x+=.83)box(x,.015,4.7,.37,.014,.043,'#ffefc2').castShadow=false;
-  for(const z of [4.05,5.35])box(10.45,.018,z,21.5,.052,.16,'#dddcc0').castShadow=false;
-  for(const [x,z,size] of [[1.1,1,.9],[2,7.7,1.05],[5.7,1.15,.8],[11.2,.15,.95],[19.1,2.4,.9],[8.2,8.95,.8],[18.9,8.6,.83],[.55,6.15,.85],[20.5,6.6,.9],[13.1,9.1,.8]]){
+  box(depotX,-.028,(depotZ+freightLane)/2,.95,.075,freightLane-depotZ+.6,'#70828e').castShadow=false;
+  for(let x=.5;x<25.5;x+=.83)box(x,.015,4.7,.37,.014,.043,'#ffefc2').castShadow=false;
+  for(const z of [4.05,5.35])box(12.65,.018,z,25.9,.052,.16,'#dddcc0').castShadow=false;
+  box(15.9,-.035,13.58,20.7,.067,4.94,'#c9d8cc').castShadow=false;
+  box(15.3,-.022,freightLane,20.8,.072,1.14,'#566574').castShadow=false;
+  for(let x=5.7;x<25.3;x+=.86){
+    box(x,.017,freightLane,.38,.018,.045,'#fff2c9').castShadow=false;
+  }
+  for(const carrier of Object.values(carriers)){
+    const approach=lotCenter(carrier).x+2.15;
+    box(approach,-.023,(3.70+freightLane)/2,.62,.07,freightLane-3.7,'#71828d').castShadow=false;
+  }
+  for(const [x,z,size] of [[1.1,1,.9],[2,7.7,1.05],[5.7,1.15,.8],[11.2,.15,.95],[19.1,2.4,.9],[8.2,8.95,.8],[18.9,8.6,.83],[.55,6.15,.85],[20.5,6.6,.9],[13.1,9.1,.8],[3,11.2,1.1],[1.7,14.1,.82],[25.3,9.6,.92],[25.5,13.1,.86]]){
     mesh(scene,new THREE.CylinderGeometry(.085,.14,.78,10),'#987555',x,.4,z);
     for(const [dx,dy,dz,color] of [[0,.94,0,'#588e6d'],[-.25,1.12,.05,'#69a872'],[.15,1.36,-.08,'#8bb872']]){
       mesh(scene,new THREE.SphereGeometry(size*.34,19,13),color,x+dx,dy,z+dz);
@@ -113,7 +198,7 @@ export async function createDistrict(canvas,offices,vendors,markers){
     anchors.set(role,[1.87,y+.5,3.3]);
   }
   for(const [name,o] of Object.entries(vendors)){
-    const x=o.x+.58,z=o.y+.43;
+    const {x,z}=lotCenter(o);
     box(x,-.025,(z+4.7)/2,.46,.06,Math.abs(z-4.7)+1.1,'#87959a').castShadow=false;
     box(x,.09,z,1.94,.18,1.72,'#e3d6b9');
     const office=assets.office&&placePoly(scene,assets.office,{
@@ -133,6 +218,56 @@ export async function createDistrict(canvas,offices,vendors,markers){
       box(x+.26,o.floors*.74+.41,z-.2,.41,.18,.39,'#749092');
     }
     anchors.set(name,[x,o.floors*.74+.54,z]);
+  }
+  const warehouses=new Map();
+  for(const [name,carrier] of Object.entries(carriers)){
+    const {x,z}=lotCenter(carrier);
+    const kind=carrier.index%3;
+    const wall=['#dbe9f3','#f4e5df','#f4ebd7'][kind];
+    const roof=['#467ba6','#a85755','#9a733e'][kind];
+    box(x,.075,z,4.5,.15,2.98,'#d8dbcd');
+    box(x,1.05,z,3.72,1.88,1.95,wall);
+    const fascia=box(x,1.92,z+.91,3.71,.48,.17,carrier.color);
+    warehouses.set(name,fascia);
+    box(x,2.1,z,3.86,.27,2.1,roof);
+    if(kind===0){
+      box(x-.43,2.32,z-.27,1.9,.24,.86,'#96b1c0');
+      box(x-.43,2.48,z-.27,1.7,.12,.75,'#567a8d');
+    }else if(kind===1){
+      box(x-.83,2.35,z-.11,1.66,.31,1.41,'#c88982');
+      box(x+.81,2.35,z-.11,1.66,.31,1.41,'#c88982');
+    }else{
+      box(x-1.34,2.44,z-.3,1.06,.56,1.12,'#c5975a');
+      box(x-1.34,2.76,z-.3,1.19,.16,1.23,roof);
+      box(x-1.34,2.51,z+.27,.58,.22,.04,'#85a7b0');
+    }
+    const dockSides=kind===1?[-1.13,0,1.13]:[-.73,.73];
+    for(const dx of dockSides){
+      box(x+dx,.74,z+1.01,.86,1.2,.09,'#405261');
+      box(x+dx,.75,z+1.07,.66,.98,.07,'#a5b3bb');
+      for(let y=.35;y<1.23;y+=.17){
+        box(x+dx,y,z+1.111,.65,.022,.018,'#687c87').castShadow=false;
+      }
+      box(x+dx,.12,z+1.25,.91,.12,.38,'#e0ba64');
+    }
+    for(const dx of [-1.66,1.66]){
+      box(x+dx,.35,z+1.38,.12,.62,.12,'#e9ad43');
+      box(x+dx,.43,z+1.39,.125,.12,.126,'#475761');
+    }
+    const plaque=document.createElement('canvas');
+    plaque.width=256;plaque.height=64;
+    const pen=plaque.getContext('2d');
+    pen.fillStyle='#fff';
+    pen.font='700 35px system-ui';
+    pen.textAlign='center';
+    pen.textBaseline='middle';
+    pen.fillText(['JNE','J&T CARGO','POS LOGISTIK'][kind],128,33);
+    const print=new THREE.CanvasTexture(plaque);
+    const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.54,.37),
+      new THREE.MeshBasicMaterial({map:print,transparent:true,depthWrite:false}));
+    sign.position.set(x,1.92,z+1.01);
+    scene.add(sign);
+    anchors.set(name,[x,2.64,z+.26]);
   }
   const visitors=Array.from({length:4},(_,index)=>{
     const figure=makeStudioActor(index+2,true);
@@ -156,7 +291,63 @@ export async function createDistrict(canvas,offices,vendors,markers){
   }
   truck.visible=false;
   const fleet=new Map();
-  let frame=0,world,moveTime=-1,lastEvent,lastStamp;
+  let frame=0,moveTime=-1,lastEvent,lastStamp,shippingMotions=[];
+
+  function fleetEntry(shipment,carrier){
+    const key=shipment.vendor;
+    if(!fleet.has(key)){
+      const vehicle=truck.clone(true);
+      const stripe=box(-.13,.66,0,.46,.055,.34,'#e5b16c',vehicle);
+      scene.add(vehicle);
+      const parcel=new THREE.Group();
+      box(0,.124,0,.28,.248,.25,'#efb758',parcel);
+      box(0,.255,0,.064,.018,.246,'#fff2b6',parcel);
+      scene.add(parcel);
+      fleet.set(key,{vehicle,stripe,parcel});
+    }
+    const entry=fleet.get(key);
+    entry.stripe.material.color.set(carrier?.color??'#e5b16c');
+    return entry;
+  }
+
+  function prepareShipping(event){
+    if(event?.shipment!=='shipping')return [];
+    const shipments=event.shipments?.length?event.shipments:[{vendor:event.vendor}];
+    return shipments.flatMap(shipment=>{
+      const vendor=vendors[shipment.vendor];
+      if(!vendor)return [];
+      const route=shipment.route?.path??[];
+      const carrierName=shipment.route?.carrier??route.find(stop=>Object.hasOwn(carriers,stop));
+      const carrier=carriers[carrierName];
+      return [{carrierName,motion:shipmentMotion(vendor,route,carrier),...fleetEntry(shipment,carrier)}];
+    });
+  }
+
+  function animateShipping(time){
+    for(const {vehicle,parcel} of fleet.values()){
+      vehicle.visible=false;
+      parcel.visible=false;
+    }
+    shippingMotions.forEach(({motion,vehicle,parcel},index)=>{
+      const elapsed=reduce.matches?Infinity:time-moveTime-index*104;
+      const {position,angle,phase,load}=shipmentPose(motion,elapsed);
+      vehicle.position.copy(position);
+      vehicle.rotation.y=angle;
+      vehicle.visible=true;
+      // The carton waits beside the bay, then rises into the cargo compartment.
+      parcel.visible=!!motion.approach&&(phase==='approach'||phase==='pickup');
+      if(parcel.visible){
+        const pickup=motion.approach.points.at(-1);
+        const loaded=phase==='pickup'?THREE.MathUtils.smoothstep(load,0,1):0;
+        parcel.position.set(
+          THREE.MathUtils.lerp(pickup.x+.54,pickup.x-.12*Math.cos(angle),loaded),
+          .06+Math.sin(loaded*Math.PI)*.42+loaded*.30,
+          THREE.MathUtils.lerp(pickup.z,pickup.z+.12*Math.sin(angle),loaded),
+        );
+      }
+    });
+  }
+
   function draw(time){
     frame=0;
     if(!canvas.parentElement?.getClientRects().length)return;
@@ -180,45 +371,63 @@ export async function createDistrict(canvas,offices,vendors,markers){
       figure.legs[1].rotation.x=-stride*.45;
       figure.body.position.y=Math.abs(stride)*.035;
     });
-    for(const vehicle of fleet.values())vehicle.visible=false;
-    const shipments=lastEvent?.shipment==='shipping'
-      ?(lastEvent.shipments?.length?lastEvent.shipments:[{vendor:lastEvent.vendor}]):[];
-    shipments.forEach((shipment,index)=>{
-      const vendor=vendors[shipment.vendor];
-      if(!vendor)return;
-      const key=shipment.vendor;
-      let vehicle=fleet.get(key);
-      if(!vehicle){vehicle=truck.clone(true);scene.add(vehicle);fleet.set(key,vehicle)}
-      vehicle.visible=true;
-      const t=reduce.matches?1:Math.max(0,Math.min((time-moveTime-index*180)/3300,1));
-      const points=deliveryPath(vendor,shipment.route?.path),segments=points.slice(1).map((point,i)=>point.distanceTo(points[i]));
-      let remaining=t*segments.reduce((a,b)=>a+b,0),segment=0;
-      while(segment<segments.length-1&&remaining>segments[segment])remaining-=segments[segment++];
-      vehicle.position.lerpVectors(points[segment],points[segment+1],Math.min(1,remaining/segments[segment]));
-      const direction=points[segment+1].clone().sub(points[segment]);
-      vehicle.rotation.y=Math.atan2(-direction.z,direction.x);
-    });
+    const activeCarriers=new Set(shippingMotions.map(shipment=>shipment.carrierName));
+    if(lastEvent?.carrier)activeCarriers.add(lastEvent.carrier);
+    for(const [name,warehouse] of warehouses){
+      warehouse.material.emissive.set(activeCarriers.has(name)?'#e8b360':'#000000');
+      warehouse.material.emissiveIntensity=.32;
+    }
+    animateShipping(time);
     renderer.render(scene,camera);
     frame=requestAnimationFrame(draw);
   }
   let viewWidth=1400,viewHeight=700;
   function positionMarkers(){
+    const occupied=[];
+    const floorButtons=[...markers.children].filter(button=>offices[button.dataset.role]);
+    const floorCount=floorButtons.length;
+    const floorGap=Math.max(24,...floorButtons.map(button=>button.offsetHeight+5));
+    const floorSpan=floorGap*(floorCount-1);
+    const center=floorButtons.reduce((total,button)=>{
+      const projected=point.set(...anchors.get(button.dataset.role)).project(camera);
+      return total+(.5-.5*projected.y)*viewHeight;
+    },0)/Math.max(1,floorCount);
+    const floorTop=THREE.MathUtils.clamp(center-floorSpan/2,24,viewHeight-floorSpan-24);
     for(const button of markers.children){
       const anchor=anchors.get(button.dataset.role);
       if(!anchor)continue;
       point.set(...anchor).project(camera);
       const office=offices[button.dataset.role];
       const floor=!!office;
+      const carrier=carriers[button.dataset.role];
       button.classList.toggle('floor-marker',floor);
-      const width=button.offsetWidth||170;
+      button.classList.toggle('carrier-marker',!!carrier);
+      button.hidden=Math.abs(point.x)>1.09||Math.abs(point.y)>1.09;
+      if(button.hidden)continue;
+      const width=button.offsetWidth||36;
+      const height=button.offsetHeight||24;
       const minLeft=floor?width+8:width/2+8;
       const maxLeft=viewWidth-(floor?8:width/2+8);
-      const left=THREE.MathUtils.clamp((.5+.5*point.x)*viewWidth,minLeft,maxLeft);
-      const compactOffset=floor&&viewWidth<600?(office.level-2.5)*16:0;
-      const top=THREE.MathUtils.clamp((.5-.5*point.y)*viewHeight-(!floor?16:0)-compactOffset,20,viewHeight-20);
+      const homeX=(.5+.5*point.x)*viewWidth;
+      const homeY=floor?floorTop+(floorCount-1-office.level)*floorGap:(.5-.5*point.y)*viewHeight-16;
+      const step=Math.max(22,height+4);
+      const offsets=[[0,0],[0,-step],[0,step],[-width*.45,0],[width*.45,0],[0,-step*2],[0,step*2],
+        [-width*.45,-step],[width*.45,step],[0,-step*3],[0,step*3]];
+      function location(dx,dy){
+        const left=THREE.MathUtils.clamp(homeX+dx,minLeft,maxLeft);
+        const top=THREE.MathUtils.clamp(homeY+dy,height/2+6,viewHeight-height/2-6);
+        const x=floor?left-width:left-width/2;
+        return {left,top,x,y:top-height/2,width,height};
+      }
+      function isFree(rect){
+        return occupied.every(other=>rect.x+rect.width+3<=other.x||other.x+other.width+3<=rect.x
+          ||rect.y+rect.height+3<=other.y||other.y+other.height+3<=rect.y);
+      }
+      const placement=floor?location(0,0):offsets.map(([dx,dy])=>location(dx,dy)).find(isFree)??location(0,0);
+      const {left,top}=placement;
+      occupied.push(placement);
       button.style.left=100*left/viewWidth+'%';
       button.style.top=100*top/viewHeight+'%';
-      button.hidden=Math.abs(point.x)>1.12||Math.abs(point.y)>1.12;
     }
   }
   function resize(){
@@ -237,10 +446,13 @@ export async function createDistrict(canvas,offices,vendors,markers){
   window.addEventListener('resize',resize);
   resize();
   return {update(state){
-    world=state;
-    const event=world?.history[0];
+    const event=state?.history[0];
     const stamp=event&&[event.tick,event.title,event.shipment,event.vendor].join(':');
-    if(stamp!==lastStamp){lastStamp=stamp;moveTime=performance.now()}
+    if(stamp!==lastStamp){
+      lastStamp=stamp;
+      moveTime=performance.now();
+      shippingMotions=prepareShipping(event);
+    }
     lastEvent=event;
     if(!frame)frame=requestAnimationFrame(draw);
   },setZoom(value){

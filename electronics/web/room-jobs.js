@@ -6,6 +6,7 @@ const roomRoleNames = {
   procurement: ['Agent Pengadaan', 'Agent Analisis Vendor', 'Agent Pembelian'],
   deal: ['Agent Negosiasi', 'Agent Pencatat Negosiasi'],
   vendor: ['Agent Vendor', 'Agent Pengiriman Vendor'],
+  carrier: ['Petugas Dispatch', 'Petugas Angkut'],
 };
 
 const roomStandby = {
@@ -16,6 +17,7 @@ const roomStandby = {
   procurement: ['Menunggu permintaan restok', 'Menunggu tawaran vendor', 'Siap mencatat pesanan'],
   deal: ['Menunggu penawaran', 'Siap mencatat kesepakatan'],
   vendor: ['Menunggu permintaan penawaran', 'Menunggu pesanan untuk dikemas'],
+  carrier: ['Menunggu rute kiriman', 'Menunggu jadwal penjemputan'],
 };
 
 function roomJobs(role, event, live) {
@@ -101,6 +103,10 @@ function roomJobs(role, event, live) {
       } else {
         assign(0, 'Menanggapi tawaran pembeli', 'talk');
       }
+      break;
+    case 'carrier':
+      assign(0,event.inspection?'Mencatat serah terima':'Memeriksa rute dan muatan','type');
+      if(event.shipment==='shipping')assign(1,'Menjemput dan mengantar barang','carry',[9.3,6.2]);
       break;
   }
   return jobs;

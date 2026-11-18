@@ -15,7 +15,7 @@ Installer membuat lingkungan Python di `electronics/.venv`, memasang dependensi,
 Untuk membuka kembali aplikasi setelah instalasi:
 
 ```powershell
-.\electronics\.venv\Scripts\python.exe electronics/server.py
+.\electronics\.venv\Scripts\python.exe electronics/agent.py
 ```
 
 Tekan **Ctrl+C** di terminal untuk menghentikan server.
@@ -24,7 +24,7 @@ Tekan **Ctrl+C** di terminal untuk menghentikan server.
 
 | Lokasi | Fungsi |
 | --- | --- |
-| `electronics/server.py` | Server lokal, API, dan alur simulasi |
+| `electronics/agent.py` | Server lokal, API, dan alur simulasi |
 | `electronics/domain.py`, `electronics/finance.py` | Katalog, aturan agen, dan keuangan |
 | `electronics/train.py` | Pelatihan dan evaluasi model agen |
 | `electronics/install.py`, `electronics/requirements.txt` | Instalasi dan dependensi aplikasi |
