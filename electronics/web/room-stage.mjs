@@ -1,0 +1,256 @@
+import {placePoly} from './poly-assets.mjs';
+
+// Display order is Laptop, Monitor, Printer.
+export const showroomPositions = {
+  buyer: [[4.75, 1.38], [6.95, 1.38], [9.15, 1.38]],
+  seller: [[1.7, 1.32], [4, 1.32], [6.3, 1.32]],
+};
+
+/** Cutaway room geometry shared by the six BIZ floors and the vendor offices. */
+export function buildRoomStage(THREE, scene, room, role, assets = {}) {
+  const stage = new THREE.Group();
+  stage.name = 'BIZ interior';
+  scene.add(stage);
+  const batch = new Map();
+  function box(x, y, z, width, height, depth, color, castsShadow = true) {
+    const key = color + '/' + castsShadow;
+    if (!batch.has(key)) batch.set(key, { color, castsShadow, items: [] });
+    batch.get(key).items.push([x, y, z, width, height, depth]);
+  }
+
+  const concrete = role === 'stock' || role === 'vendor';
+  const grout = concrete ? '#a5b2b8' : '#ba9271';
+  const cream = '#eff0e9', navy = '#253b52', metal = '#687d83';
+  const wood = '#c6a37b', desktop = '#e4cca7';
+  const softFloor = ['#e8d6bd', '#ddc7aa', '#e4ceb1', '#d9c1a2'];
+  const hardFloor = ['#cad5d9', '#d3dce0', '#c4d3d8', '#d0d8dd'];
+  const floorColors = concrete ? hardFloor : softFloor;
+
+  box(5.5, -.18, 4, 11.18, .36, 8.18, '#546a76', false);
+  box(5.5, -.04, 4, 11, .073, 8, grout, false);
+  for (let row = 0; row < 16; row++) {
+    const offset = row % 2 === 0 ? 0 : .75;
+    for (let x = offset - 2.2; x < 11; x += 2.2) {
+      const left = Math.max(0, x), right = Math.min(11, x + 2.2);
+      if (right <= left) continue;
+      const color = floorColors[(row + Math.round((x - offset) / 2.2) + 8) % floorColors.length];
+      box((left + right) / 2, -.008, row * .5 + .25, right - left - .013, .017, .484, color, false);
+    }
+  }
+
+  // An open corner lets the camera see the workstations from above.
+  box(-.07, 1.2, 4, .14, 2.4, 8.04, '#c9ddd8', false);
+  box(5.5, 1.2, -.07, 11.16, 2.4, .14, '#f5e5d5', false);
+  box(-.025, .065, 4, .07, .13, 8, '#78888d', false);
+  box(5.5, .065, -.025, 11, .13, .07, '#87989c', false);
+  box(0, 2.42, 4, .23, .045, 8.1, '#748990', false);
+  box(5.5, 2.42, 0, 11.17, .045, .23, '#83979c', false);
+
+  function window(x) {
+    box(x, 1.52, .02, 2.05, 1.13, .07, cream, false);
+    box(x, 1.52, .069, 1.9, .97, .036, '#85c6e2', false);
+    box(x, 1.52, .089, .044, 1.04, .022, '#e5eff0', false);
+    box(x, 1.54, .09, 1.93, .037, .024, '#e5eff0', false);
+    box(x, .95, .13, 2.09, .07, .25, '#c1cfd0', false);
+  }
+  [1.85, 5.5, 9.15].forEach(window);
+  for (const z of [2.1, 4, 5.9]) {
+    box(.035, 1.57, z, .057, .74, .98, '#809296', false);
+    box(.074, 1.57, z, .03, .62, .86, room.color, false);
+    box(.095, 1.66, z - .13, .014, .032, .32, cream, false);
+    box(.095, 1.49, z + .08, .014, .032, .39, cream, false);
+  }
+
+  function mat(x, z, width, depth, color, piping) {
+    box(x, .014, z, width + .13, .017, depth + .13, piping, false);
+    box(x, .023, z, width, .011, depth, color, false);
+  }
+
+  function plant(x,z){
+    box(x,.12,z,.29,.24,.29,'#d18c64');
+    for(const [dx,dy,dz,color] of [[.06,.44,0,'#328965'],[-.09,.55,.025,'#5bb280'],[.07,.65,-.04,'#6ec08c']]){
+      const leaf=new THREE.Mesh(new THREE.SphereGeometry(.15,11,8),new THREE.MeshStandardMaterial({color}));
+      leaf.position.set(x+dx,dy,z+dz);
+      leaf.scale.set(.85,1.2,.82);
+      leaf.castShadow=true;
+      stage.add(leaf);
+    }
+  }
+  plant(.65, .72);
+  plant(10.3, .75);
+  plant(10.42, 7.35);
+
+  function chair(x, z, facingWall = true, color = navy) {
+    box(x, .27, z, .39, .08, .38, color);
+    box(x, .46, z + (facingWall ? .17 : -.17), .39, .34, .07, color);
+    box(x, .115, z, .092, .22, .083, metal);
+    box(x, .025, z, .43, .043, .29, metal);
+  }
+
+  function monitor(x, z, y = .74) {
+    box(x, y + .012, z, .23, .024, .20, navy);
+    box(x, y + .074, z, .052, .128, .07, navy);
+    box(x, y + .184, z, .46, .27, .06, '#263940');
+    box(x, y + .188, z + .033, .41, .221, .008, '#2f697b', false);
+    for (const [i, width] of [.22, .16, .27].entries()) {
+      box(x - .016, y + .25 - i * .043, z + .039, width, .011, .005, '#9fd4d2', false);
+    }
+    box(x, y + .016, z + .24, .35, .028, .105, '#758c8c');
+  }
+
+  function desk(x, z, width = 1.52, depth = .73, document = true) {
+    box(x, .70, z, width, .08, depth, desktop);
+    for (const dx of [-1, 1]) for (const dz of [-1, 1]) {
+      box(x + dx * (width / 2 - .12), .325, z + dz * (depth / 2 - .10), .075, .65, .075, cream);
+    }
+    monitor(x - .2, z - .15);
+    if (document) {
+      box(x + .40, .75, z + .06, .32, .014, .25, room.color);
+      box(x + .41, .763, z + .058, .23, .01, .21, '#f4f4ef');
+      box(x + .41, .773, z + .11, .14, .005, .01, '#b6c9cb');
+    }
+  }
+
+  function carton(x, z, y, size = 1) {
+    box(x, y + .15 * size, z, .38 * size, .30 * size, .32 * size, '#c68b57');
+    box(x, y + .302 * size, z, .079 * size, .009, .32 * size, '#eac38d');
+    box(x, y + .22 * size, z + .163 * size, .075 * size, .16 * size, .008, '#eac38d');
+  }
+
+  function shelf(x, z, contents) {
+    for (const dx of [-.92, .92]) {
+      for (const dz of [-.29, .29]) box(x + dx, .77, z + dz, .068, 1.54, .068, metal);
+    }
+    [0.13, .60, 1.07, 1.51].forEach(y => box(x, y, z, 1.9, .073, .63, '#5b737b'));
+    for (const y of [.169, .638, 1.107]) for (const dx of [-.57, 0, .57]) {
+      if (contents === 'products') {
+        box(x + dx, y + .12, z, .38, .24, .31, '#d8ebef');
+        box(x + dx, y + .15, z + .159, .29, .107, .01, '#84aeb9');
+      } else {
+        carton(x + dx, z, y, dx > 0 ? .80 : 1);
+      }
+    }
+  }
+
+  function displayStands() {
+    const slate = '#263848', silver = '#afc3cd', glass = '#457e98';
+    const accents = ['#2a867f', '#2481a3', '#9e753b'];
+    showroomPositions[role].forEach(([x, z], index) => {
+      const accent = accents[index];
+      box(x, .39, z, 1.46, .76, .78, '#e8e5d8');
+      box(x, .77, z, 1.57, .10, .92, '#fff3d9');
+      box(x, .18, z + .399, 1.34, .13, .024, accent);
+      box(x, .824, z + .32, .85, .013, .10, accent);
+
+      const model = assets[['laptop','monitor','printer'][index]];
+      if (model) {
+        placePoly(stage,model,{x,y:.832,z,width:1.23,height:[.50,.84,.47][index],depth:.75});
+        return;
+      }
+      if (index === 0) {
+        // Open laptop with a combined keyboard deck and screen.
+        box(x, .856, z + .03, .93, .068, .57, silver);
+        box(x, .885, z - .015, .74, .013, .27, slate);
+        for (let row = 0; row < 3; row++) {
+          box(x, .893, z - .10 + row * .079, .60, .006, .024, '#6a8595');
+        }
+        box(x, .892, z + .212, .22, .01, .09, '#bdc9ce');
+        box(x, 1.095, z - .244, .93, .45, .069, slate);
+        box(x, 1.10, z - .202, .84, .36, .019, glass, false);
+        box(x - .16, 1.17, z - .19, .42, .039, .012, '#a6e1dc', false);
+      } else if (index === 1) {
+        // Standalone monitor with a taller widescreen and upright stand.
+        box(x, .855, z, .54, .059, .37, silver);
+        box(x, 1.016, z - .11, .15, .32, .17, slate);
+        box(x, 1.34, z - .116, 1.16, .63, .099, slate);
+        box(x, 1.347, z - .06, 1.05, .52, .022, '#437f9a', false);
+        box(x - .245, 1.35, z - .044, .35, .39, .011, '#a1ced8', false);
+        for (const y of [1.20, 1.30, 1.41]) {
+          box(x + .23, y, z - .044, .40, .025, .011, '#90bdc8', false);
+        }
+      } else {
+        // Printer has a scanner lid and a sheet coming out of the front slot.
+        box(x, 1.005, z - .04, 1.01, .36, .65, '#e3e9e6');
+        box(x, 1.225, z - .075, .96, .085, .58, slate);
+        box(x, 1.267, z - .085, .82, .024, .46, '#648392');
+        box(x - .10, 1.03, z + .293, .66, .13, .028, slate);
+        box(x - .10, .977, z + .355, .60, .036, .18, '#9bb0ba');
+        box(x - .10, .998, z + .38, .49, .012, .22, '#ffffee');
+        box(x + .35, 1.116, z + .29, .12, .045, .028, '#80b797');
+      }
+    });
+  }
+
+  if (role === 'stock') {
+    mat(8.85, 6.2, 2.9, 1.85, '#748b91', '#d5ad61');
+    for (const [x, z] of [[2.1, 1.05], [4.53, 1.05], [2.4, 2.85]]) shelf(x, z, 'cartons');
+    desk(7.3, 3.25, 1.45, .73);
+    carton(9.48, 6.41, 0, 1.18);
+    carton(10.01, 6.30, 0, .85);
+    carton(9.82, 6.76, 0, 1);
+  } else if (role === 'seller') {
+    mat(4.69, 5.6, 6.5, 2.45, '#4e728f', '#93b9cc');
+    displayStands();
+    shelf(2.37, 3.0, 'products');
+    desk(7.96, 3.08, 1.9, .73, false);
+    box(8.7, .82, 3.12, .46, .19, .32, '#779da8');
+    box(8.7, .92, 3.14, .21, .009, .17, '#2c4e61');
+    desk(8.45, 5.16, 1.12, .65, false);
+  } else if (role === 'buyer') {
+    mat(4.75, 5.69, 7.64, 2.75, '#679484', '#bfd8c5');
+    desk(2.42, 2.9, 1.92);
+    chair(2.42, 2.17, false);
+    displayStands();
+    if (assets.sofa) {
+      placePoly(stage,assets.sofa,{x:.61,z:5.72,width:.86,height:.9,depth:2.39,angle:Math.PI/2});
+    } else {
+      box(.51, .27, 5.72, .69, .34, 2.32, '#a1cab5');
+      box(.23, .55, 5.72, .17, .42, 2.32, '#8eb49e');
+      for (let i = 0; i < 3; i++) box(.595, .475, 4.98 + i * .74, .48, .085, .65, '#c0dbcc');
+    }
+  } else if (role === 'deal') {
+    mat(5.9, 3.92, 6.2, 3.11, '#504f74', '#ada7bc');
+    box(5.42, .70, 3.58, 3.4, .11, 1.12, desktop);
+    for (const x of [4.13, 6.67]) box(x, .35, 3.58, .15, .70, .77, wood);
+    for (const x of [4.35, 5.42, 6.49]) {
+      chair(x, 4.44, true, '#635e81');
+      chair(x, 2.64, false, '#635e81');
+      box(x, .768, 3.67, .32, .013, .24, '#f3f2e8');
+    }
+    desk(8.14, 4.05, 1.18, .60);
+  } else {
+    mat(5.37, 4.21, 7.09, 4.44, role === 'finance' ? '#4e537a' : '#485e76', room.color);
+    for (const [x, z] of [[3.15, 3.19], [7.34, 3.6], [7.48, 6.24]]) desk(x, z);
+    chair(3.10, 2.22, false);
+    chair(7.31, 2.70, false);
+    chair(7.45, 5.35, false);
+    if (role === 'vendor') {
+      shelf(2.0, 1.0, 'cartons');
+      carton(9.82, 6.71, 0, 1.2);
+      carton(10.3, 6.63, 0);
+    } else {
+      box(10.08, .48, 3.37, .58, .96, 1.0, '#bad0d0');
+      for (const y of [.19, .48, .77]) {
+        box(10.08, y, 3.88, .52, .24, .026, '#d8dfdb');
+        box(10.08, y, 3.90, .18, .036, .022, metal);
+      }
+    }
+  }
+
+  const geometry = new THREE.BoxGeometry(1, 1, 1);
+  const pose = new THREE.Matrix4();
+  for (const { color, castsShadow, items } of batch.values()) {
+    const material = new THREE.MeshStandardMaterial({ color, roughness: .88 });
+    const mesh = new THREE.InstancedMesh(geometry, material, items.length);
+    mesh.castShadow = castsShadow;
+    mesh.receiveShadow = true;
+    for (const [i, [x, y, z, width, height, depth]] of items.entries()) {
+      pose.makeScale(width, height, depth).setPosition(x, y, z);
+      mesh.setMatrixAt(i, pose);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+    stage.add(mesh);
+  }
+
+  return stage;
+}

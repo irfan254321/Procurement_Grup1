@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BIZ District · Simulasi pengadaan elektronik</title><link href="/style.css" rel="stylesheet"><link href="/scenes.css" rel="stylesheet"></head>
+<body><header><div class="brand"><span class="diamond"></span><div><strong>BIZ District</strong><small>PT. Biz Indonesia Market</small></div></div><nav aria-label="Navigasi utama"><button class="tab active" data-tab="world" aria-pressed="true">Dunia</button><button class="tab" data-tab="profit" aria-pressed="false">Laba perusahaan</button><button class="tab" data-tab="models">Model agen</button></nav><span class="status" id="clock">Giliran 0</span></header>
+<main><div id="world">
+<section class="intro">
+  <div>
+    <h1>Distrik Elektronik</h1>
+    <p>Kelola toko, gudang, dan pengadaan dalam satu dunia simulasi.</p>
+    <p id="scenario-current"></p>
+  </div>
+  <label>Mode saat mulai ulang
+    <select id="scenario">
+      <option value="auto" selected>Otomatis · awal acak</option>
+      <option value="healthy">Stok banyak · kas sehat</option>
+      <option value="stock">Stok kosong → restok</option>
+      <option value="cash">Stok kosong → kas ditahan</option>
+      <option value="damage">Barang rusak → koreksi faktur</option>
+      <option value="normal">Hari penjualan biasa</option>
+    </select>
+  </label>
+</section>
+<div class="layout"><section class="world-card"><div class="maphead"><strong>Kantor pusat &amp; kawasan vendor</strong><span>Pilih lantai atau gedung vendor untuk melihat aktivitas</span></div><div id="map"><canvas id="scene" width="1100" height="660" aria-label="Kantor pusat &amp; kawasan vendor elektronik isometrik"></canvas><div id="markers"></div></div>
+<section id="floor-view" hidden aria-labelledby="floor-title">
+  <div class="floor-toolbar"><button id="floor-back">← Peta distrik</button><label>Lantai atau gedung <select id="floor-tabs"></select></label></div>
+  <div class="floor-heading"><div><h2 id="floor-title"></h2><p id="floor-subtitle"></p></div><span id="floor-status"></span></div>
+  <div class="floor-layout">
+    <div class="floor-scene"><div id="floor-drawing"></div><div id="floor-showroom" hidden></div><div id="floor-activity"></div><div id="floor-facts"></div></div>
+    <div class="floor-directory"><div id="floor-agent"></div><h3>Orang di ruangan</h3><div id="floor-roster"></div><div id="floor-person"></div></div>
+  </div>
+</section>
+<div id="live-scene" hidden></div><div class="controls"><button id="play" class="primary">▶ Putar dunia</button><button id="step">Giliran berikutnya</button><label class="pace">Jeda <select id="pace"><option value="1000">1 detik</option><option value="1500" selected>1,5 detik</option><option value="2000">2 detik</option></select></label><button id="reset" class="quiet">Mulai ulang skenario</button></div><p id="error" role="alert"></p></section>
+<aside>
+  <section class="card" id="inspector" aria-live="polite"></section>
+  <section class="card"><h2>Rak penjualan</h2><div id="shelves"></div></section>
+  <section class="card" id="restock-holds" hidden><h2>Restok menunggu dana</h2><div id="restock-hold-lines"></div></section>
+  <section class="card"><h2>Pelanggan toko</h2><div id="customers" aria-live="polite"></div></section>
+</aside></div>
+<section class="card journal"><h2>Riwayat dunia</h2><ol id="history"></ol></section></div>
+<section id="profit" hidden>
+  <div class="intro"><div><h1>Laba perusahaan</h1><p id="finance-period">Simulasi keuangan BIZ District</p></div></div>
+  <div id="finance-kpis" class="finance-kpis"></div>
+  <div class="finance-overview">
+    <section class="card finance-chart-card">
+      <div class="finance-heading"><div><h2>Tren keuangan</h2><p>Perubahan kumulatif berdasarkan giliran simulasi</p></div>
+        <label>Indikator<select id="finance-metric"><option value="results">Pendapatan dan laba kotor</option><option value="cash">Saldo kas</option></select></label>
+      </div>
+      <canvas id="finance-chart" role="img" aria-label="Grafik tren keuangan"></canvas>
+      <div id="finance-chart-caption"></div>
+    </section>
+    <section class="card"><h2>Kas dan anggaran</h2><div id="ledger"></div></section>
+  </div>
+  <section class="card finance-tax-card">
+    <div class="finance-heading"><div><h2>Posisi pajak</h2><p id="tax-period">Pencatatan pajak dalam simulasi</p></div></div>
+    <div id="vat-summary" class="tax-summary"></div>
+    <div class="tax-table-scroll"><table class="tax-table"><thead><tr><th>Jenis pajak</th><th>Tagihan atau saldo</th><th>Disetor</th><th>Aksi simulasi</th></tr></thead><tbody id="tax-rows"></tbody></table></div>
+    <form id="tax-assessment"><label>Jenis tagihan<select name="kind"><option value="pbb">PBB-P2 · nominal SPPT</option><option value="pph_badan">PPh Badan</option><option value="pph21">PPh Pasal 21</option><option value="pph23">PPh Pasal 23</option><option value="meterai">Bea Meterai</option></select></label>
+      <label>Total tagihan (Rp)<input name="amount" type="number" min="0" max="1000000000000" step="1" required></label><button type="submit">Simpan tagihan</button>
+    </form>
+    <p id="tax-notice" role="status"></p>
+    <details><summary>Riwayat setoran simulasi</summary><div id="tax-payments"></div></details>
+    <details><summary>Asumsi dan rujukan DJP</summary>
+      <p>Simulasi mengasumsikan BIZ dan vendor berstatus PKP, transaksi elektronik domestik nonmewah, dan faktur masukan memenuhi syarat pengkreditan. Harga dasar belum termasuk PPN. PPN efektif 11% dihitung dari 12% × 11/12.</p>
+      <p>Saldo PPN ini kumulatif sejak pencatatan diaktifkan. Tagihan PPh, Bea Meterai, dan PBB-P2 diisi dari hasil perhitungan atau tagihan masing-masing. PBB-P2 mengacu pada SPPT dari pemda. Laba kotor dihitung dari penjualan dikurangi HPP sebelum beban usaha dan pajak penghasilan.</p>
+      <p><a href="https://pajak.go.id/id/buku-elektronik-page">Buku elektronik DJP</a> · <a href="https://pajak.go.id/id/peraturan/perlakuan-pajak-pertambahan-nilai-atas-impor-barang-kena-pajak-penyerahan-barang-kena">PPN PMK 131/2024</a> · <a href="https://pajak.go.id/index.php/id/pajak-masukan">Pajak Masukan</a> · <a href="https://pajak.go.id/id/mekanisme-penghitungan-pajak-penghasilan-badan">PPh Badan</a> · <a href="https://www.pajak.go.id/sites/default/files/2023-12/SP-42%202023%20Pemerintah%20Sempurnakan%20Aturan%20Pengurangan%20PBB.pdf">PBB-P2</a></p>
+    </details>
+  </section>
+  <section class="card finance-transactions"><h2>Faktur dan transaksi terakhir</h2><div id="transactions"></div></section>
+</section>
+<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Uji akurasi keputusan dari skenario sintetis berbasis riwayat harga elektronik Kaggle.</p></div></div><div id="benchmark"></div></section></main><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/interiors.js"></script></body></html>

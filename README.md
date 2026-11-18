@@ -1,222 +1,46 @@
-# Multi-Agent Procurement Simulator
+# BIZ District
 
-## Dua simulasi dan contoh siap coba
+Aplikasi utama proyek ini berada di **[`electronics/`](electronics/README.md)**: simulasi penjualan Laptop, Monitor, dan Printer, restok, negosiasi vendor, keuangan, penerimaan barang, serta tampilan distrik 3D.
 
-Panel kiri menyediakan **Simulasi MARL** (IQL/CTDE) dan **Simulasi CatBoost**.
-Perusahaan ditampilkan sebagai **PT. Biz Indonesia Market**. Pilih contoh,
-klik **Terapkan contoh**, lalu **Buat & jalankan skenario** untuk mencoba alurnya.
-Ada enam contoh MARL dan lima contoh CatBoost, lengkap dengan hasil pengujian
-di [CONTOH_SIMULASI.md](CONTOH_SIMULASI.md).
+## Instalasi dan menjalankan aplikasi
 
-Nama vendor menggunakan alias PT fiktif yang konsisten; ID model dan data asli
-tetap dipertahankan. CatBoost mempunyai minimal lima vendor per kategori yang
-tersedia, sedangkan checkpoint MARL mempertahankan tiga slot vendor terlatih.
-
-## Simulasi Penawaran CatBoost (BPI)
-
-Model sudah dilatih ulang. Accuracy Purchase naik menjadi 77,24%, Payment
-62,08%; Price review 94,04% dengan macro-F1 lebih baik. Lihat perbandingan,
-pengendalian overfitting dan batasan di [laporan training ulang](BPI_OFFERS_RETRAINING.md).
-Panel **Hasil transaksi perusahaan yang sudah dibayar** menampilkan bukti
-pelunasan historis, tanggal invoice/pembayaran dan perbandingan prediksi.
-
-Mode **Simulasi CatBoost** memakai tiga model yang telah dilatih
-dari BPI untuk saran lanjut/tinjau pembelian, indikasi revisi harga dan kelompok
-jeda pembayaran. Pilih konteks pembelian, edit nilai penawaran vendor, lalu klik
-**Buat & jalankan skenario**. Tahap IRE/VMI/DA/SLM dan ringkasannya dapat ditelusuri.
-
-Label merupakan pendekatan hasil transaksi; tidak menyediakan nominal tawar
-balik atau termin kontrak asli. Accuracy awal Purchase 69,64%, Price review 95,89%,
-Payment 55,74%. Dua tugas pertama belum melewati baseline mayoritas pada accuracy.
-Rincian label, keterbatasan, sumber dan reproduksi tersedia di
-[BPI_OFFERS_MODEL_CARD.md](BPI_OFFERS_MODEL_CARD.md).
+Gunakan Python **3.14 64-bit**. Jalankan dari folder utama repositori:
 
 ```powershell
-python -m pip install -r requirements.txt
-python -m streamlit run app.py
-# Training ulang memerlukan sumber BPI yang sudah diimpor:
-python scripts/train_bpi_offers.py
-python scripts/check_bpi_offers.py
+py -3.14 electronics/install.py
 ```
 
-Model dan katalog yang disertakan dapat dipakai langsung setelah clone. Dataset
-training lokal dan audit simulasi disimpan sebagai database SQLite, dikecualikan
-dari Git. Tidak perlu training ulang setiap membuka aplikasi.
+Installer membuat lingkungan Python di `electronics/.venv`, memasang dependensi, menyiapkan model, lalu menjalankan server. Buka [BIZ District](http://127.0.0.1:8081) setelah alamat server muncul di terminal.
 
-## Upgrade: CatBoost dari BPI Challenge 2019
-
-Mode **CatBoost BPI 2019**: model yang benar-benar dilatih
-dari aktivitas procurement historis. Pilih kasus dari data uji, tentukan berapa
-event yang telah diamati, lalu lihat prediksi aktivitas berikutnya dan pembanding
-kejadian aktual. Ini bukan klaim empat kebijakan IRE/VMI/DA/SLM sudah diganti:
-label aksi simulator lama tidak tersedia langsung pada BPI. Penjelasan sumber,
-label, pembagian data, dan batasan ada di [BPI_MODEL_CARD.md](BPI_MODEL_CARD.md).
-
-Untuk mode BPI saja, dari folder proyek pada Windows:
+Untuk membuka kembali aplikasi setelah instalasi:
 
 ```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -r requirements-bpi.txt
-.\.venv\Scripts\python.exe scripts/prepare_bpi.py
-.\.venv\Scripts\python.exe -m streamlit run app.py
+.\electronics\.venv\Scripts\python.exe electronics/server.py
 ```
 
-Impor pertama mengunduh sekitar 729 MB dari 4TU dan membuat database SQLite lokal.
-Model yang disertakan beserta manifest-nya didaftarkan otomatis saat impor;
-tidak perlu melatih ulang setiap membuka aplikasi. Jika model belum ada atau
-ingin mengulang eksperimen:
+Tekan **Ctrl+C** di terminal untuk menghentikan server.
+
+## Struktur proyek
+
+| Lokasi | Fungsi |
+| --- | --- |
+| `electronics/server.py` | Server lokal, API, dan alur simulasi |
+| `electronics/domain.py`, `electronics/finance.py` | Katalog, aturan agen, dan keuangan |
+| `electronics/train.py` | Pelatihan dan evaluasi model agen |
+| `electronics/install.py`, `electronics/requirements.txt` | Instalasi dan dependensi aplikasi |
+| `electronics/web/` | Antarmuka dan aset 3D |
+| `electronics/data/` | Dataset, metrik, model, dan database lokal |
+| `electronics/tests/` | Pengujian alur simulasi dan integrasi tampilan |
+
+Data simulasi disimpan di `electronics/data/electronics.sqlite3`. Model, database, dan lingkungan Python lokal dikecualikan dari Git; installer menyiapkan model jika belum tersedia.
+
+## Pengujian
+
+Jalankan dari folder utama repositori setelah instalasi:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts/train_bpi.py
-.\.venv\Scripts\python.exe -m unittest discover -s tests -p "test_bpi*.py" -v
+.\electronics\.venv\Scripts\python.exe -m unittest discover -s electronics/tests -p test_receiving.py -v
+node electronics/tests/check-3d-integration.cjs
 ```
 
-Pada macOS/Linux gunakan Python 3.14 dan `.venv/bin/python` sebagai pengganti
-interpreter Windows. CatBoost dipasang melalui wheel 1.2.10 yang mendukung
-Python 3.14. Gunakan `requirements.txt` untuk sekaligus memasang dependensi
-simulator MARL. Menu **Simulasi MARL** mempertahankan alur sebelumnya.
-
-Database baru menyimpan dataset, event, riwayat training, partisi transaksi, dan
-audit prediksi. Data mentah dan database tidak masuk Git; skrip impor disediakan
-agar pengguna clone dapat membangunnya kembali. Angka pengujian aktual berada
-di `runs/bpi_catboost/metrics.json`; belum ada perbandingan Decision Tree/SVM.
-
-## Simulator MARL sebelumnya
-
-Untuk belajar kode per file, baca [panduan Word yang mudah dibaca](docs/PANDUAN_FILE_PYTHON.docx) atau [versi Markdown](docs/PANDUAN_FILE_PYTHON.md). Keduanya menjelaskan fungsi setiap modul, sintaks penting, dan urutan membaca proyek.
-
-Panduan percobaan dengan input, tujuan, dan hasil nyata tersedia sebagai [dokumen Word 20 skenario uji](docs/20_skenario_uji.docx) dan [versi Markdown](docs/20_skenario_uji.md). Jalankan `python scripts/run_demo_scenarios.py` untuk mengulang semuanya ke JSON tanpa mengubah database riwayat aplikasi.
-
-Dashboard Streamlit untuk empat agen **IRE, VMI, DA, SLM** dengan dua pilihan kebijakan yang benar-benar dilatih: **Independent Q-learning (IQL)** dan **CTDE actor-critic**. Vendor A/B/C mempunyai agen negosiasi berbasis utilitas. Setiap vendor yang lolos penyaringan merespons permintaan harga yang sama sebelum VMI memilih pemasok. Penawaran pembeli dan balasan vendor terlihat berdampingan per putaran. DA lalu menerima harga kandidat, menawar lagi, atau meminta vendor alternatif; SLM memeriksa termin dan kas. Vendor tidak menawar di bawah harga minimum masing-masing. Sesuai bagian *Algorithm and AI Integration* pada laporan, proyek juga melatih **Logistic Regression, SVM, Random Forest, dan XGBoost** sebagai baseline supervised learning.
-
-## Jalankan aplikasi
-
-Proyek menggunakan Python **3.14** (versi yang dipakai untuk pelatihan dan pengujian saat ini). Dari folder proyek:
-
-**Windows PowerShell**
-
-```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python -m pip install -e . --no-deps
-python -m unittest discover -s tests -v
-streamlit run app.py
-```
-
-**macOS/Linux** (gunakan interpreter Python 3.14 yang tersedia)
-
-```bash
-python3.14 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m pip install -e . --no-deps
-python -m unittest discover -s tests -v
-streamlit run app.py
-```
-
-Checkpoint terlatih disertakan di `runs/iql/` dan `runs/ctde/`. Aplikasi tidak melatih ulang saat pengguna menekan **Buat & jalankan skenario**. Untuk melatih ulang:
-
-```bash
-python scripts/train.py --algo iql --episodes 20000 --out runs/iql
-python scripts/train.py --algo ctde --episodes 20000 --out runs/ctde
-python scripts/train_baseline.py --scenarios 300 --seed 42 --out runs/baseline
-```
-
-Setiap pelatihan menulis kurva `curve.csv`, parameter `config.json`, dan checkpoint. Latih ulang sebelum mengganti definisi observasi, aksi, atau reward.
-
-Paket `procurement_marl` berada di folder `src/`. Instalasi editable (`pip install -e . --no-deps`) membuatnya dapat diimpor oleh interpreter virtual environment; `pyrightconfig.json` memberi tahu editor lokasi sumbernya. Jika editor masih menandai impor merah, pilih interpreter `.venv/Scripts/python.exe` (Windows) atau `.venv/bin/python` (macOS), lalu muat ulang editor.
-
-Mulai versi 0.10.0, target kas Rp60 juta kembali menjadi **peringatan**, sesuai pilihan pengguna. Rencana dengan kas positif di bawah target dapat berstatus LAYAK jika anggaran, kapasitas, tenggat, dan syarat lain terpenuhi. Kas negatif tetap tidak layak. Pada fixture BAB 6, dana yang tersedia untuk belanja adalah Rp150 juta dikurangi kewajiban lain Rp70 juta, yaitu Rp80 juta; target Rp60 juta dilaporkan terpisah. Run lama tetap tersimpan, tetapi statusnya tidak dinilai ulang otomatis.
-
-Mulai versi 0.11.0, IRE menjadwalkan tepat `unit mendesak` pada bulan pertama dan sisa permintaan pada bulan kedua. Contoh 600 total / 500 mendesak menghasilkan 500 unit bulan 1 dan 100 unit bulan 2; 700/100 menghasilkan 100 dan 600. Jika seluruh unit mendesak, semuanya masuk bulan pertama. Ini menggeneralisasi usulan 700 sekarang + 300 bulan berikutnya dalam BAB 6. **Bulan pengadaan dan bulan pembayaran berbeda:** SLM dapat memilih bayar cepat, jatuh tempo, atau termin. Karena itu kas akhir bulan pertama tidak selalu naik ketika unit mendesak dikurangi. Lihat jadwal pengadaan dan pembayaran bersama sebelum menafsirkan grafik kas.
-
-Hasil evaluasi model versi 8 setelah 20.000 episode latihan, pada 500 skenario yang sama (seed evaluasi 0–499, seed latihan 0):
-
-| Model | Return tim | Konsensus | Terdeteksi tidak feasible | Minta revisi | Revisi keliru |
-|---|---:|---:|---:|---:|---:|
-| IQL | 19,15 | 70,0% | 20,8% | 29,2% | 8,4% |
-| CTDE | 20,37 | 73,2% | 20,8% | 25,2% | 4,4% |
-
-Sekitar 20% generator latihan sengaja membuat kasus kekurangan dana yang dapat dibuktikan; pada 500 skenario evaluasi angka nyatanya 20,8%. Konsensus dan tidak feasible adalah hasil yang berbeda. Kasus awal BAB 6 tetap ditolak oleh kedua model karena kekurangan dana total, walaupun target kas minimum hanya peringatan.
-
-`scripts/evaluate_quality.py` membandingkan model dengan pencarian seluruh kandidat **satu siklus** yang menggunakan DA terima/tawar balik serta SLM bayar cepat/jatuh tempo. Ini pembanding yang dapat diaudit, bukan bukti optimum global karena revisi termin stokastik dan perbaikan lintas siklus tidak dicakup. Pada 100 skenario terpisah (seed 2000–2099), pembanding menemukan 76 kasus feasible: IQL melewatkan 5, CTDE melewatkan 0. Saat model dan pembanding sama-sama feasible, biaya model rata-rata di atas pembanding sebesar 2,52% (IQL; 71 kasus) dan 2,37% (CTDE; 76 kasus). Hasil rinci tersimpan di `runs/quality_v8.json`.
-
-Checkpoint aplikasi memakai seed pelatihan 0. Artefak dari versi sebelumnya tidak boleh dipakai dengan aturan versi 8. Angka evaluasi satu seed belum cukup untuk mengklaim optimum global. Permintaan revisi keliru pada tabel berarti model menghentikan rencana padahal batas bawah dana belum membuktikan mustahil; kondisi ini tetap perlu diperbaiki sebelum penggunaan di luar pembelajaran.
-
-### Evaluasi baseline supervised learning
-
-Proyek tidak menerima dataset historis perusahaan bersama laporan. Agar bagian algoritma dapat dijalankan tanpa mengaku memakai data riil, `scripts/train_baseline.py` membuat kandidat keputusan dari simulator: **optimal** berarti rencana layak dan biayanya maksimal 3% di atas biaya layak terendah dari kandidat yang dievaluasi pada skenario yang sama. Split 80/20 dilakukan berdasarkan ID skenario, sehingga kandidat dari skenario test tidak muncul di train.
-
-Hasil baseline versi 8 berasal dari 1.954 kandidat pada 199 skenario yang mempunyai kandidat layak. Rinciannya ada di `runs/baseline/metrics.json`. Model dilatih pada keputusan dari simulator, bukan pada data pembelian riil.
-
-| Model | Accuracy | Precision | Recall | F1 | ROC-AUC |
-|---|---:|---:|---:|---:|---:|
-| Logistic Regression | 68,5% | 49,1% | 69,2% | 57,4% | 0,756 |
-| SVM | **70,8%** | **52,6%** | 50,0% | 51,3% | 0,735 |
-| Random Forest | 70,3% | 51,2% | **70,0%** | **59,2%** | 0,780 |
-| XGBoost | **70,8%** | 52,0% | 65,8% | 58,1% | **0,780** |
-
-XGBoost tetap menjadi pembanding utama untuk mengikuti bagian integrasi AI pada laporan dan memiliki ROC-AUC test tertinggi, walau selisihnya dari Random Forest sangat kecil. Accuracy XGBoost seri dengan SVM; F1 dan recall tertinggi justru Random Forest, sedangkan precision tertinggi SVM. Tabel lengkap serta confusion matrix ditampilkan agar perbandingan jujur. Angka ini hanya berlaku pada data simulasi.
-
-## Penggunaan
-
-1. Pilih **CTDE** atau **IQL**.
-2. Isi **jumlah unit, unit mendesak, dan anggaran**. Nilai awal mereproduksi permintaan BAB 6. Tenggat, kas, kewajiban, dan profil vendor memakai acuan laporan.
-3. Klik **Buat & jalankan skenario**. Model memilih aksi untuk keempat agen secara otomatis. Seed yang sama menghasilkan respons vendor yang dapat diulang.
-4. Di **Proses agen**, gunakan **Maju/Mundur** untuk melihat VMI memeriksa A, B, dan C satu per satu. Status tabel bergerak dari belum diperiksa, sedang diperiksa, lolos/gagal, sampai vendor dipilih, dinegosiasikan, dan diberi rencana pembayaran.
-5. Di **Pelaporan**, lihat status akhir, biaya, kendala, klasifikasi XGBoost, tabel evaluasi empat baseline, grafik kas akhir, dan jejak lengkap dalam panel terlipat. Laporan serta audit CSV dapat diunduh dan otomatis tersimpan di `data/procurement.sqlite3`.
-6. Di **Konfigurasi vendor**, edit data A/B/C lalu pilih **Terapkan untuk skenario berikutnya**. Tombol **Kembalikan data BAB 6** menghapus konfigurasi khusus.
-
-Harga awal, kapasitas, diskon, dan lead time vendor berasal dari data skenario. DA dapat memilih penawaran awal, tawaran balik, atau alternatif vendor. SLM dapat memilih pembayaran cepat, jatuh tempo, revisi termin, atau meminta revisi skenario. Harga balasan dihitung oleh utilitas vendor; respons termin memakai peluang yang berasal dari utilitas serta seed. Halaman tidak mengacak ulang hasil yang sudah disimpan. Tidak ada integrasi portal vendor atau pembayaran ERP; semuanya rekomendasi simulasi.
-
-Saat DA menawar balik, agen vendor menjalankan maksimal tiga ronde internal. Harga reservasi dihitung dari harga minimum, tekanan kapasitas, relasi, jumlah pesaing, besar pesanan, dan karakter vendor. Vendor A moderat, B lebih tegas saat kapasitas terpakai, dan C lebih cepat memberi konsesi. Seed memengaruhi respons termin yang probabilistik; harga tidak pernah turun di bawah `floor_price`. Vendor ini berbasis utilitas dan tidak diklaim sebagai model reinforcement learning.
-
-Harga minimum bawaan memberi ruang negosiasi yang terlihat: A Rp90.000, B Rp86.500, dan C Rp101.000. Penawaran awal laporan tetap A Rp95.000, B Rp89.500, dan C Rp110.000. Karena harga minimum merupakan asumsi simulator, rekonstruksi transaksi awal BAB 6 tetap memakai penawaran awal dan tidak berubah.
-
-Jika DA meminta vendor alternatif tetapi biaya vendor pengganti tidak lebih rendah, DA mendapat penalti kecil −0,35. Saat tawaran pembeli mencapai harga vendor, kesepakatan dicatat termasuk bila harga awal sama dengan harga minimum. Jejak audit CSV menampilkan kas bulan 1–4. Respons termin menampilkan utilitas, peluang menerima, dan angka acak dari seed agar keputusan probabilistik dapat diperiksa.
-
-Konfigurasi vendor aktif disimpan di tabel SQLite `vendor_settings`. Setiap run tetap menyimpan snapshot vendornya sendiri, sehingga mengedit vendor tidak mengubah hasil yang sudah ada. Jumlah vendor tetap tiga agar action space checkpoint IQL dan CTDE tetap cocok. Perubahan nilai yang sangat jauh dari rentang latihan harus diperlakukan sebagai eksperimen terhadap model.
-
-Status hasil dibedakan menjadi **LAYAK**, **PERLU REVISI**, dan **TIDAK FEASIBLE**. Status terakhir hanya dipakai ketika batas bawah biaya sudah melampaui seluruh dana yang tersedia. Penjelasan alur lengkap untuk mahasiswa tersedia sebagai [dokumen Word alur kode](docs/ALUR_KODE.docx) dan [versi Markdown](docs/ALUR_KODE.md).
-
-## Hubungan dengan laporan
-
-- [config/report_scenario.yaml](config/report_scenario.yaml) memuat A/B/C dan asumsi keuangan BAB 6. Dengan tindakan contoh laporan, pengadaan awal B berbiaya **Rp99.710.000** dengan defisit kas **Rp19.710.000**. Usulan 700 B + 300 A berbiaya **Rp100.397.000**, masih melanggar anggaran dan kas. Tes legacy menjaga angka tersebut.
-- **Kebijakan terlatih boleh mengambil tindakan berbeda** dari jejak contoh BAB 6. Kelayakan tetap ditentukan oleh pemeriksaan anggaran, kas, kapasitas, skor vendor, dan kebutuhan mendesak oleh environment. Return reward yang tinggi tidak otomatis berarti rencana layak.
-- Dokumen merancang CTDE dengan critic terpusat dan shared replay buffer. Implementasi di sini memiliki actor lokal per agen, satu critic state gabungan, dan shared replay buffer untuk melatih critic. Pembaruan actor memakai episode baru. IQL mempunyai Q-table terpisah per agen. Detail ada di `src/procurement_marl/agents/`.
-- Logistic Regression, SVM, Random Forest, dan XGBoost adalah **baseline klasifikasi keputusan**, bukan agen tambahan. Baseline membaca rencana setelah MARL selesai dan tidak dapat mengubah hasil evaluator.
-- Karena dataset historis yang disebut laporan tidak tersedia, artefak bawaan memakai dataset simulasi di `runs/baseline/dataset_simulasi.csv`. Keterangan sumber data juga tampil di dashboard.
-- Angka reward −10 dan +150 pada laporan hanya ilustrasi, bukan reward hasil pelatihan. Fungsi reward simulator didokumentasikan di [config/env_default.yaml](config/env_default.yaml) dan `src/procurement_marl/rewards.py`.
-
-## Struktur penting
-
-```text
-app.py                                UI proses dan Pelaporan
-procurement/rl_service.py             input 3 variabel, muat model, jalankan episode
-procurement/rl_storage.py             simpan log dan laporan SQLite
-procurement/baseline_ml.py             fitur dan inferensi baseline supervised learning
-src/procurement_marl/env.py           giliran agen, negosiasi, pembayaran, kendala
-src/procurement_marl/vendor_agents.py utilitas dan respons otonom Vendor A/B/C
-src/procurement_marl/scenario.py      vendor, fixture, dan generator skenario latihan
-src/procurement_marl/agents/iql.py    pembaruan Q-table IQL
-src/procurement_marl/agents/ctde_ac.py actor-critic CTDE + shared critic replay
-src/procurement_marl/costs.py         perhitungan biaya dan kas
-config/                               data laporan dan asumsi latihan
-scripts/train.py                      latihan model
-scripts/train_baseline.py             dataset, train/test, dan evaluasi empat classifier
-runs/                                 checkpoint dan kurva hasil latihan
-tests/                                tes biaya, model, dan penyimpanan
-```
-
-Modul `procurement/models.py`, `workflow.py`, dan `simulator.py` dari versi rule-based lama masih disimpan untuk contoh perhitungan dan kompatibilitas tes; dashboard terbaru memakai `procurement/rl_service.py` dan `src/procurement_marl/`.
-
-## Git
-
-`.gitignore` mengecualikan virtual environment, cache Python, dan database lokal. Checkpoint terlatih dalam `runs/` perlu ikut disimpan bila dashboard ingin langsung dijalankan tanpa latihan ulang.
-
-```bash
-git init
-git add .
-git commit -m "Add trained IQL and CTDE procurement agents"
-```
+Panduan penggunaan, dataset, pelatihan ulang, dan kredit aset tersedia di [panduan lengkap electronics](electronics/README.md).

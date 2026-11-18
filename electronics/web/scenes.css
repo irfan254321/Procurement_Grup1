@@ -1,0 +1,48 @@
+.ship-scene{margin:16px 0 20px;border:1px solid #d0e1f5;border-radius:16px;overflow:hidden;background:#f9fcff;color:#173454}
+.ship-art{display:block;width:100%;height:auto;background:#eaf4ff}
+.ship-svg-label{font:800 12px system-ui,sans-serif;text-anchor:middle;letter-spacing:.55px;fill:#243d60}
+.ship-truck-text{font:800 12px system-ui,sans-serif;fill:#18538f}
+.ship-caption{display:flex;gap:4px;flex-direction:column;padding:13px 18px 5px}
+.ship-caption strong{font-size:1.05rem}.ship-caption span{font-size:.9rem;color:#375676}
+.inspection-counts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:8px 18px 10px}
+.inspection-counts div{padding:8px clamp(6px,2vw,14px);background:#edf4fa;border-radius:8px}
+.inspection-counts dt{font-size:.81rem}.inspection-counts dd{margin:2px 0 0;font-weight:700}
+.inspection-counts .inspection-damaged{background:#fff0e4;color:#813a21}
+.inspection-scene p{padding:0 18px 14px;font-size:.9rem}
+.ship-steps{list-style:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin:0;padding:10px 18px 15px}
+.ship-steps li{display:flex;align-items:center;gap:6px;font-size:.78rem;color:#536c87;min-width:0;overflow-wrap:anywhere}
+.ship-steps li span{flex:none;display:grid;place-items:center;border-radius:50%;background:#e5edf7;width:21px;height:21px;font-weight:700}
+.ship-steps .current{color:#0756ac;font-weight:700}.ship-steps .current span{background:#126ce0;color:#fff}
+.ship-steps .done span{background:#d7f2e8;color:#23684e}.ship-blocked .ship-steps .current{color:#a03b29}.ship-blocked .ship-steps .current span{background:#a03b29}
+.ship-truck{transform:translateX(0)}.ship-shipping .ship-truck{animation:ship-drive 2.6s cubic-bezier(.37,.05,.38,1) both}
+.ship-shipping .ship-wheel{animation:ship-roll .4s linear 6}
+.ship-delivered .ship-truck{transform:translateX(515px)}
+.ship-packing .ship-parcels{animation:ship-load 1.45s ease-in-out both}.ship-delivered .ship-parcels{animation:ship-unload .8s ease-out both}
+.ship-request .ship-notice,.ship-negotiation .ship-notice{animation:ship-notice .55s ease-out both}
+@keyframes ship-drive{from{transform:translateX(0)}to{transform:translateX(515px)}}
+@keyframes ship-roll{to{transform:rotate(360deg)}}
+@keyframes ship-load{0%{transform:translateX(0);opacity:1}80%{opacity:1}100%{transform:translateX(112px);opacity:0}}
+@keyframes ship-unload{from{transform:translate(-45px,-24px);opacity:0}to{transform:translate(0,0);opacity:1}}
+@keyframes ship-notice{from{transform:translateY(8px);opacity:0}to{transform:translateY(0);opacity:1}}
+@media(max-width:600px){.ship-steps{padding:8px;gap:4px}.ship-steps li{display:grid;justify-items:center;text-align:center;font-size:.66rem}.ship-caption{padding:10px}.ship-svg-label{font-size:15px}}
+@media(prefers-reduced-motion:reduce){.ship-scene *{animation:none!important}.ship-shipping .ship-truck{transform:translateX(258px)}}
+
+.controls{display:flex;gap:8px;flex-wrap:wrap}fieldset{border:1px solid #dce5f0;border-radius:10px;margin:16px 0;padding:12px}details{margin:12px 0}summary{cursor:pointer;font-weight:650}.meeting{margin:14px 0;border:1px solid #c9d9f0;border-radius:16px;overflow:hidden;background:#f5f9ff;color:#17304f}
+.meeting-heading{padding:14px 18px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:white}
+.meeting-heading small,.meeting-parties small,.meeting-message small{display:block;color:#516780;font-size:12px;font-weight:650;letter-spacing:.04em;margin-bottom:4px}
+.meeting-heading strong{font-size:17px}.meeting-heading strong span{color:#2874d6;padding:0 4px}
+.meeting-chip{border-radius:999px;padding:6px 11px;background:#e8f1ff;color:#1c548f;font-weight:650;font-size:13px;white-space:nowrap}
+.meeting-room{background:#e9f2ff}.meeting-room svg{display:block;width:100%;height:clamp(145px,27vw,265px)}
+.meeting-parties{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:10px 18px 0}
+.meeting-parties>span{padding:9px 12px;border:1px solid #cfdef0;border-radius:9px;background:white;font-weight:700;overflow-wrap:anywhere}
+.meeting-parties>span:last-child{text-align:right}.meeting-parties>span.meeting-speaking{border-color:#6da5e9;background:#e7f1ff;color:#174d8c}
+.meeting-message{position:relative;width:fit-content;max-width:min(92%,650px);margin:12px 18px 18px;padding:11px 14px;border:1px solid #b3ccec;border-radius:11px;background:white;box-shadow:0 4px 14px #20365314;animation:meeting-enter .55s ease-out both;overflow-wrap:anywhere}
+.meeting-from-vendor{margin-left:auto}.meeting-message strong{font-size:23px}.meeting-message strong span{font-size:12px;color:#516780;font-weight:500}.meeting-message p{margin:5px 0 0;color:#394f69}
+.meeting-intro{margin-inline:auto;text-align:center}.meeting-intro strong{font-size:18px}
+.meeting-moving-hand{transform-origin:25px 157px;animation:meeting-gesture 2.4s ease-in-out 1 both}.meeting-voice{animation:meeting-talk 1.25s ease-in-out 2 both}
+@keyframes meeting-enter{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes meeting-gesture{0%,100%{transform:rotate(0)}30%,67%{transform:rotate(-9deg)}46%{transform:rotate(-4deg)}}
+@keyframes meeting-talk{0%,100%{opacity:.4}50%{opacity:1}}
+@media(max-width:650px){.meeting-heading,.meeting-parties{padding-left:10px;padding-right:10px}.meeting-heading strong{font-size:15px}.meeting-parties>span{font-size:13px;padding:7px}.meeting-message{margin-right:10px;margin-left:10px}.meeting-from-vendor{margin-left:auto}}
+@media(prefers-reduced-motion:reduce){.meeting *{animation:none!important}}
+

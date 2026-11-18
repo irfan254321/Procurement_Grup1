@@ -1,0 +1,418 @@
+{
+  "model_version": 2,
+  "source_rows": [
+    100,
+    23,
+    23
+  ],
+  "scenarios_per_split": 1600,
+  "source_sha256": "637251776c3906499aedc58a80a19399eb013c31829ba52bd97a6cf4d1262063",
+  "agents": {
+    "stock": {
+      "main": "Logistic Regression",
+      "selected": [
+        "Logistic Regression",
+        "SVM",
+        "Extra Trees",
+        "CatBoost",
+        "Gradient Boosting"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.9347496445809842,
+          "accuracy": 0.944375,
+          "balanced": 0.9430413493270402
+        },
+        "Random Forest": {
+          "validation": 0.9743640721472989,
+          "accuracy": 0.980625,
+          "balanced": 0.9802544816663407
+        },
+        "Extra Trees": {
+          "validation": 0.9830211484176161,
+          "accuracy": 0.985,
+          "balanced": 0.9846099483212287
+        },
+        "Gradient Boosting": {
+          "validation": 0.980052354286093,
+          "accuracy": 0.981875,
+          "balanced": 0.9813934338303498
+        },
+        "Logistic Regression": {
+          "validation": 1.0,
+          "accuracy": 1.0,
+          "balanced": 1.0
+        },
+        "SVM": {
+          "validation": 0.9905950053569259,
+          "accuracy": 0.985,
+          "balanced": 0.9849790824020848
+        },
+        "KNN": {
+          "validation": 0.9799821383207181,
+          "accuracy": 0.976875,
+          "balanced": 0.9772067592551694
+        },
+        "CatBoost": {
+          "validation": 0.9814393168381041,
+          "accuracy": 0.984375,
+          "balanced": 0.9840404722392241
+        },
+        "XGBoost": {
+          "validation": 0.9791095668858352,
+          "accuracy": 0.980625,
+          "balanced": 0.9798853475854845
+        }
+      },
+      "baseline": 0.54875
+    },
+    "finance": {
+      "main": "XGBoost",
+      "selected": [
+        "XGBoost",
+        "KNN",
+        "Gradient Boosting",
+        "CatBoost",
+        "Random Forest"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.8626447390501761,
+          "accuracy": 0.8875,
+          "balanced": 0.8786603539093696
+        },
+        "Random Forest": {
+          "validation": 0.9132488672596073,
+          "accuracy": 0.930625,
+          "balanced": 0.9213633106561704
+        },
+        "Extra Trees": {
+          "validation": 0.7314901829165967,
+          "accuracy": 0.783125,
+          "balanced": 0.7216691296569961
+        },
+        "Gradient Boosting": {
+          "validation": 0.9232757174022487,
+          "accuracy": 0.931875,
+          "balanced": 0.9248765884632761
+        },
+        "Logistic Regression": {
+          "validation": 0.8384544386642054,
+          "accuracy": 0.876875,
+          "balanced": 0.8544273423369007
+        },
+        "SVM": {
+          "validation": 0.8450327236113442,
+          "accuracy": 0.89875,
+          "balanced": 0.8768135248784088
+        },
+        "KNN": {
+          "validation": 0.9355680483302568,
+          "accuracy": 0.943125,
+          "balanced": 0.9392937699307771
+        },
+        "CatBoost": {
+          "validation": 0.9189796945796275,
+          "accuracy": 0.935625,
+          "balanced": 0.9238439528760721
+        },
+        "XGBoost": {
+          "validation": 0.9347122000335626,
+          "accuracy": 0.941875,
+          "balanced": 0.9382826475849733
+        }
+      },
+      "baseline": 0.618125
+    },
+    "seller": {
+      "main": "Random Forest",
+      "selected": [
+        "Random Forest",
+        "CatBoost",
+        "Gradient Boosting",
+        "Logistic Regression",
+        "XGBoost"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.9877383676582762,
+          "accuracy": 0.975,
+          "balanced": 0.9768644888614951
+        },
+        "Random Forest": {
+          "validation": 0.9938977879481312,
+          "accuracy": 0.998125,
+          "balanced": 0.9986462093862816
+        },
+        "Extra Trees": {
+          "validation": 0.9891304347826086,
+          "accuracy": 0.9975,
+          "balanced": 0.9959349593495934
+        },
+        "Gradient Boosting": {
+          "validation": 1.0,
+          "accuracy": 1.0,
+          "balanced": 1.0
+        },
+        "Logistic Regression": {
+          "validation": 1.0,
+          "accuracy": 1.0,
+          "balanced": 1.0
+        },
+        "SVM": {
+          "validation": 0.9958428680396644,
+          "accuracy": 0.99625,
+          "balanced": 0.9961624255231722
+        },
+        "KNN": {
+          "validation": 0.9849733028222731,
+          "accuracy": 0.98625,
+          "balanced": 0.9821622494203281
+        },
+        "CatBoost": {
+          "validation": 1.0,
+          "accuracy": 1.0,
+          "balanced": 1.0
+        },
+        "XGBoost": {
+          "validation": 1.0,
+          "accuracy": 1.0,
+          "balanced": 1.0
+        }
+      },
+      "baseline": 0.6925
+    },
+    "buyer": {
+      "main": "CatBoost",
+      "selected": [
+        "CatBoost",
+        "Logistic Regression",
+        "Gradient Boosting",
+        "XGBoost",
+        "Extra Trees"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.9176088798535269,
+          "accuracy": 0.92625,
+          "balanced": 0.926100088169636
+        },
+        "Random Forest": {
+          "validation": 0.9487038727976957,
+          "accuracy": 0.94875,
+          "balanced": 0.9484145098456094
+        },
+        "Extra Trees": {
+          "validation": 0.9496052336881871,
+          "accuracy": 0.955,
+          "balanced": 0.9546113970197412
+        },
+        "Gradient Boosting": {
+          "validation": 0.9615852674872627,
+          "accuracy": 0.965625,
+          "balanced": 0.9654528229916395
+        },
+        "Logistic Regression": {
+          "validation": 0.9785310088507218,
+          "accuracy": 0.986875,
+          "balanced": 0.9867698647440266
+        },
+        "SVM": {
+          "validation": 0.9490241652427096,
+          "accuracy": 0.9525,
+          "balanced": 0.9523071054721453
+        },
+        "KNN": {
+          "validation": 0.9244532709768059,
+          "accuracy": 0.935625,
+          "balanced": 0.9350718176076639
+        },
+        "CatBoost": {
+          "validation": 0.9680796079432527,
+          "accuracy": 0.971875,
+          "balanced": 0.9717059886567575
+        },
+        "XGBoost": {
+          "validation": 0.9573525519241823,
+          "accuracy": 0.973125,
+          "balanced": 0.9728440648078089
+        }
+      },
+      "baseline": 0.51125
+    },
+    "procurement": {
+      "main": "SVM",
+      "selected": [
+        "SVM",
+        "Extra Trees",
+        "Gradient Boosting",
+        "CatBoost",
+        "Random Forest"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.8421818181818181,
+          "accuracy": 0.845,
+          "balanced": 0.8675219634639519
+        },
+        "Random Forest": {
+          "validation": 0.8461818181818181,
+          "accuracy": 0.9,
+          "balanced": 0.9082448486297322
+        },
+        "Extra Trees": {
+          "validation": 0.8544545454545455,
+          "accuracy": 0.894375,
+          "balanced": 0.8937336892642986
+        },
+        "Gradient Boosting": {
+          "validation": 0.8487272727272728,
+          "accuracy": 0.901875,
+          "balanced": 0.9120083537528803
+        },
+        "Logistic Regression": {
+          "validation": 0.8057272727272727,
+          "accuracy": 0.824375,
+          "balanced": 0.8116305091273714
+        },
+        "SVM": {
+          "validation": 0.8629090909090908,
+          "accuracy": 0.841875,
+          "balanced": 0.8511581037379392
+        },
+        "KNN": {
+          "validation": 0.7950909090909091,
+          "accuracy": 0.80625,
+          "balanced": 0.8179771699503955
+        },
+        "CatBoost": {
+          "validation": 0.8470909090909091,
+          "accuracy": 0.899375,
+          "balanced": 0.9083859593202781
+        },
+        "XGBoost": {
+          "validation": 0.8460909090909091,
+          "accuracy": 0.820625,
+          "balanced": 0.7783383469131622
+        }
+      },
+      "baseline": 0.62125
+    },
+    "vendor": {
+      "main": "Gradient Boosting",
+      "selected": [
+        "Gradient Boosting",
+        "XGBoost",
+        "SVM",
+        "Extra Trees",
+        "Random Forest"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.8268104527646511,
+          "accuracy": 0.851875,
+          "balanced": 0.8406459082853452
+        },
+        "Random Forest": {
+          "validation": 0.8845106829839654,
+          "accuracy": 0.899375,
+          "balanced": 0.8876223757053081
+        },
+        "Extra Trees": {
+          "validation": 0.8929762914495738,
+          "accuracy": 0.906875,
+          "balanced": 0.8969544555157961
+        },
+        "Gradient Boosting": {
+          "validation": 0.911704834605598,
+          "accuracy": 0.90375,
+          "balanced": 0.8933882045220353
+        },
+        "Logistic Regression": {
+          "validation": 0.8119067813724302,
+          "accuracy": 0.830625,
+          "balanced": 0.8191693852308992
+        },
+        "SVM": {
+          "validation": 0.9015549901046085,
+          "accuracy": 0.908125,
+          "balanced": 0.8975624033451644
+        },
+        "KNN": {
+          "validation": 0.8224039743123712,
+          "accuracy": 0.841875,
+          "balanced": 0.8366918285038839
+        },
+        "CatBoost": {
+          "validation": 0.8826285391170887,
+          "accuracy": 0.906875,
+          "balanced": 0.8976365826559096
+        },
+        "XGBoost": {
+          "validation": 0.9058685730441456,
+          "accuracy": 0.89625,
+          "balanced": 0.8936059046731353
+        }
+      },
+      "baseline": 0.588125
+    },
+    "deal": {
+      "main": "KNN",
+      "selected": [
+        "KNN",
+        "XGBoost",
+        "Gradient Boosting",
+        "CatBoost",
+        "Random Forest"
+      ],
+      "candidates": {
+        "Decision Tree": {
+          "validation": 0.6731150793650793,
+          "accuracy": 0.76125,
+          "balanced": 0.6500565125005651
+        },
+        "Random Forest": {
+          "validation": 0.7724454365079365,
+          "accuracy": 0.83125,
+          "balanced": 0.7641484696414846
+        },
+        "Extra Trees": {
+          "validation": 0.7162078373015872,
+          "accuracy": 0.820625,
+          "balanced": 0.7222433202224332
+        },
+        "Gradient Boosting": {
+          "validation": 0.8063616071428572,
+          "accuracy": 0.836875,
+          "balanced": 0.7687915366879153
+        },
+        "Logistic Regression": {
+          "validation": 0.5910218253968254,
+          "accuracy": 0.725625,
+          "balanced": 0.6208282472082824
+        },
+        "SVM": {
+          "validation": 0.5990823412698413,
+          "accuracy": 0.74625,
+          "balanced": 0.6134906641349067
+        },
+        "KNN": {
+          "validation": 0.8634052579365079,
+          "accuracy": 0.879375,
+          "balanced": 0.8259821872598219
+        },
+        "CatBoost": {
+          "validation": 0.7835441468253967,
+          "accuracy": 0.829375,
+          "balanced": 0.7547764365477644
+        },
+        "XGBoost": {
+          "validation": 0.8565228174603174,
+          "accuracy": 0.846875,
+          "balanced": 0.7974365929743659
+        }
+      },
+      "baseline": 0.684375
+    }
+  }
+}
