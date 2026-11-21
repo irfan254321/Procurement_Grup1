@@ -1,7 +1,8 @@
 import * as THREE from './three/three.module.min.js';
-import {buildRoomStage,showroomPositions} from './room-stage.mjs';
+import {buildRoomStage,roomSeats,showroomPositions,showroomProducts} from './room-stage.mjs';
 
-import {studio,makeStudioActor,disposeStudioActor} from './studio.mjs';
+import {studio} from './studio.mjs';
+import {createCharacter} from './character-3d.mjs';
 import {loadPolyAssets} from './poly-assets.mjs';
 
 export async function createRoom3D() {
@@ -23,6 +24,8 @@ export async function createRoom3D() {
   const point=new THREE.Vector3();
   let stage, stageKey, roomIdentity, mount, frame=0;
   const range=(a,b,t)=>a+(b-a)*t;
+  const workModes={type:'type',scan:'inspect',stamp:'type',talk:'present',mail:'carry',walk:'walk',carry:'carry'};
+  const workProps={scan:'paper',mail:'paper',carry:'box'};
 
   function turn(facing,targetX,targetZ,currentX,currentZ){
     return Math.hypot(targetX-currentX,targetZ-currentZ)>.025?
@@ -33,33 +36,26 @@ export async function createRoom3D() {
     frame=0;
     if(!mount?.isConnected||!mount.getClientRects().length)return;
     for(const state of actors.values()){
-      const {root,body,head,arms,legs,prop,box,paper,person,job}=state;
+      const {actor,person,job,seat}=state;
+      const {root}=actor;
       const age=(time-state.started)/1000;
       const moving=age<state.travel&&!lowMotion.matches;
       const amount=moving?Math.max(0,age/state.travel):1;
       root.position.set(range(state.fromX,state.toX,amount),0,range(state.fromY,state.toY,amount));
       root.rotation.y=moving?turn(.65,state.toX,state.toY,state.fromX,state.fromY):state.facing;
-      const gesture=lowMotion.matches?0:Math.sin(age*(moving?12:4.8));
-      body.position.y=moving?Math.abs(gesture)*.054:lowMotion.matches?0:Math.sin(age*1.9)*.013;
-      body.rotation.z=moving?0:lowMotion.matches?0:Math.sin(age*1.6)*.025;
-      for(const [i,sign] of [[0,1],[1,-1]]){
-        legs[i].rotation.x=moving?sign*.54*gesture:0;
-        arms[i].rotation.x=moving?sign*.43*gesture:-.06;
-      }
-      const kind=job.kind;
-      head.rotation.y=moving?0:gesture*.16;
-      head.rotation.x=kind==='talk'&&!moving?gesture*.12:0;
-      const carrying=kind==='carry'&&(moving||age<state.travel+.65);
-      if(carrying)arms.forEach(arm=>{arm.rotation.x=-1.21});
-      if(!moving&&age<state.travel+2.7&&['type','scan','stamp','talk','mail'].includes(kind)){
-        arms[1].rotation.x=-.8-.62*gesture;
-        arms[0].rotation.x=kind==='type'?-.95+.21*gesture:-.2;
-      }
-      prop.visible=carrying||age<state.travel+2.7&&!moving&&['scan','stamp','mail'].includes(kind);
-      box.visible=carrying;
-      paper.visible=!carrying;
+      const working=age<state.travel+2.7;
+      const arrival=working&&(person.enters||person.called)&&job.kind==='idle';
+      const seated=!!seat&&!moving;
+      const deskMode=job.kind==='talk'&&working?'present':job.kind==='scan'&&working?'read':seat?.work;
+      const mode=moving?'walk':seated?(person.offline?'sit':deskMode):
+        working?(workModes[job.kind]??(arrival?'wave':'idle')):'idle';
+      actor.animate(mode,time/1000,{
+        reducedMotion:lowMotion.matches,seated,prop:working&&!seated?workProps[job.kind]:undefined,
+      });
       if(person.pin){
-        point.set(root.position.x,1.35+body.position.y,root.position.z).project(camera);
+        actor.head.getWorldPosition(point);
+        point.y+=.31;
+        point.project(camera);
         person.pin.style.left=50+50*point.x+'%';
         person.pin.style.top=50-50*point.y+'%';
       }
@@ -68,15 +64,16 @@ export async function createRoom3D() {
     frame=requestAnimationFrame(draw);
   }
 
-  function labelProducts(node,role){
+  function labelProducts(node,role,products){
     const positions=showroomPositions[role]??[];
-    const names=['Laptop','Monitor','Printer'];
     const heights=[1.45,1.78,1.43];
     node.replaceChildren(...positions.map(([x,z],index)=>{
+      const name=showroomProducts[index];
+      const stock=products.find(product=>product.name===name)?.units??0;
       const label=document.createElement('span');
-      label.className='room-product-label';
-      label.textContent=names[index];
-      point.set(x,heights[index],z).project(camera);
+      label.className='room-product-label'+(stock>0?'':' sold-out');
+      label.textContent=stock>0?name:name+' · Habis';
+      point.set(x,stock>0?heights[index]:1,z).project(camera);
       label.style.left=50+50*point.x+'%';
       label.style.top=50-50*point.y+'%';
       return label;
@@ -84,11 +81,14 @@ export async function createRoom3D() {
   }
 
   function clearActors(){
-    for(const state of actors.values())disposeStudioActor(state);
+    for(const {actor} of actors.values()){
+      actor.root.removeFromParent();
+      actor.dispose();
+    }
     actors.clear();
   }
 
-  function update(node,productLabels,key,room,role,people,activityKey,replay=false){
+  function update(node,productLabels,key,room,role,people,activityKey,replay=false,products=[],uniform=room.color){
     if(roomIdentity!==key){
       clearActors();
       roomIdentity=key;
@@ -111,8 +111,9 @@ export async function createRoom3D() {
       }
       stage=buildRoomStage(THREE,scene,room,role,assets);
       stageKey=room;
-      labelProducts(productLabels,role);
     }
+    stage.userData.setStock(products);
+    labelProducts(productLabels,role,products);
     if(mount!==node||renderer.domElement.parentElement!==node){
       mount=node;
       node.replaceChildren(renderer.domElement);
@@ -120,22 +121,30 @@ export async function createRoom3D() {
     const current=new Set(people.map(person=>person.id));
     for(const [id,state] of actors){
       if(current.has(id))continue;
-      disposeStudioActor(state);
+      state.actor.root.removeFromParent();
+      state.actor.dispose();
       actors.delete(id);
     }
     for(const [index,person] of people.entries()){
       const existing=actors.get(person.id);
-      const state=existing??makeStudioActor(index,person.id.startsWith('customer-'),role,person.id);
-      if(!existing)scene.add(state.root);
+      const customer=person.id.startsWith('customer-');
+      const state=existing??{actor:createCharacter({role:customer?'customer':role,variant:person.variant??index,
+        gender:person.gender,jacket:customer?undefined:uniform,briefcase:false})};
+      const {root}=state.actor;
+      if(!existing){
+        root.scale.setScalar(.72);
+        scene.add(root);
+      }
       const job=person.jobMotion??{kind:'idle',label:''};
-      if(!existing||state.activity!==activityKey||state.toX!==(job.to?.[0]??person.x)||state.toY!==(job.to?.[1]??person.y)||replay){
-        const [toX,toY]=job.to??[person.x,person.y];
+      const seat=!job.to&&job.kind!=='carry'&&job.kind!=='walk'?roomSeats[role]?.[person.id]:null;
+      const [toX,toY]=job.to??[seat?.x??person.x,seat?.z??person.y];
+      if(!existing||state.activity!==activityKey||state.toX!==toX||state.toY!==toY||state.job.kind!==job.kind||replay){
         const enter=(!existing||replay)&&(person.enters||person.called);
-        const fromX=replay||enter||!existing?person.x:state.root.position.x;
-        const fromY=enter?7.65:replay||!existing?person.y:state.root.position.z;
+        const fromX=enter?person.x:!existing&&seat?toX:replay||!existing?person.x:root.position.x;
+        const fromY=enter?7.65:!existing&&seat?toY:replay||!existing?person.y:root.position.z;
         const distance=Math.hypot(toX-fromX,toY-fromY);
-        Object.assign(state,{fromX,fromY,toX,toY,started:performance.now(),activity:activityKey,
-          travel:distance>.07?Math.min(2.2,.6+distance*.38):0,facing:turn(.65,toX,toY,fromX,fromY),job});
+        Object.assign(state,{fromX,fromY,toX,toY,started:performance.now(),activity:activityKey,seat,
+          travel:distance>.07?Math.min(2.2,.6+distance*.38):0,facing:seat?.facing??turn(.65,toX,toY,fromX,fromY),job});
       }
       state.person=person;
       actors.set(person.id,state);

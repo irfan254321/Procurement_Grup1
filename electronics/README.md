@@ -28,13 +28,17 @@ SQLite sudah tersedia melalui Python. Saat pertama kali berjalan, server membuat
 
 ## Menggunakan aplikasi
 
+- Buka **Perusahaan online / offline** di peta 3D, atau gunakan tombol di ruang pemasok dan pengangkut. Perusahaan offline keluar dari pemilihan PO baru. Pengemasan, keberangkatan, atau koreksi faktur yang masih membutuhkan perusahaan tersebut menunggu dibuka kembali. Barang yang sudah dalam perjalanan tetap diproses.
+- Klik judul perusahaan untuk membuka portal, lalu pilih **Jadwal & negosiasi**. Pada akses pertama, atur sandi minimal delapan karakter untuk perusahaan itu. Portal menyimpan jadwal negosiasi, jadwal pengiriman, dan riwayat lengkap di SQLite. Ringkasan status kiriman dan penawaran yang sedang divisualisasikan tersedia di simulasi. Reset membersihkan catatan skenario dan sesi akses, dengan sandi tetap berlaku.
+- **Control Tower** memuat lima output tiap RFQ, prakiraan tiga hari dan ROP dinamis, skor pemasok, event EPCIS, anomali, dan memori agen. Nama SAP, Oracle SCM, GPS/IoT dan PostgreSQL WMS menandai sumber aliran dalam simulasi. Objek EPCIS memakai pengenal lot lokal.
+
 - **Dunia** memakai **Otomatis · awal acak** untuk sesi baru. Server mengundi kondisi awal lalu menjalankan penjualan, restok, negosiasi, pengiriman, dan pembayaran dalam satu sesi. Pilihan kondisi khusus tersedia untuk uji ulang. Pemilihan kondisi diterapkan saat **Mulai ulang skenario**. Klik lantai atau gedung vendor untuk melihat aktivitasnya.
 - **Lobi dan toko** menampilkan antrean pelayanan, etalase Laptop, Monitor, dan Printer, harga termasuk PPN, serta stok yang tersedia. Transaksi yang kekurangan stok langsung ditutup dan tercatat di **Hasil terakhir**. Pembelian baru bisa diproses setelah barang diterima dan masuk stok jual.
 - **Laba perusahaan** menampilkan grafik pendapatan, laba kotor, dan saldo kas, serta rincian faktur vendor, penjualan, dan posisi pajak.
 - **Model agen** menampilkan metrik validasi dan pengujian serta model pilihan tiap agen.
 - **Pasokan & pengiriman** menampilkan stok tiap vendor, kapasitas tersedia, skor risiko setelah penawaran, serta jumlah, rute, tenggat, dan faktur per kiriman. Gunakan **+**, **−**, atau **Lihat semua** untuk mengatur peta 3D.
 - Klik lantai BIZ, gedung pemasok, atau terminal pengangkut untuk membuka **Profil**, **Aturan**, dan **Biaya logistik** perusahaan. Biaya logistik merangkum ongkir pada faktur terbuka dan dibayar. Kalkulator dapat membandingkan estimasi biaya tetap dan biaya per unit untuk sebuah kiriman.
-- Klik **nama perusahaan** di dalam gedung untuk membuka situs lokalnya. [TechMart](http://127.0.0.1:8081/techmart/), [BIZ](http://127.0.0.1:8081/biz/), dan [J&T Cargo](http://127.0.0.1:8081/jt-cargo/) dapat dibuka langsung. Setiap situs memuat profil, aturan, dan biaya logistik. Bagian biaya memperlihatkan rute dan jarak simulasi yang memengaruhi ongkir.
+- Klik **nama perusahaan** di dalam gedung untuk langsung membuka profilnya. Setiap perusahaan punya desain sendiri, seperti [TechMart](http://127.0.0.1:8081/techmart/), [BIZ](http://127.0.0.1:8081/biz/), dan [J&T Cargo](http://127.0.0.1:8081/jt-cargo/). Dari profil, buka **Aturan** atau **Biaya logistik** untuk melihat data perusahaan, termasuk rute dan jarak simulasi yang memengaruhi ongkir.
 
 Tombol **Mulai ulang skenario** mengembalikan stok, kas, riwayat, dan pencatatan pajak lokal ke kondisi awal skenario terpilih.
 
@@ -54,6 +58,10 @@ Pengangkut yang dapat dipilih adalah [JNE](https://www.jne.co.id/jtr-id), [J&T C
 
 ## Alur simulasi dan model
 
+Modul keputusan ada di `agents/`, penyimpanan dan kontrol akses di `database/`, pembacaan sumber data di `datasets/`, pelatihan di `training/`, dan konfigurasi lokasi di `paths.py`. Perintah pelatihan lama tetap tersedia dari folder utama proyek.
+
+Memori agen merekam keputusan dan fakta dari state transaksi yang sama. Gunakan `GET /api/memory` atau `GET /api/memory/<role>` untuk membacanya. Uji Python dapat dijalankan dengan `python -m unittest discover -s electronics/tests`, dan uji frontend dengan `node electronics/tests/check-3d-integration.cjs`.
+
 Browser meminta giliran berikutnya lewat API. Server Python menjalankan agen yang bertugas, menerapkan aturan bisnis, menyimpan kondisi ke SQLite, lalu mengirim hasil untuk ditampilkan di distrik 3D.
 
 | Agen | Model utama | Peran |
@@ -68,7 +76,7 @@ Browser meminta giliran berikutnya lewat API. Server Python menjalankan agen yan
 
 Saat stok rendah atau kebutuhan mendatang diperkirakan melebihi persediaan, agen Stock mengajukan restok. Jika dana kurang, permintaan tetap tersimpan dan toko melayani penjualan dari stok yang tersedia. Dana pengadaan diisi kembali dari modal barang yang terjual dan 50% laba kotor positif. Saat kas bebas dan anggaran cukup untuk melanjutkan, Pengadaan memproses permintaan yang tertahan.
 
-Pengadaan membandingkan penawaran lima vendor. Tiap vendor mendapat hingga tiga putaran tawar balik dan dapat menawarkan sebagian dari kebutuhan. Pengalokasi memilih kombinasi jumlah, pengangkut, dan layanan pengiriman yang memenuhi tenggat, stok, kapasitas, anggaran, dan target laba. Biaya yang dibandingkan meliputi barang, ongkir tetap/per unit, PPN simulasi, dan penalti skor risiko. Nilai penalti dihitung dari biaya barang × skor risiko × 0,15.
+Pengadaan membandingkan penawaran empat pemasok. Tiap pemasok mendapat hingga tiga putaran tawar balik dan dapat menawarkan sebagian dari kebutuhan. Sebelum persetujuan keuangan, fase penawaran ekspedisi memperlihatkan pilihan layanan tiga pengangkut dan menandai layanan terpilih. Pengalokasi memeriksa tenggat, stok, kapasitas, anggaran, dan target laba. Biaya yang dibandingkan meliputi barang, ongkir tetap/per unit, PPN simulasi, dan penalti biaya barang × skor risiko × 0,15.
 
 Stok dan kapasitas vendor disimpan di SQLite. Saat pesanan disetujui, stok dan kapasitasnya berkurang. Setiap 24 giliran kapasitas terisi kembali dan stok bertambah sampai batas simulasi. Rute memakai graf distrik dengan terminal pengangkut sebagai bagian perjalanan. Layanan ekspres memakai koridor selatan, dengan ongkir dan waktu tempuh yang berbeda dari layanan reguler. Hari simulasi mengikuti kedatangan, sedangkan giliran memajukan langkah kerja agen.
 

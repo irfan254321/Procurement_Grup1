@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="$description">
+  <title>$name | BIZ District</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  $font_link
+  <link rel="stylesheet" href="/company-profile.css">
+  <link rel="stylesheet" href="$stylesheet">
+  <link rel="stylesheet" href="/company-operations.css">
+  <script defer src="/format.js"></script>
+  <script defer src="/company-dashboard.js"></script>
+  <script defer src="/company-negotiations.js"></script>
+  <script defer src="/company-profile.js"></script>
+</head>
+<body class="company-profile profile-$slug" id="awal" data-company="$name" data-company-path="/$slug/">
+  <a class="profile-skip" href="#konten">Lewati ke konten</a>
+  <header class="profile-header">
+    <div class="profile-header-inner profile-shell">
+      <a class="profile-brand" href="/$slug/">$name</a>
+      <nav class="profile-nav" aria-label="Halaman perusahaan">
+        <a href="#profil" data-company-view aria-current="page">Profil</a>
+        <a href="#aturan" data-company-view>Aturan</a>
+        <a href="#biaya-logistik" data-company-view>Biaya logistik</a>
+        <a href="#negosiasi" data-company-view>Jadwal &amp; negosiasi</a>
+      </nav>
+      <a class="profile-district" href="/">BIZ District</a>
+    </div>
+  </header>
+  <main id="konten" tabindex="-1">
+    <div id="profil">
+      $content
+      <section id="profile-metrics" class="profile-metrics profile-shell" aria-labelledby="profile-metrics-title" hidden>
+        <h2 id="profile-metrics-title">Kondisi dalam simulasi</h2>
+        <dl></dl>
+      </section>
+    </div>
+    $operations
+  </main>
+  <footer class="profile-footer">
+    <div class="profile-footer-inner profile-shell">
+      <div>
+        <p class="profile-footer-name">$name</p>
+        <p>Profil perusahaan dalam simulasi BIZ District.</p>
+      </div>
+      <a href="#ringkasan">Ringkasan operasional</a>
+    </div>
+  </footer>
+</body>
+</html>

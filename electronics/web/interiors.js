@@ -63,13 +63,17 @@ function roomAction(role,event){
   return ['Meninjau tawaran harga','▤',0];
 }
 
-function roomPeople(role, room, state, currentEvent) {
+function roomPeople(role, room, state, currentEvent, roomIdentity=role) {
+  const seed=[...roomIdentity].reduce((sum,letter)=>sum+letter.charCodeAt(0),0);
+  const appearance=variant=>({variant,gender:variant%2?'female':'male'});
   const activeOrder = state.phase==='seller' && state.case?.id ? state.case : null;
   const staff = room.staff.map(([task,x,y],i)=>({
+    ...appearance(seed+i),
     id:'staff-'+i,name:roomRoleNames[role][i],job:roomRoleNames[role][i],task,duties:roomDuties[role]?.[i],x,y,
     live:i===0 && role!=='buyer',
   }));
   if(role==='deal' && currentEvent?.meeting)staff.push({
+    ...appearance(seed+staff.length),
     id:'visitor',name:currentEvent.meeting.vendor,job:'Agent Perwakilan Vendor',
     task:'Membahas tawaran pengadaan dengan PT. Biz Indonesia Market.',
     x:6.7,y:2.6,live:true,
@@ -79,6 +83,7 @@ function roomPeople(role, room, state, currentEvent) {
     orders.unshift({...currentEvent.customer,status:'Baru membayar'});
   }
   const customers=orders.map((order,i)=>({
+    ...appearance(order.id),
     id:'customer-'+order.id,name:'Pelanggan '+order.id,job:order.status,
     task:order.quantity+' × '+order.product+' · batas bayar '+rupiah(order.budget)+' per unit.',
     x:order.id===activeOrder?.id||order.status==='Baru membayar'?7.1:1.4+(i%8)*1.05,y:3.9+Math.floor(i/8)*.87,
@@ -164,6 +169,7 @@ function drawRoom(room,role,people){
       '<g class="'+(p.live?'floor-arm':'')+'"><path d="M8-30L14-23" stroke="'+shirt+'" stroke-width="6" stroke-linecap="round"/>'+
       '<path d="M14-23L17-25" stroke="'+skin+'" stroke-width="4" stroke-linecap="round"/></g>'+
       (p.live&&props[p.jobMotion.kind]?'<g transform="translate(20 -25)"><text fill="#22544d" font-size="21">'+props[p.jobMotion.kind]+'</text></g>':'')+
+      (p.gender==='female'?'<path d="M-10-40Q-13-50 0-52Q13-52 11-34L9-27L-10-30Z" fill="#30404a"/>':'')+
       '<circle cy="-40" r="9" fill="'+skin+'"/><path d="M-9-39Q-13-50 0-51Q11-50 9-41L3-46L-7-41Z" fill="#30404a"/>'+
       '<path d="M1-34l4-1" stroke="#7a5150" stroke-width="1.4"/>'+
       (p.live?'<path d="M0-70L7-62L0-54L-7-62Z" fill="#a7df62" stroke="#476d38"/>':'')+'</g></g></g>';
@@ -193,27 +199,34 @@ function renderInterior() {
   if(!roomKey||!world||!models||$('world').hidden)return;
   const vendor=vendors[roomKey],carrier=carriers[roomKey];
   const role=carrier?'carrier':vendor?'vendor':roomKey,room=floorRooms[role];
+  if(!room)return;
   const ownShipments=e=>(e?.shipments??[]).filter(order=>carrier?order.route?.carrier===roomKey:order.vendor===roomKey);
   const belongs=e=>carrier?ownShipments(e).length>0||e.inspection?.carrier===roomKey:
     vendor?e.role==='vendor'&&(e.meeting?.vendor===roomKey||e.vendor===roomKey||e.inspection?.vendor===roomKey||ownShipments(e).length>0):
     role==='deal'?e.role==='deal'||!!e.meeting:role==='finance'?e.role==='finance'||(e.shipment==='delivered'&&!e.inspection):e.role===role;
   const event=world.history.find(belongs);
   const liveEvent=world.history[0];
-  const {staff,customers}=roomPeople(role,room,world,event);
-  const onDuty=!!liveEvent&&belongs(liveEvent);
+  const {staff,customers}=roomPeople(role,room,world,event,roomKey);
+  const offline=!!(vendor||carrier)&&!companyOnline(roomKey);
+  const onDuty=!offline&&!!liveEvent&&belongs(liveEvent);
   const jobs=roomJobs(role,event,onDuty);
-  const roster=[...staff,...customers].map(person=>({...person,jobMotion:jobs[person.id]}));
+  const roster=[...staff,...customers].map(person=>({...person,offline,jobMotion:jobs[person.id]}));
   const selectedPerson=roster.find(p=>p.id===roomPerson)??roster[0];
   roomPerson=selectedPerson.id;
   const floorName=carrier?room.title:vendor?roomKey:'Lantai '+(offices[role].level+1)+' · '+room.title;
   $('floor-title').textContent=floorName;
   $('floor-subtitle').textContent=room.subtitle;
-  $('floor-status').textContent=onDuty?'Sedang bertugas':'Giliran '+world.tick;
+  $('floor-status').textContent=offline?'Offline · perusahaan tutup':onDuty?'Sedang bertugas':'Giliran '+world.tick;
+  const availability=$('room-company-offline');
+  availability.hidden=!companySlug(roomKey)||!(vendor||carrier);
+  availability.textContent=offline?'Aktifkan perusahaan':'Jadikan offline';
+  availability.setAttribute('aria-pressed',String(offline));
   $('floor-tabs').value=roomKey;
   if(!renderCompanyDashboard(vendor||carrier ? roomKey : null))return;
   const action=roomAction(role,event);
   const moveCustomers=!!liveEvent&&(onDuty||world.phase==='seller'&&role==='seller');
-  const signature=JSON.stringify([roomKey,onDuty?liveEvent.tick:null,roomPerson,roster.map(p=>[p.id,p.job])]);
+  const stockState=['buyer','seller','stock'].includes(role)?world.products.map(p=>p.units):null;
+  const signature=JSON.stringify([roomKey,offline,onDuty?liveEvent.tick:null,roomPerson,roster.map(p=>[p.id,p.job]),stockState]);
   const focused=document.activeElement;
   const focusContainer=focused?.closest('#floor-drawing,#floor-roster');
   const rosterScroll=$('floor-roster').scrollTop;
@@ -270,12 +283,12 @@ function renderInterior() {
   showRoomProducts(role,world.products);
   if(role==='stock')facts=world.products.map(p=>line(p.name,p.units?p.units+' unit':'Stok kosong')).join('');
   if(role==='buyer')facts=line('Antre di lobi',customers.length);
-  if(role==='finance')facts=line('Saldo kas',rupiah(world.cash))+line('Anggaran pengadaan',rupiah(world.fund));
+  if(role==='finance')facts='<a class="company-title-link" href="/biz/#keuangan">Buka portal keuangan BIZ →</a>';
   if(carrier)facts=ownOrders.slice(0,4).map(order=>line(order.id,
     order.vendor+' → Gudang BIZ · '+companyOrderStatus[order.status])).join('');
   if(role==='deal'||role==='procurement'||role==='vendor'){
     const offers=world.case?.offers??[];
-    facts=offers.filter(o=>!vendor||o.vendor===roomKey).map(o=>line(o.vendor,o.accepted?rupiah(o.price)+' / unit':'Gagal sepakat')).join('');
+    facts=offers.filter(o=>!vendor||o.vendor===roomKey).map(o=>line(o.vendor,o.accepted?'Sepakat':'Gagal sepakat')).join('');
     if(vendor&&world.suppliers?.[roomKey])facts=supplierFacts(world.suppliers[roomKey])+facts;
   }
   $('floor-facts').innerHTML=facts;
@@ -299,13 +312,15 @@ function renderRoomDrawing(room,role,people,moveCustomers,activityKey,replay){
     if(!$('room-3d-mount'))drawing.innerHTML='<div id="room-3d-mount"></div><div id="room-3d-products" aria-hidden="true"></div><div id="room-3d-labels"></div>';
     $('room-3d-labels').innerHTML=names;
     const pins=new Map([...$('room-3d-labels').children].map(pin=>[pin.dataset.person,pin]));
-    room3D.update($('room-3d-mount'),$('room-3d-products'),roomKey,room,roomStyle,cast.map(p=>({...p,pin:pins.get(p.id)})),activityKey,replay);
+    room3D.update($('room-3d-mount'),$('room-3d-products'),roomKey,room,role,cast.map(p=>({...p,pin:pins.get(p.id)})),
+      activityKey,replay,world.products,carriers[roomKey]?.color??room.color);
   }else{
     drawing.innerHTML=drawRoom(room,roomStyle,cast)+names;
   }
 }
 
 function openInterior(key, focus=true){
+  if(!offices[key]&&!vendors[key]&&!carriers[key])return;
   sceneSignature='';
   roomKey=key;
   selected=key;
@@ -329,12 +344,14 @@ function closeInterior(){
   $('floor-view').hidden=true;
   $('map').hidden=false;
   district3D?.update(world);
-  [...$('markers').children].find(b=>b.dataset.role===previous)?.focus();
+  if(district3D&&offices[previous])$('biz-tower-badge').focus();
+  else [...$('markers').children].find(b=>b.dataset.role===previous)?.focus();
 }
 
 $('floor-back').onclick=closeInterior;
 $('floor-tabs').onchange=()=>openInterior($('floor-tabs').value,false);
-$('company-nav').onclick=event=>{
+const legacyCompanyNav=$('company-nav');
+if(legacyCompanyNav)legacyCompanyNav.onclick=event=>{
   const button=event.target.closest('[data-company-tab]');
   if(!button||button.dataset.companyTab===companyDashboard.tab)return;
   companyDashboard.tab=button.dataset.companyTab;
@@ -346,7 +363,8 @@ $('company-nav').onclick=event=>{
   }
   renderInterior();
 };
-$('company-panel').onchange=event=>updateCompanyEstimate(event,renderInterior);
+if($('company-panel'))$('company-panel').onchange=event=>updateCompanyEstimate(event,renderInterior);
+$('room-company-offline').onclick=()=>toggleCompany(roomKey);
 for(const id of ['floor-roster','floor-drawing'])$(id).onclick=event=>{
   const button=event.target.closest('[data-person]');
   if(!button)return;

@@ -100,3 +100,24 @@ function negotiationScene({company,vendor,event,round,vendorPosition,vendorTotal
       </section>`;
 }
 
+function carrierQuoteScene(quote){
+  const batches=(quote.orders??[]).map(order=>{
+    const byCarrier=new Map();
+    for(const option of order.options??[]){
+      const current=byCarrier.get(option.carrier);
+      if(!current||option.selected||!current.selected&&(
+        Number(option.eligible)>Number(current.eligible)||
+        option.eligible===current.eligible&&option.freight<current.freight
+      ))byCarrier.set(option.carrier,option);
+    }
+    const rows=[...byCarrier.values()].map(option=>'<li'+(option.selected?' class="quote-winner"':'')+'>'+
+      '<span><strong>'+esc(option.carrier)+'</strong><small>'+esc(option.name)+' · '+esc(option.lead_days)+' hari</small></span>'+
+      '<span><strong>'+esc(rupiah(option.freight))+'</strong><small>'+
+      (option.selected?'Terpilih':option.eligible?'Memenuhi syarat':'Di luar batas')+'</small></span></li>').join('');
+    return '<div class="quote-batch"><h4>'+esc(order.vendor)+' · '+esc(order.quantity)+' unit</h4><ul>'+rows+'</ul></div>';
+  }).join('');
+  return '<section class="carrier-quote-scene" aria-label="Penawaran ekspedisi"><div class="quote-title">'+
+    '<strong>Penawaran 3 ekspedisi</strong><small>'+esc(quote.product)+' · '+esc(quote.quantity)+
+    ' unit · tenggat '+esc(quote.deadline_days)+' hari</small></div>'+batches+'</section>';
+}
+

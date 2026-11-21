@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#183932">
+  <title>Studio Karakter — BIZ District</title>
+  <link rel="stylesheet" href="/character-studio.css">
+  <script type="module" src="/character-studio.mjs"></script>
+</head>
+<body>
+  <header class="studio-nav"><div class="studio-container studio-nav-inner">
+    <a class="studio-brand" href="/"><span class="studio-mark" aria-hidden="true"></span>BIZ District</a>
+    <a class="studio-return" href="/">Kembali ke peta</a>
+  </div></header>
+  <main class="studio-container studio-main">
+    <section class="studio-stage" aria-label="Pratinjau karakter 3D">
+      <div class="studio-mode"><span class="studio-mode-dot" aria-hidden="true"></span><span id="mode-caption">Idle</span></div>
+      <div id="character-canvas" class="studio-canvas" aria-label="Karakter 3D"></div>
+      <p class="studio-feedback" id="studio-feedback" role="status" hidden></p>
+      <button type="button" id="reset-camera" class="studio-reset">Reset kamera</button>
+    </section>
+    <aside class="studio-panel" aria-labelledby="studio-title">
+      <p class="studio-kicker">BIZ District / Karakter 3D</p>
+      <h1 id="studio-title">Studio <br>karakter</h1>
+      <p class="studio-intro">Lihat bagaimana karakter bergerak, membawa barang, dan berinteraksi dalam simulasi.</p>
+      <fieldset class="studio-modes" id="studio-modes">
+        <legend>Animasi</legend>
+        <div>
+          <button type="button" data-mode="idle" aria-pressed="true">Idle</button>
+          <button type="button" data-mode="walk" aria-pressed="false">Walk</button>
+          <button type="button" data-mode="wave" aria-pressed="false">Wave</button>
+          <button type="button" data-mode="type" aria-pressed="false">Mengetik</button>
+          <button type="button" data-mode="carry" aria-pressed="false">Bawa kardus</button>
+          <button type="button" data-mode="present" aria-pressed="false">Presentasi</button>
+        </div>
+      </fieldset>
+      <div class="studio-instructions">
+        <h2>Kamera</h2>
+        <p>Seret untuk memutar. Klik kanan dan seret untuk menggeser. Gulir untuk memperbesar <span class="studio-key">atau gunakan tombol panah dan ±</span>. Di layar sentuh, cubit dengan dua jari.</p>
+      </div>
+    </aside>
+  </main>
+</body>
+</html>

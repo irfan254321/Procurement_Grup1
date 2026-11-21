@@ -1,13 +1,11 @@
-import csv
 import json
 from collections import defaultdict
-from pathlib import Path
 from statistics import median
 
 from finance import vat
+from datasets.purchases import RETIRED_SUPPLIER, read_purchases
+from paths import DATA, ROOT
 
-ROOT = Path(__file__).resolve().parent
-DATA = ROOT / "data"
 MIN_MARKUP = 1.15
 MODEL_VERSION = 2
 AGENTS = {
@@ -48,18 +46,10 @@ def load_models(directory=DATA):
     return report, models
 
 
-def read_purchases():
-    with (DATA / "spend_analysis_dataset.csv").open(encoding="utf-8-sig", newline="") as source:
-        rows = list(csv.DictReader(source))
-    if len({r["TransactionID"] for r in rows}) != len(rows):
-        raise ValueError("TransactionID harus unik.")
-    return rows
-
-
 def make_catalog(rows):
     groups = defaultdict(lambda: defaultdict(list))
     for row in rows:
-        if row["Category"] == "Electronics":
+        if row["Category"] == "Electronics" and row["Supplier"] != RETIRED_SUPPLIER:
             groups[row["ItemName"]][row["Supplier"]].append(float(row["UnitPrice"]))
     return [
         {"name": name, "reference": round(median(p for prices in vendors.values() for p in prices), 2),

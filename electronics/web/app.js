@@ -21,21 +21,33 @@ const offices = {
  procurement:{name:'Pengadaan',color:'#efad6f',icon:'≡',level:4,x:3,y:3},
  deal:{name:'Negosiasi',color:'#d28491',icon:'⇄',level:5,x:3,y:3},
 };
-const vendorLots=[[8.2,.8,2],[12.2,.8,3],[16.2,.8,2],[9.8,6.6,2],[15.0,6.6,3]];
+const vendorLots=[[8.2,.8,2],[12.2,.8,3],[9.8,6.6,2],[15.0,6.6,3]];
 const carrierLots=[[8.2,13.2,'#3f70bb'],[15,13.2,'#b6524c'],[21.8,13.2,'#b47836']];
-const colors=['#76aa86','#5b8cb3','#c4936a','#8c86b8','#6c9da5'];
+const colors=['#76aa86','#c4936a','#ef963d','#8c86b8'];
 const vendors={};
 const carriers={};
 const canvas = $('scene'), ctx = canvas.getContext('2d');
 let world, models, selected='stock', timer, busy=false, playing=true;
 let movement=0, paintedTick=-1, district3D;
 let districtZoom=1;
+function selectDistrictBuilding(key){
+  if(!offices[key]&&!vendors[key]&&!carriers[key])return;
+  followActivity=false;selected=key;
+  render();
+  openInterior(key);
+}
 function activateDistrict(){
   if(!window.WebGL2RenderingContext)return;
   import('/district-3d.mjs').then(async({createDistrict})=>{
-    district3D=await createDistrict(canvas,offices,vendors,$('markers'),carriers);
+    district3D=await createDistrict(canvas,offices,vendors,$('markers'),carriers,updateDistrictZoom,{
+      onSelect:selectDistrictBuilding,
+      bizMarker:$('biz-tower-marker'),
+      onAutoRotate:active=>$('map-auto-rotate').setAttribute('aria-pressed',String(active)),
+      onFollowTruck:active=>$('map-follow-truck').setAttribute('aria-pressed',String(active)),
+    });
     district3D.update(world);
     $('map-view-controls').hidden=false;
+    $('map-camera-help').hidden=false;
   }).catch(error=>console.warn('Peta 2D digunakan.',error));
 }
 const project=(x,y,z=0)=>[730+(x-y)*45,333+(x+y-5)*16-z];
@@ -144,6 +156,31 @@ async function api(path,method='GET',payload){
   return result;
 }
 function line(name,value){return '<div class="line"><span>'+esc(name)+'</span><strong>'+esc(value)+'</strong></div>'}
+function companyOnline(name){return world?.company_availability?.[name]!==false}
+function companySlug(name){
+  return models?.company_policy?.pages?.[name]?.split('/').filter(Boolean)[0];
+}
+function renderCompanySwitches(){
+  const switches=$('map-company-switches');
+  const names=[...Object.keys(vendors),...Object.keys(carriers)];
+  const signature=JSON.stringify(names.map(name=>[name,companyOnline(name)]));
+  if(switches.dataset.availability===signature)return;
+  switches.dataset.availability=signature;
+  switches.innerHTML=names.filter(companySlug).map(name=>'<div><span>'+esc(name)+'</span>'+
+    '<button type="button" data-company-toggle="'+esc(name)+'" aria-pressed="'+!companyOnline(name)+'">'+
+    (companyOnline(name)?'Online · Tutup':'Offline · Buka')+'</button></div>').join('');
+}
+async function toggleCompany(name){
+  const slug=companySlug(name);
+  if(!slug||busy)return;
+  try{
+    await change('/api/companies/'+slug+'/availability',{online:!companyOnline(name)},false);
+  }catch(error){$('error').textContent=error.message}
+}
+$('map-company-switches').onclick=event=>{
+  const button=event.target.closest('[data-company-toggle]');
+  if(button)toggleCompany(button.dataset.companyToggle);
+};
 function activeShipments(event){
   if(event?.shipment!=='shipping')return '';
   const shipments=(event.shipments??[]).filter(order=>order.route?.carrier);
@@ -196,8 +233,9 @@ function render(next){
   if(paintedTick!==world.tick){
     paintedTick=world.tick;movement=performance.now();
     const panel=$('live-scene');
-    panel.hidden=!(latest?.meeting||latest?.shipment||latest?.inspection);
-    if(latest?.inspection&&latest.shipment==='delivered'){
+    panel.hidden=!(latest?.meeting||latest?.carrier_quote||latest?.shipment||latest?.inspection);
+    if(latest?.carrier_quote)panel.innerHTML=carrierQuoteScene(latest.carrier_quote);
+    else if(latest?.inspection&&latest.shipment==='delivered'){
       panel.innerHTML=shippingScene(latest.shipment,latest.inspection.vendor,latest);
     }
     else if(latest?.inspection)panel.innerHTML=inspectionScene(latest);
@@ -207,22 +245,30 @@ function render(next){
     else panel.replaceChildren();
   }
   $('clock').textContent='Giliran '+world.tick;
+  renderCompanySwitches();
   const empty=world.products.some(p=>!p.units);
+  const showroomFloor=$('biz-tower-floors').querySelector('[data-floor="seller"]');
+  if(showroomFloor)showroomFloor.dataset.empty=String(empty);
   for(const button of $('markers').children){
     const key=button.dataset.role,o=offices[key]||vendors[key]||carriers[key];
+    if(!o)continue;
     button.classList.toggle('selected',key===selected);
     const activeShipment=latest?.shipments?.some(order=>order.vendor===key||order.route?.carrier===key)??false;
     button.classList.toggle('current',key===world.scene||key===active||key===latest?.inspection?.carrier||activeShipment);
     button.classList.toggle('empty',key==='seller'&&empty);
-    const label=(o.level!==undefined?'L'+(o.level+1)+' · ':'')+o.name+(key==='seller'&&empty?' · STOK KOSONG':'');
-    const shortLabel=o.level!==undefined?'L'+(o.level+1):(carriers[key]?'K':'V')+(o.index+1);
+    const offline=!offices[key]&&!companyOnline(key);
+    button.classList.toggle('company-offline',offline);
+    const label=(o.level!==undefined?'L'+(o.level+1)+' · ':'')+o.name+
+      (offline?' · OFFLINE':key==='seller'&&empty?' · STOK KOSONG':'');
+    const shortLabel=o.level!==undefined?'L'+(o.level+1):(carriers[key]?'K':'V')+(o.index+1)+(offline?' · Tutup':'');
     button.innerHTML='<span class="marker-full">'+esc(label)+'</span><span class="marker-short" aria-hidden="true">'+esc(shortLabel)+'</span>';
     button.setAttribute('aria-label',label);
     button.title=label;
     button.setAttribute('aria-pressed',key===selected);
   }
-  const vendor=vendors[selected],carrier=carriers[selected],role=vendor?'vendor':selected,o=vendor||carrier||offices[selected];
-  const agent=models.roles[role], event=world.history.find(e=>carrier?
+  if(!offices[selected]&&!vendors[selected]&&!carriers[selected])selected='stock';
+  const vendor=vendors[selected],carrier=carriers[selected],role=vendor?'vendor':carrier?'procurement':selected,o=vendor||carrier||offices[selected];
+  const agent=models.roles[role]??['Agen','Aktivitas simulasi'], event=world.history.find(e=>carrier?
     e.shipments?.some(order=>order.route?.carrier===selected)||e.inspection?.carrier===selected:vendor?
     (e.meeting?.vendor===selected||e.vendor===selected||e.inspection?.vendor===selected||e.shipments?.some(order=>order.vendor===selected)):e.role===role);
   const agentModel=models.benchmark.agents[role];
@@ -230,52 +276,29 @@ function render(next){
     '<div class="decision">'+(event?'<strong>'+esc(event.title)+'</strong><p>'+esc(event.detail)+'</p>':'<p>Menunggu giliran agen.</p>')+'</div>'+
     (agentModel?'<small>Model utama · '+esc(agentModel.main)+'</small>':'')+
     (event?.prediction?'<p>Prediksi: '+esc(event.prediction)+'</p><details><summary>Masukan model</summary>'+
-      Object.entries(event.features).map(([n,v])=>line(n,moneyFeatures.has(n)?rupiah(v):amount(v))).join('')+'</details>':'');
+      Object.entries(event.features??{}).map(([n,v])=>line(n,moneyFeatures.has(n)?rupiah(v):amount(v))).join('')+'</details>':'');
   if(vendor&&world.suppliers?.[selected])$('inspector').innerHTML+='<div class="decision"><strong>Kondisi pemasok</strong>'+supplierFacts(world.suppliers[selected])+'</div>';
   if(world.case?.offers?.length)$('inspector').innerHTML+='<details><summary>Hasil penawaran ('+world.case.offers.length+' / '+Object.keys(vendors).length+')</summary>'+
-    world.case.offers.map(o=>line(o.vendor,o.accepted?rupiah(o.price)+' / unit':'Gagal sepakat')).join('')+'</details>';
+    world.case.offers.map(o=>line(o.vendor,o.accepted?'Sepakat':'Gagal sepakat')).join('')+'</details>';
+  if(typeof refreshInspectorMemory==='function'){
+    $('inspector').insertAdjacentHTML('beforeend','<div id="inspector-memories"></div>');
+    refreshInspectorMemory(role,world.tick,$('inspector-memories'));
+  }
   $('shelves').innerHTML=world.products.map(p=>line(p.name,(p.units?p.units+' unit':'STOK KOSONG')+' · '+customerPriceLabel(p.retail))).join('');
   const holds=Object.entries(world.restock_holds??{});
   $('restock-holds').hidden=holds.length===0;
   $('restock-hold-lines').innerHTML=holds.map(([product,hold])=>'<div class="decision">'+
     line(product,amount(hold.quantity)+' unit')+
-    line('Dana tersedia',rupiah(hold.available))+
-    line('Minimum pembelian',rupiah(hold.required))+
-    line('Kekurangan dana',rupiah(hold.shortfall))+'</div>').join('');
+    line('Status','Menunggu dana pengadaan')+'</div>').join('');
   const pending=roomOrders(world).map(order=>[order,order.status]);
   const orderLine=(c,status)=>line('Pelanggan '+c.id,c.quantity+' × '+c.product+' · '+status);
   const recent=(world.customer_results??[]).filter(c=>c.status!=='Menunggu stok'&&!pending.some(([order])=>order.id===c.id)).slice(0,5);
   $('customers').innerHTML=(pending.length?'<div class="customer-list">'+pending.map(([c,status])=>orderLine(c,status)).join('')+'</div>':'<p>Antrean kosong.</p>')+
     (recent.length?'<details><summary>Hasil terakhir</summary>'+recent.map(c=>line('Pelanggan '+c.id,c.product+' · '+c.status)).join('')+'</details>':'');
-  const purchase=world.last_purchase,sale=world.last_sale;
-  function transaction(title, data, entries){
-    if(!data)return '<p>'+esc(title)+' belum ada.</p>';
-    return '<div class="decision"><strong>'+esc(title+' · '+data.product)+'</strong>'+
-      (data.vendor?'<p>'+esc(data.vendor+' · '+data.status)+'</p>':data.customer?'<p>Pelanggan '+esc(data.customer)+'</p>':'')+
-      entries.map(([key,value,units])=>line(key,units?amount(value)+' unit':rupiah(value))).join('')+'</div>';
-  }
-  $('transactions').innerHTML=transaction('Pengadaan terakhir',purchase,purchase?[
-    ['Jumlah dipesan',purchase.quantity,true],
-    ...(purchase.received_quantity==null?[]:[['Layak jual',purchase.received_quantity,true],['Rusak',purchase.damaged_quantity,true]]),
-    ['Harga beli / unit',purchase.unit_cost],['Biaya barang dan ongkir',purchase.cost],
-    ...(purchase.freight==null?[]:[['Ongkir pengadaan',purchase.freight]]),
-    ...(purchase.vat==null?[]:[['PPN faktur',purchase.vat]]),
-    ...(purchase.invoice_original!=null&&purchase.invoice_original!==purchase.invoice?
-      [['Faktur awal',purchase.invoice_original],['Faktur setelah koreksi',purchase.invoice]]:
-      purchase.invoice==null?[]:[['Total faktur vendor',purchase.invoice]]),
-    ['Harga jual dasar / unit',purchase.retail],['Kas bebas saat keputusan',purchase.free_cash],['Anggaran saat keputusan',purchase.fund],
-    ['Omzet jika semua terjual',purchase.revenue],['Laba kotor / unit',purchase.profit_per_unit],
-    ['Proyeksi laba kotor',purchase.profit]]:[])+transaction('Penjualan terakhir',sale,sale?[
-    ['Unit terjual',sale.quantity,true],['Harga jual dasar / unit',sale.retail],['Pendapatan sebelum PPN',sale.revenue],...(sale.vat==null?[]:[['PPN keluaran',sale.vat],['Total dibayar pelanggan',sale.total]]),
-    ['Harga pokok penjualan',sale.cost],['Laba kotor aktual',sale.profit]]:[]);
-  $('ledger').innerHTML=[['Saldo kas',world.cash],['Dana gaji',world.payroll],['Dana dicadangkan untuk PO',world.reserved??0],
-    ['Operasional',world.operations],['Cadangan kas',world.reserve],['Sisa anggaran pengadaan',world.fund],
-    ...(world.reinvested==null?[]:[['Laba dialokasikan ke restok',world.reinvested]]),
-    ['Pendapatan penjualan',world.sales],['Laba kotor penjualan',world.sales-world.cogs]].map(([n,v])=>line(n,rupiah(v))).join('');
   renderInterior();
   renderSuppliers();
-  renderFinance();
-  $('history').innerHTML=world.history.map(e=>'<li><small>Giliran '+e.tick+'</small><div><strong>'+esc(e.title)+'</strong> · '+esc(models.roles[e.role][0])+'<p>'+esc(e.detail)+'</p></div></li>').join('')||'<li>Menunggu giliran pertama.</li>';
+  $('history').innerHTML=world.history.map(e=>'<li><small>Giliran '+e.tick+'</small><div><strong>'+esc(e.title)+'</strong> · '+esc(models.roles[e.role]?.[0]??'Simulasi')+'<p>'+esc(e.detail)+'</p></div></li>').join('')||'<li>Menunggu giliran pertama.</li>';
+  if(!$('control-tower').hidden&&typeof refreshControlTower==='function')refreshControlTower();
 }
 function benchmark(){
   $('benchmark').innerHTML=Object.entries(models.benchmark.agents).map(([role,data])=>{
@@ -312,15 +335,19 @@ function schedule(){
   if(!playing||!models)return;
   const event=world?.history[0];
   const dispatch=event?.tick===world.tick&&event.shipment==='shipping'&&event.shipments?.some(order=>order.route?.carrier);
-  timer=setTimeout(advance,Math.max(Number($('pace').value),dispatch?5200:0));
+  const quote=event?.tick===world.tick&&event.carrier_quote;
+  timer=setTimeout(advance,Math.max(Number($('pace').value),dispatch?5200:quote?3800:0));
 }
 function pause(){playing=false;clearTimeout(timer);$('play').textContent='▶ Putar dunia'}
-async function change(path,payload){
+async function change(path,payload,autoSelect=true){
   if(busy||!models)return;
   busy=true;$('step').disabled=true;$('reset').disabled=true;$('error').textContent='';
   try{
     const next=await api(path,'POST',payload),e=next.history[0];
-    if(followActivity)selected=e?.role==='vendor'?(e.meeting?.vendor||e.vendor||e.inspection?.vendor||'procurement'):next.scene;
+    if(autoSelect&&followActivity){
+      const supplier=e?.meeting?.vendor||e?.vendor||e?.inspection?.vendor;
+      selected=e?.role==='vendor'?(Object.hasOwn(vendors,supplier)?supplier:'procurement'):next.scene;
+    }
     render(next);
     return true;
   }catch(e){
@@ -335,22 +362,52 @@ function markers(){
  for(const [key,o] of Object.entries({...offices,...vendors,...carriers})){
    const button=document.createElement('button');
    const position=o.level===undefined?project(o.x+.8,o.y+.8,o.floors*31+20):project(o.x+.68,o.y+3,o.level*62+31);
-   button.className='office'+(carriers[key]?' carrier-marker':'');button.dataset.role=key;button.style.left=position[0]/20+'%';button.style.top=position[1]/10+'%';
-   button.textContent=o.name;button.onclick=()=>{followActivity=false;selected=key;render();openInterior(key)};
+   button.className='office'+(o.level!==undefined?' floor-marker':carriers[key]?' carrier-marker':'');
+   button.dataset.role=key;button.style.left=position[0]/20+'%';button.style.top=position[1]/10+'%';
+   button.textContent=o.name;button.onclick=()=>selectDistrictBuilding(key);
    $('markers').append(button);
  }
 }
 $('step').onclick=()=>{pause();advance()};
 $('play').onclick=()=>{if(playing){pause();return}playing=true;followActivity=true;$('play').textContent='⏸ Jeda';advance()};
 $('pace').onchange=schedule;
-function zoomDistrict(value){
-  if(!district3D)return;
-  districtZoom=district3D.setZoom(value);
-  $('map-zoom-value').textContent=Math.round(districtZoom*100)+'%';
+function updateDistrictZoom(value){
+  districtZoom=value;
+  const label=$('map-zoom-value');
+  const text=Math.round(value*100)+'%';
+  if(label.textContent!==text)label.textContent=text;
 }
-$('map-zoom-in').onclick=()=>zoomDistrict(districtZoom+.15);
-$('map-zoom-out').onclick=()=>zoomDistrict(districtZoom-.15);
-$('map-zoom-reset').onclick=()=>zoomDistrict(1);
+$('map-zoom-in').onclick=()=>district3D?.setZoom(districtZoom+.15);
+$('map-zoom-out').onclick=()=>district3D?.setZoom(districtZoom-.15);
+$('map-zoom-reset').onclick=()=>district3D?.resetView();
+$('map-auto-rotate').onclick=()=>district3D?.setAutoRotate($('map-auto-rotate').getAttribute('aria-pressed')!=='true');
+$('map-follow-truck').onclick=()=>district3D?.setFollowTruck($('map-follow-truck').getAttribute('aria-pressed')!=='true');
+const towerMarker=$('biz-tower-marker');
+const towerBadge=$('biz-tower-badge');
+const towerFloors=$('biz-tower-floors');
+let towerPinned=false;
+function showTowerFloors(open){
+  towerFloors.hidden=!open;
+  towerBadge.setAttribute('aria-expanded',String(open));
+}
+towerBadge.onclick=()=>{towerPinned=!towerPinned;showTowerFloors(towerPinned)};
+towerMarker.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse')showTowerFloors(true)});
+towerMarker.addEventListener('pointerleave',()=>{
+  if(!towerPinned&&!towerMarker.contains(document.activeElement))showTowerFloors(false);
+});
+towerMarker.addEventListener('focusout',event=>{
+  if(!towerPinned&&!towerMarker.contains(event.relatedTarget))showTowerFloors(false);
+});
+towerMarker.addEventListener('keydown',event=>{
+  if(event.key==='Escape'){towerPinned=false;showTowerFloors(false);towerBadge.focus()}
+});
+towerFloors.onclick=event=>{
+  const control=event.target.closest('[data-floor]');
+  if(!control)return;
+  towerPinned=false;
+  showTowerFloors(false);
+  selectDistrictBuilding(control.dataset.floor);
+};
 $('reset').onclick=async()=>{
   if(!models)return;
   const scenario=$('scenario').value;
@@ -369,8 +426,8 @@ document.querySelectorAll('.tab').forEach(button=>button.onclick=()=>{
    b.setAttribute('aria-pressed',b===button);
  });
  window.scrollTo(0,0);
- for(const id of ['world','profit','models'])$(id).hidden=id!==button.dataset.tab;
- if(button.dataset.tab==='profit')renderFinance();
+ for(const id of ['world','models','control-tower'])$(id).hidden=id!==button.dataset.tab;
+ if(button.dataset.tab==='control-tower')refreshControlTower();
  if(button.dataset.tab==='world'){
    district3D?.update(world);
    sceneSignature='';
@@ -383,14 +440,14 @@ document.addEventListener('DOMContentLoaded',async()=>{
  try{
   if(typeof roomOrders!=='function'||typeof renderInterior!=='function'||typeof roomJobs!=='function'
       ||typeof renderCompanyDashboard!=='function'||typeof negotiationScene!=='function'
-      ||typeof shippingScene!=='function'||typeof inspectionScene!=='function'){
+      ||typeof shippingScene!=='function'||typeof inspectionScene!=='function'||typeof carrierQuoteScene!=='function'){
     throw new Error('Berkas tampilan belum lengkap. Muat ulang halaman untuk melanjutkan.');
   }
   const [initial,metadata]=await Promise.all([api('/api/world'),api('/api/models')]);
   models=metadata;
   $('scenario').value=activeMode(initial);
   const names=[...new Set(initial.products.flatMap(p=>p.vendors.map(v=>v.name)))].sort();
-  names.forEach((name,i)=>{const [x,y,floors]=vendorLots[i];vendors[name]={name,x,y,floors,index:i,color:colors[i]}});
+  names.slice(0,vendorLots.length).forEach((name,i)=>{const [x,y,floors]=vendorLots[i];vendors[name]={name,x,y,floors,index:i,color:colors[i]}});
   Object.keys(models.company_policy?.carriers??{}).forEach((name,i)=>{
     const [x,y,color]=carrierLots[i];
     carriers[name]={name,x,y,color,floors:1,index:i};

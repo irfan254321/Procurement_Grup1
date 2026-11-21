@@ -1,0 +1,28 @@
+<section class="profile-operations profile-shell" id="company-operations" aria-labelledby="profile-operation-title" hidden>
+  <header class="profile-operation-header">
+    <div>
+      <p class="profile-kicker">$name</p>
+      <h1 id="profile-operation-title" tabindex="-1">Ringkasan operasional</h1>
+      <p id="profile-operation-intro"></p>
+    </div>
+    <div class="profile-operation-tools">
+      <span id="company-context"></span>
+      <button id="company-refresh" type="button">Segarkan data</button>
+    </div>
+  </header>
+  <p id="company-page-status" role="status"></p>
+  <div id="company-panel" class="company-panel" hidden></div>
+  <section id="company-negotiations" aria-label="Area internal perusahaan" hidden>
+    <form id="company-unlock" class="company-block" hidden>
+      <h2>Akses perusahaan</h2>
+      <p id="company-unlock-help"></p>
+      <label for="company-password">Kata sandi perusahaan</label>
+      <input id="company-password" name="password" type="password" required minlength="8" maxlength="128" autocomplete="current-password">
+      <button class="profile-button" id="company-unlock-submit" type="submit">Buka riwayat</button>
+    </form>
+    <p id="company-unlock-message" role="status"></p>
+    <div id="company-private-data" hidden></div>
+    <!-- biz-finance -->
+    <button class="profile-button" id="company-lock" type="button" hidden>Kunci kembali</button>
+  </section>
+</section>

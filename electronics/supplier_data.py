@@ -5,13 +5,10 @@ quantities are mapped relative to a 12-unit simulation reference order; currency
 and vendor identities are never presented as real electronics observations.
 """
 from functools import lru_cache
-from pathlib import Path
 import json
 import math
 
-ROOT = Path(__file__).resolve().parent
-SUPPLIER_DATA = ROOT / "data" / "supplier"
-SOURCE = SUPPLIER_DATA / "SCMS_Delivery_History_Dataset.csv"
+from paths import SUPPLIER_DATA, SUPPLIER_SOURCE as SOURCE
 MODEL_VERSION = 2
 FEATURES = (
     "vendor", "country", "shipment_mode", "fulfill_via", "incoterm",

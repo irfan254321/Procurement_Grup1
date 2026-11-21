@@ -264,5 +264,66 @@ class ReceivingTests(unittest.TestCase):
             with self.subTest(company=name):
                 body, mime, status = get(path.rstrip("/") + "?view=profile")
                 self.assertEqual((mime, status), ("text/html", 200))
-                self.assertIn(f'data-company="{escape(name)}"', body.decode("utf-8"))
+                profile = body.decode("utf-8")
+                self.assertIn(f'data-company="{escape(name)}"', profile)
+                self.assertIn(f'data-company-path="{path}"', profile)
+                self.assertIn('id="company-panel"', profile)
+                self.assertIn('href="#aturan"', profile)
+                self.assertIn('href="#biaya-logistik"', profile)
+                self.assertNotIn('dashboard/#', profile)
+                alias, mime, status = get(f"{path}dashboard/")
+                self.assertEqual((mime, status), ("text/html", 200))
+                self.assertEqual(alias, body)
+        self.assertEqual(get("/biz/profil/"), get(pages["PT. Biz Indonesia Market"]))
+        self.assertEqual(get("/officesupplies/")[2], 404)
+        self.assertEqual(get("/company.html")[2], 404)
         self.assertEqual(get("/perusahaan-tidak-ada/")[2], 404)
+
+    def test_migration_archives_retired_supplier_and_settles_committed_invoice(self):
+        world = server.new_world("healthy")
+        self.advance_to_receipt(world)
+        order = server.active_order(world)
+        order_id, invoice = order["id"], order["invoice"]
+        retired = server.RETIRED_SUPPLIER
+        original_vendor = order["vendor"]
+        supplier = world["suppliers"][original_vendor]
+        supplier["stock"]["Laptop"] = 2
+        for product in world["products"]:
+            product["vendors"] = [*product["vendors"], {"name": retired, "price": 123.45}]
+        world.update(supply_version=1, purchase_orders=[{"invoice": 80, "vendor": retired}])
+        world["suppliers"][retired] = {"name": retired}
+        world["case"]["vendor"] = retired
+        order.update(vendor=retired, route={**order["route"],
+                     "path": [retired, *order["route"]["path"][1:]]})
+        world["history"][0]["detail"] = f"Kiriman lama dari {retired}."
+        cash, input_vat, reserved, fund = self.balances(world)
+        with TemporaryDirectory() as folder, patch.object(server, "DB", Path(folder) / "world.sqlite3"):
+            with server.connect() as db, db:
+                db.execute("CREATE TABLE world (id INTEGER PRIMARY KEY, state TEXT)")
+                db.execute("INSERT INTO world VALUES (1,?)", (json.dumps(world),))
+            server.initialize()
+            with server.connect() as db:
+                persisted = db.execute("SELECT state FROM world WHERE id=1").fetchone()[0]
+                migrated = server.load_world(db)
+            server.initialize()
+            with server.connect() as db:
+                self.assertEqual(db.execute("SELECT state FROM world WHERE id=1").fetchone()[0], persisted)
+        self.assertNotIn(retired, persisted)
+        self.assertEqual(migrated["purchase_orders"], [{"invoice": 80, "vendor": server.ARCHIVED_SUPPLIER}])
+        self.assertEqual(migrated["suppliers"][original_vendor]["stock"]["Laptop"], 2)
+        self.assertEqual(self.balances(migrated), (cash, input_vat, reserved, fund))
+        self.assertEqual(server.active_order(migrated)["invoice"], invoice)
+        self.finish_purchase(migrated)
+        settled = next(item for item in migrated["last_purchase"]["orders"] if item["id"] == order_id)
+        self.assertEqual((settled["status"], settled["paid_invoice"], settled["vendor"]),
+                         ("paid", invoice, server.ARCHIVED_SUPPLIER))
+
+    def test_migration_requotes_uncommitted_retired_supplier(self):
+        world = server.new_world("healthy")
+        case = {"product": "Laptop", "quantity": 0, "restock": 6, "buy": False, "deadline_days": 4}
+        world.update(supply_version=1, phase="finance",
+                     case={**case, "orders": [{"vendor": server.RETIRED_SUPPLIER}], "agreed": 123.45})
+        self.assertTrue(server.migrate_supplier_catalog(world))
+        self.assertEqual(world["phase"], "procurement")
+        self.assertEqual(world["case"], case)
+        self.assertFalse(server.migrate_supplier_catalog(world))

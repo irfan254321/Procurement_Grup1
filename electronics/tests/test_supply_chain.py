@@ -193,6 +193,7 @@ class SplitPurchaseIntegrationTests(unittest.TestCase):
         server = self.server
         with patch.object(server, "predict", return_value=True):
             world = server.new_world("supply")
+            quote = None
             reservation = None
             paid_ids = set()
             for _ in range(500):
@@ -208,7 +209,24 @@ class SplitPurchaseIntegrationTests(unittest.TestCase):
                     self.assertTrue(all(stock >= 0 for stock in supplier["stock"].values()))
                 if event.get("tick") != world["tick"]:
                     continue
+                if event.get("carrier_quote") and quote is None:
+                    quote = event["carrier_quote"]
+                    self.assertIsNone(reservation)
+                    self.assertEqual(world["phase"], "finance")
+                    self.assertEqual(quote["quantity"], 30)
+                    self.assertEqual((world["cash"], world["fund"], world["reserved"]),
+                                     (cash_before, fund_before, reserved_before))
+                    planned = {order["vendor"]: order for order in world["case"]["orders"]}
+                    for lot in quote["orders"]:
+                        self.assertEqual(len(lot["options"]), 6)
+                        self.assertEqual({route["carrier"] for route in lot["options"]}, set(supply_chain.CARRIERS))
+                        self.assertEqual(lot["quantity"], planned[lot["vendor"]]["quantity"])
+                        winner, = [route for route in lot["options"] if route["selected"]]
+                        self.assertTrue(winner["eligible"])
+                        self.assertEqual(winner["carrier"], planned[lot["vendor"]]["route"]["carrier"])
+                        self.assertEqual(winner["invoice"], planned[lot["vendor"]]["invoice"])
                 if event["title"] == "Pembelian disetujui" and reservation is None:
+                    self.assertIsNotNone(quote, "Carrier quotes must be recorded before approval.")
                     orders = world["last_purchase"]["orders"]
                     self.assertGreaterEqual(len(orders), 3)
                     self.assertEqual(sum(order["quantity"] for order in orders), 30)

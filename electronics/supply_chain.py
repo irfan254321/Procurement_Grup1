@@ -10,10 +10,17 @@ from math import ceil
 
 from finance import vat
 
-SUPPLY_VERSION = 1
+SUPPLY_VERSION = 2
 HISTORICAL_DAYS_PER_SIM_DAY = 30
 SUPPLIER_REPLENISH_TICKS = 24
 ROUTE_PUBLIC_FIELDS = ("name", "mode", "path", "distance", "carrier", "capacity")
+# Keep the established distance, stock limit, and historical profile slots stable.
+SUPPLIER_SLOTS = {
+    "CloudSoft Corp.": 0,
+    "FurniWorks Ltd.": 1,
+    "QuickDeliver Ltd.": 3,
+    "TechMart Inc.": 4,
+}
 # Route lengths, capacities, costs, and time factors belong to the district
 # simulator. The linked company sources describe only their actual businesses.
 CARRIERS = {
@@ -54,8 +61,13 @@ def init_supply(world, catalog):
     if world.get("supply_version") == SUPPLY_VERSION:
         return
     profiles = supplier_profiles()
+    previous = world.get("suppliers", {})
     suppliers = {}
-    for index, name in enumerate(supplier_names(catalog)):
+    for position, name in enumerate(supplier_names(catalog)):
+        index = SUPPLIER_SLOTS.get(name, position)
+        if name in previous:
+            suppliers[name] = previous[name]
+            continue
         profile = profiles[index % len(profiles)]
         capacity = [7, 10, 14, 9, 12][index % 5]
         if world.get("opening") == "supply" and index == 0:
@@ -68,8 +80,9 @@ def init_supply(world, catalog):
             "lead_days": None, "late_probability": None,
             "domain_transfer": True, "index": index,
         }
-    world.update(suppliers=suppliers, supply_version=SUPPLY_VERSION,
-                 supply_replenished_tick=world["tick"], purchase_orders=[])
+    world.update(suppliers=suppliers, supply_version=SUPPLY_VERSION)
+    world.setdefault("supply_replenished_tick", world["tick"])
+    world.setdefault("purchase_orders", [])
 
 
 def refresh_supply(world):
@@ -137,7 +150,7 @@ def supplier_freight_catalog(catalog):
     fields = (*ROUTE_PUBLIC_FIELDS, "fixed_rate", "unit_rate")
     return {vendor: {"services": [
         {field: service[field] for field in fields}
-        for service in freight_services(vendor, index)
+        for service in freight_services(vendor, SUPPLIER_SLOTS.get(vendor, index))
     ]} for index, vendor in enumerate(supplier_names(catalog))}
 
 
@@ -154,6 +167,8 @@ def quote_routes(world, vendor, quantity, unit_price):
         source_days = float(prediction["predicted_days"])
         lead_days = max(1, min(12, ceil(source_days / HISTORICAL_DAYS_PER_SIM_DAY * service["speed"])))
         risk = max(0, min(1, float(prediction["late_probability"])))
+        from agents.analytics import vendor_scorecard
+        risk = vendor_scorecard(supplier, prior=risk, strength=6)["posterior_risk"]
         routes.append({
             **{field: service[field] for field in ROUTE_PUBLIC_FIELDS},
             "source_mode": source_mode,
@@ -162,13 +177,36 @@ def quote_routes(world, vendor, quantity, unit_price):
             "fixed_freight": round(unit_price * service["fixed_rate"], 4),
             "unit_freight": round(unit_price * service["unit_rate"], 4),
             "domain_transfer": True,
+            "online": world.get("company_availability", {}).get(service["carrier"], True),
         })
     # Summarize the fastest quoted route with enough space for the request.
-    eligible = [route for route in routes if route["capacity"] >= quantity]
-    fastest = min(eligible or routes, key=lambda route: (
+    available = [route for route in routes if route["online"]]
+    eligible = [route for route in available if route["capacity"] >= quantity]
+    fastest = min(eligible or available or routes, key=lambda route: (
         route["lead_days"], route["fixed_freight"] + route["unit_freight"] * quantity))
     supplier.update(lead_days=fastest["lead_days"], late_probability=fastest["late_probability"])
     return routes
+
+
+def carrier_quote_options(orders, offers, deadline_days):
+    """Compare carrier routes for planned lots at their negotiated quantities."""
+    routes_by_vendor = {offer["vendor"]: offer["routes"] for offer in offers if offer["accepted"]}
+    lots = []
+    for order in orders:
+        quantity = order["quantity"]
+        selected_route = order["route"]
+        options = []
+        for route in routes_by_vendor[order["vendor"]]:
+            freight = round(route["fixed_freight"] + route["unit_freight"] * quantity, 4)
+            cost = round(order["goods_cost"] + freight, 4)
+            selected = (route["carrier"], route["name"]) == (selected_route["carrier"], selected_route["name"])
+            options.append({**route, "freight": freight, "invoice": round(cost + vat(cost), 4),
+                            "eligible": route.get("online", True) and quantity <= route["capacity"] and route["lead_days"] <= deadline_days,
+                            "selected": selected})
+        lots.append({"vendor": order["vendor"], "quantity": quantity,
+                     "selected_carrier": selected_route["carrier"], "selected_service": selected_route["name"],
+                     "options": options})
+    return lots
 
 
 def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, cost_limit=float("inf")):
@@ -190,7 +228,7 @@ def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, co
         updated = {units: list(values) for units, values in frontiers.items()}
         capacity = max(0, int(offer["capacity"]))
         for route in offer["routes"]:
-            if route["lead_days"] > deadline_days:
+            if not route.get("online", True) or route["lead_days"] > deadline_days:
                 continue
             shipment_capacity = min(capacity, route.get("capacity", capacity))
             for previous_quantity, previous in frontiers.items():

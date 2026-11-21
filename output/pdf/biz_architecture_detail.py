@@ -143,7 +143,7 @@ def draw_complete(report):
         (48, 490, '5A  PENJUALAN DAN KEBUTUHAN',
          'Jika laku: stok berkurang; kas, omzet, HPP, laba dan PPN simulasi dicatat. Modal barang dan 50% laba kotor positif mendanai restok.<br/><br/>Jika stok kurang: transaksi ditutup; kebutuhan dicatat. Jika dana kurang: simpan restock_holds dan lanjutkan pelayanan.'),
         (570, 490, '5B  RFQ, NEGOSIASI, DAN PILIH VENDOR',
-         'Restok 6-14 unit; periksa minimum faktur. Vendor membuka 110% harga katalog dan floor 90%; maksimal 3 ronde/vendor.<br/><br/>Tawar balik memakai rumus. Pilih harga terendah dari kesepakatan. Jika semua gagal: tunda 18 giliran.'),
+         'Vendor membuka 110% harga katalog dan floor 90%; maksimal 3 ronde/vendor.<br/><br/>Alokasikan jumlah dan rute yang memenuhi kendala. Minimalkan faktur + penalti risiko CatBoost. Tanpa rencana yang layak: tunda 18 giliran.'),
         (1092, right - 1092, '5C  DANA, KIRIMAN, DAN FAKTUR',
          'Wajib: faktur &lt;=kas bebas-reserved, faktur &lt;=fund, pendapatan &gt;=1,15 x biaya. Cadangkan dana; kas belum dibayar.<br/><br/>Kemas - kirim - periksa barang. Hanya unit layak masuk stok. Faktur berbeda: tahan dan koreksi; cocok: bayar.'),
     ]
@@ -190,7 +190,7 @@ def draw_workflow(report):
         ('05  JUMLAH DAN DANA MINIMUM', 'Tentukan 6-14 unit; periksa minimum faktur termasuk PPN. Kurang dana: <b>H1</b>.'),
         ('06  PRIORITAS VENDOR', 'SVM mengurutkan vendor, lalu harga/nama.<br/><b>Semua vendor tetap dinegosiasikan.</b> Pembuka=110% katalog; floor=90%.'),
         ('07  LOOP MAKSIMAL 3 RONDE / VENDOR', 'Counter = min(ceiling, ask x (0,86 + 0,045 x ronde)).<br/>Gradient Boosting + floor/kapasitas: terima.<br/>KNN menyaring hasil setelah vendor menerima.'),
-        ('08  BANDINGKAN KESEPAKATAN', 'Pilih harga minimum dari penawaran yang disepakati. Tidak ada kesepakatan: <b>H2</b>.<br/>Jika ada, teruskan vendor dan biaya ke Keuangan.'),
+        ('08  ALOKASIKAN PEMASOK DAN RUTE', 'Minimalkan faktur + penalti risiko pada rencana lengkap.<br/>Dana kurang: <b>H1</b>. Tiada rencana layak: <b>H2</b>.<br/>Teruskan kiriman terpilih ke Keuangan.'),
     ]
     fulfillment = [
         ('09  PERSETUJUAN DARI ATURAN', 'Faktur &lt;=kas bebas-reserved; &lt;=fund;<br/>pendapatan &gt;=1,15 x biaya.<br/><b>XGBoost hanya pembanding/log.</b> Kurang dana: H1.'),
@@ -210,7 +210,7 @@ def draw_workflow(report):
     d.label('State baru menjadi observasi siklus berikutnya', 366, 184, 370, GREEN, 10)
     exception_specs = [
         (48, 340, 'H1  DANA BELUM CUKUP', 'Simpan restock_holds; kembali melayani pelanggan.<br/>Saat antrean selesai, cek dana kembali. Jika cukup, lanjutkan pengadaan. Jika laba tidak memenuhi, beri jeda percobaan.'),
-        (410, 370, 'H2  SEMUA VENDOR GAGAL SEPAKAT', 'Tunda restok produk selama 18 giliran.<br/>Sistem kembali ke pelayanan pelanggan, kemudian dapat mencoba pengadaan lagi setelah jeda.'),
+        (410, 370, 'H2  TIADA KOMBINASI YANG LAYAK', 'Tunda restok produk selama 18 giliran jika tiada rencana lengkap yang memenuhi kapasitas, tenggat, dan target laba.'),
         (802, 328, 'H3  FAKTUR TIDAK COCOK', 'Tahan pembayaran - vendor koreksi faktur - cek lagi.<br/>Bayar hanya jumlah layak jual dan nilai yang sesuai pesanan. Barang rusak tidak masuk stok jual.'),
     ]
     for x, width, title, body in exception_specs:

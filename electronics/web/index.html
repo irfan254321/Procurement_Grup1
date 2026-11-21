@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BIZ District · Simulasi pengadaan elektronik</title><link href="/style.css" rel="stylesheet"><link href="/scenes.css" rel="stylesheet"></head>
-<body><header><div class="brand"><span class="diamond"></span><div><strong>BIZ District</strong><small>PT. Biz Indonesia Market</small></div></div><nav aria-label="Navigasi utama"><button class="tab active" data-tab="world" aria-pressed="true">Dunia</button><button class="tab" data-tab="profit" aria-pressed="false">Laba perusahaan</button><button class="tab" data-tab="models">Model agen</button></nav><span class="status" id="clock">Giliran 0</span></header>
+<body><header><div class="brand"><span class="diamond"></span><div><strong>BIZ District</strong><small>PT. Biz Indonesia Market</small></div></div><nav aria-label="Navigasi utama"><button class="tab active" data-tab="world" aria-pressed="true">Dunia</button><button class="tab" data-tab="models">Model agen</button><button class="tab" data-tab="control-tower">Control Tower</button></nav><span class="status" id="clock">Giliran 0</span></header>
 <main><div id="world">
 <section class="intro">
   <div>
@@ -21,7 +21,44 @@
     </select>
   </label>
 </section>
-<div class="layout"><section class="world-card"><div class="maphead"><div><strong>Kantor pusat, pemasok, dan terminal logistik</strong><span>Pilih lantai atau gedung untuk membuka dashboard perusahaan</span><small class="map-mobile-legend">L · Lantai BIZ &nbsp; V · Pemasok &nbsp; K · Pengangkut</small></div><div id="map-view-controls" class="map-view-controls" hidden aria-label="Ukuran tampilan distrik"><button id="map-zoom-out" aria-label="Perkecil distrik">−</button><span id="map-zoom-value" aria-live="polite">100%</span><button id="map-zoom-in" aria-label="Perbesar distrik">+</button><button id="map-zoom-reset">Lihat semua</button></div></div><div id="map"><canvas id="scene" width="2000" height="1000" aria-label="Distrik 3D BIZ, pemasok, dan terminal logistik"></canvas><div id="markers"></div></div>
+<div class="layout"><section class="world-card"><div class="maphead">
+  <div>
+    <strong>Kantor pusat, pemasok, dan terminal logistik</strong>
+    <span>Pilih gedung atau lantai BIZ untuk membuka ruang kerja dan situs perusahaan.</span>
+    <small id="map-camera-help" class="map-camera-help" hidden>
+      <span class="camera-mouse-help">Tarik untuk orbit dan tilt · Shift + tarik untuk geser · Gulir untuk zoom</span>
+      <span class="camera-touch-help">Tarik untuk memutar · Gunakan dua jari untuk menggeser atau zoom</span>
+    </small>
+    <small class="map-mobile-legend">L · Lantai BIZ &nbsp; V · Pemasok &nbsp; K · Pengangkut</small>
+  </div>
+  <div id="map-view-controls" class="map-view-controls" hidden aria-label="Kontrol kamera distrik">
+    <button id="map-zoom-out" aria-label="Perkecil distrik">−</button>
+    <span id="map-zoom-value" aria-live="polite">100%</span>
+    <button id="map-zoom-in" aria-label="Perbesar distrik">+</button>
+    <button id="map-zoom-reset" title="Kembalikan arah kamera, posisi, dan zoom">Lihat semua</button>
+    <button id="map-auto-rotate" type="button" aria-pressed="false">Putar 3D</button>
+    <button id="map-follow-truck" type="button" aria-pressed="false" title="Ikuti truk kiriman aktif atau kiriman berikutnya">Ikuti Truk</button>
+  </div>
+</div><div id="map">
+  <canvas id="scene" width="2000" height="1000" aria-label="Distrik 3D BIZ, pemasok, dan terminal logistik"></canvas>
+  <div id="markers"></div>
+  <div id="biz-tower-marker" hidden>
+    <button id="biz-tower-badge" type="button" aria-expanded="false" aria-controls="biz-tower-floors">PT. Biz Indonesia Market <span aria-hidden="true">⌄</span></button>
+    <div id="biz-tower-floors" aria-label="Lantai PT. Biz Indonesia Market" hidden>
+      <button type="button" data-floor="deal"><strong>L6</strong> Negosiasi</button>
+      <button type="button" data-floor="procurement"><strong>L5</strong> Pengadaan</button>
+      <button type="button" data-floor="finance"><strong>L4</strong> Keuangan</button>
+      <button type="button" data-floor="stock"><strong>L3</strong> Gudang BIZ</button>
+      <button type="button" data-floor="seller"><strong>L2</strong> BIZ Store</button>
+      <button type="button" data-floor="buyer"><strong>L1</strong> Pelanggan</button>
+    </div>
+  </div>
+  <div id="live-scene" hidden></div>
+  <details class="map-company-status">
+    <summary>Perusahaan online / offline</summary>
+    <div id="map-company-switches"></div>
+  </details>
+</div>
 <section id="floor-view" hidden aria-labelledby="floor-title">
   <div class="floor-toolbar"><button id="floor-back">← Peta distrik</button><label>Lantai atau gedung <select id="floor-tabs"></select></label></div>
   <div class="floor-heading"><div><h2 id="floor-title"></h2><p id="floor-subtitle"></p></div><span id="floor-status"></span></div>
@@ -32,21 +69,15 @@
         <div><p id="company-type" class="company-kicker"></p><h3><a id="company-name" class="company-page-link" href="/biz/"></a></h3></div>
       </div>
       <span id="company-context" class="company-context"></span>
+      <button id="room-company-offline" type="button" hidden></button>
     </div>
-    <nav id="company-nav" class="company-nav" aria-label="Dashboard perusahaan">
-      <button type="button" data-company-tab="room" aria-controls="company-room" aria-pressed="true">Ruangan</button>
-      <button type="button" data-company-tab="profile" aria-controls="company-panel" aria-pressed="false">Profil</button>
-      <button type="button" data-company-tab="rules" aria-controls="company-panel" aria-pressed="false">Aturan</button>
-      <button type="button" data-company-tab="logistics" aria-controls="company-panel" aria-pressed="false">Biaya logistik</button>
-    </nav>
-    <div id="company-panel" class="company-panel" hidden></div>
   </section>
   <div class="floor-layout" id="company-room">
     <div class="floor-scene"><div id="floor-drawing"></div><div id="floor-showroom" hidden></div><div id="floor-activity"></div><div id="floor-facts"></div></div>
     <div class="floor-directory"><div id="floor-agent"></div><h3 id="floor-roster-title">Orang di ruangan</h3><div id="floor-roster"></div><div id="floor-person"></div></div>
   </div>
 </section>
-<div id="live-scene" hidden></div><div class="controls"><button id="play" class="primary">▶ Putar dunia</button><button id="step">Giliran berikutnya</button><label class="pace">Jeda <select id="pace"><option value="1000">1 detik</option><option value="1500" selected>1,5 detik</option><option value="2000">2 detik</option></select></label><button id="reset" class="quiet">Mulai ulang skenario</button></div><p id="error" role="alert"></p></section>
+<div class="controls"><button id="play" class="primary">▶ Putar dunia</button><button id="step">Giliran berikutnya</button><label class="pace">Jeda <select id="pace"><option value="1000">1 detik</option><option value="1500" selected>1,5 detik</option><option value="2000">2 detik</option></select></label><button id="reset" class="quiet">Mulai ulang skenario</button><a class="character-preview-link" href="/character-studio">Studio karakter 3D</a></div><p id="error" role="alert"></p></section>
 <aside>
   <section class="card" id="inspector" aria-live="polite"></section>
   <section class="card"><h2>Rak penjualan</h2><div id="shelves"></div></section>
@@ -55,34 +86,17 @@
 </aside></div>
 <section class="card supplier-section" id="supplier-section" hidden aria-labelledby="supplier-title"><div class="supplier-heading"><div><h2 id="supplier-title">Pasokan &amp; pengiriman</h2><p id="supplier-context"></p></div><span id="supplier-day"></span></div><div id="supplier-list" class="supplier-list"></div><div id="supply-orders" class="supply-orders"></div></section>
 <section class="card journal"><h2>Riwayat dunia</h2><ol id="history"></ol></section></div>
-<section id="profit" hidden>
-  <div class="intro"><div><h1>Laba perusahaan</h1><p id="finance-period">Simulasi keuangan BIZ District</p></div></div>
-  <div id="finance-kpis" class="finance-kpis"></div>
-  <div class="finance-overview">
-    <section class="card finance-chart-card">
-      <div class="finance-heading"><div><h2>Tren keuangan</h2><p>Perubahan kumulatif berdasarkan giliran simulasi</p></div>
-        <label>Indikator<select id="finance-metric"><option value="results">Pendapatan dan laba kotor</option><option value="cash">Saldo kas</option></select></label>
-      </div>
-      <canvas id="finance-chart" role="img" aria-label="Grafik tren keuangan"></canvas>
-      <div id="finance-chart-caption"></div>
-    </section>
-    <section class="card"><h2>Kas dan anggaran</h2><div id="ledger"></div></section>
-  </div>
-  <section class="card finance-tax-card">
-    <div class="finance-heading"><div><h2>Posisi pajak</h2><p id="tax-period">Pencatatan pajak dalam simulasi</p></div></div>
-    <div id="vat-summary" class="tax-summary"></div>
-    <div class="tax-table-scroll"><table class="tax-table"><thead><tr><th>Jenis pajak</th><th>Tagihan atau saldo</th><th>Disetor</th><th>Aksi simulasi</th></tr></thead><tbody id="tax-rows"></tbody></table></div>
-    <form id="tax-assessment"><label>Jenis tagihan<select name="kind"><option value="pbb">PBB-P2 · nominal SPPT</option><option value="pph_badan">PPh Badan</option><option value="pph21">PPh Pasal 21</option><option value="pph23">PPh Pasal 23</option><option value="meterai">Bea Meterai</option></select></label>
-      <label>Total tagihan (Rp)<input name="amount" type="number" min="0" max="1000000000000" step="1" required></label><button type="submit">Simpan tagihan</button>
-    </form>
-    <p id="tax-notice" role="status"></p>
-    <details><summary>Riwayat setoran simulasi</summary><div id="tax-payments"></div></details>
-    <details><summary>Asumsi dan rujukan DJP</summary>
-      <p>Simulasi mengasumsikan BIZ dan vendor berstatus PKP, transaksi elektronik domestik nonmewah, dan faktur masukan memenuhi syarat pengkreditan. Harga dasar belum termasuk PPN. PPN efektif 11% dihitung dari 12% × 11/12.</p>
-      <p>Saldo PPN ini kumulatif sejak pencatatan diaktifkan. Tagihan PPh, Bea Meterai, dan PBB-P2 diisi dari hasil perhitungan atau tagihan masing-masing. PBB-P2 mengacu pada SPPT dari pemda. Laba kotor dihitung dari penjualan dikurangi HPP sebelum beban usaha dan pajak penghasilan.</p>
-      <p><a href="https://pajak.go.id/id/buku-elektronik-page">Buku elektronik DJP</a> · <a href="https://pajak.go.id/id/peraturan/perlakuan-pajak-pertambahan-nilai-atas-impor-barang-kena-pajak-penyerahan-barang-kena">PPN PMK 131/2024</a> · <a href="https://pajak.go.id/index.php/id/pajak-masukan">Pajak Masukan</a> · <a href="https://pajak.go.id/id/mekanisme-penghitungan-pajak-penghasilan-badan">PPh Badan</a> · <a href="https://www.pajak.go.id/sites/default/files/2023-12/SP-42%202023%20Pemerintah%20Sempurnakan%20Aturan%20Pengurangan%20PBB.pdf">PBB-P2</a></p>
-    </details>
-  </section>
-  <section class="card finance-transactions"><h2>Faktur dan transaksi terakhir</h2><div id="transactions"></div></section>
+<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Evaluasi keputusan agen dan perkiraan pengiriman pemasok.</p></div></div><div id="benchmark"></div><section id="supplier-benchmark" class="card supplier-section" hidden></section></section>
+<section id="control-tower" hidden>
+  <div class="intro"><div><h1>Control Tower</h1><p>Rencana pengadaan, pelacakan kiriman, dan memori keputusan agen.</p></div></div>
+  <nav class="tower-tabs" aria-label="Bagian Control Tower">
+    <button type="button" data-tower-view="plan" aria-pressed="true">Rencana &amp; 5 Output PO</button>
+    <button type="button" data-tower-view="epcis" aria-pressed="false">GS1 EPCIS &amp; Anomali</button>
+    <button type="button" data-tower-view="memory" aria-pressed="false">Memori Per Agen SQLite</button>
+  </nav>
+  <section class="tower-view" id="tower-plan"><label>Siklus pengadaan <select id="tower-cycle"></select></label><div id="tower-outputs"></div><div id="tower-forecast"></div></section>
+  <section class="tower-view" id="tower-epcis" hidden><div id="tower-events"></div><div id="tower-alerts"></div></section>
+  <section class="tower-view" id="tower-memory" hidden><label>Agen <select id="tower-memory-role"></select></label><div id="tower-memory-list"></div></section>
+  <p id="tower-error" role="status"></p>
 </section>
-<section id="models" hidden><div class="intro"><div><h1>Model agen</h1><p>Evaluasi keputusan agen dan perkiraan pengiriman pemasok.</p></div></div><div id="benchmark"></div><section id="supplier-benchmark" class="card supplier-section" hidden></section></section></main><script defer src="/format.js"></script><script defer src="/app.js"></script><script defer src="/finance.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/company-dashboard.js"></script><script defer src="/interiors.js"></script></body></html>
+</main><script defer src="/format.js"></script><script defer src="/app.js"></script><script defer src="/scenes.js"></script><script defer src="/room-jobs.js"></script><script defer src="/company-dashboard.js"></script><script defer src="/interiors.js"></script><script defer src="/control-tower.js"></script></body></html>

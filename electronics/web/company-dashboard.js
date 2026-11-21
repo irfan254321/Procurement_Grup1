@@ -72,13 +72,17 @@ function companyRules(name){
   const markup=rules.min_markup==null?'':amount(rules.min_markup*100)+'%';
   const threshold=term(rules.restock_threshold,'unit');
   const carrier=rules.carriers?.[name];
+  const supplier=world.suppliers?.[name];
+  const supplierCapacity=Number.isFinite(supplier?.capacity)&&Number.isFinite(supplier?.capacity_remaining)
+    ?'Kapasitas '+amount(supplier.capacity)+' unit per periode, dengan '+amount(supplier.capacity_remaining)+' unit tersisa. ':'';
   const data=carrier?[
     ['Batas muatan','Kapasitas simulasi '+amount(carrier.capacity)+' unit per kiriman. Pengadaan hanya memilih layanan dengan kapasitas yang mencukupi.'],
-    ['Rute dan jadwal','Truk menjemput di pemasok, singgah di terminal pengangkut, lalu menuju Gudang BIZ. Pengiriman dipilih agar jadwal tiba memenuhi tenggat.'],
+    ['Rute dan jadwal','Truk berangkat dari terminal pengangkut, menjemput barang di pemasok, lalu menuju Gudang BIZ. Pengiriman dipilih agar jadwal tiba memenuhi tenggat.'],
     ['Biaya per kiriman','Jarak ke terminal dan gudang memengaruhi biaya tetap. Tarif pengangkut, layanan, dan jumlah unit juga memengaruhi ongkir pada faktur pemasok.'],
     ['Serah terima','Petugas gudang memeriksa kondisi barang dan mencatat unit yang layak jual. Status faktur mengikuti pemeriksaan tersebut.'],
   ]:name?[
     ['Stok dan kapasitas','Pesanan mengurangi stok produk dan kapasitas tersedia setelah disetujui. '+
+      supplierCapacity+
       (refill?'Kapasitas dipulihkan setiap '+refill+'.':'Kapasitas dipulihkan secara berkala.')],
     ['Harga dan negosiasi',(rules.offer_opening_multiplier!=null&&rules.offer_floor_multiplier!=null
       ?'Harga pembuka '+amount(rules.offer_opening_multiplier*100)+'% dan harga minimum '+amount(rules.offer_floor_multiplier*100)+'% dari harga katalog. '
@@ -91,8 +95,8 @@ function companyRules(name){
     ['Persetujuan keuangan','Faktur harus terjangkau oleh kas dan anggaran. '+(markup?'Target selisih harga jual minimal '+markup+' dari biaya termasuk ongkir.':'Target laba pengadaan juga diperiksa.')],
     ['Penerimaan dan pembayaran','Gudang mencatat unit layak jual. Keuangan membayar setiap faktur setelah cocok dengan barang yang diterima.'],
   ];
-  return '<h4>'+(carrier?'Aturan pengiriman dalam simulasi':'Aturan perusahaan')+'</h4><ul class="company-rules">'+data.map(([title,detail])=>
-    '<li class="company-rule"><h5>'+esc(title)+'</h5><p>'+esc(detail)+'</p></li>').join('')+'</ul>';
+  return '<h4>'+(carrier?'Aturan pengiriman dalam simulasi':'Aturan perusahaan')+'</h4><ol class="company-rules">'+data.map(([title,detail])=>
+    '<li class="company-rule"><h5>'+esc(title)+'</h5><p>'+esc(detail)+'</p></li>').join('')+'</ol>';
 }
 
 function companyOrders(name){
@@ -169,13 +173,12 @@ function companyLogistics(name){
     companyTariffs(name);
 }
 
-function renderCompanyDashboard(name,pageTab){
+function renderCompanyDashboard(name){
   const key=name??'headquarters';
   if(companyDashboard.key!==key){
     resetCompanyDashboard();
     companyDashboard.key=key;
   }
-  if(pageTab)companyDashboard.tab=pageTab;
   const tab=companyDashboard.tab;
   $('company-initials').textContent=name?name.split(/\s+/)[0].slice(0,2).toUpperCase():'BIZ';
   $('company-type').textContent=carriers[name]?'Perusahaan logistik':name?'Pemasok elektronik':'Distributor elektronik';
@@ -183,15 +186,21 @@ function renderCompanyDashboard(name,pageTab){
   heading.textContent=name??bizCompanyName;
   if(heading.tagName==='A')heading.href=models.company_policy?.pages?.[heading.textContent]??'/';
   $('company-context').textContent='Hari simulasi '+amount(world.day??0);
-  for(const button of $('company-nav').querySelectorAll('[data-company-tab]')){
+  for(const button of $('company-nav')?.querySelectorAll('[data-company-tab]')??[]){
     const active=button.dataset.companyTab===tab;
-    if(pageTab)button.setAttribute('aria-current',active?'location':'false');
-    else button.setAttribute('aria-pressed',String(active));
+    button.setAttribute('aria-pressed',String(active));
   }
-  if(!pageTab)$('company-room').hidden=tab!=='room';
+  const insideRoom=tab==='room';
+  $('company-room').hidden=!insideRoom;
   const panel=$('company-panel');
-  panel.hidden=tab==='room';
-  if(panel.hidden)return true;
+  if(panel)panel.hidden=insideRoom;
+  if(insideRoom||!panel)return true;
+  renderCompanyPanel(name,tab);
+  return false;
+}
+
+function renderCompanyPanel(name,tab){
+  const panel=$('company-panel');
   const markup=tab==='profile'?companyProfile(name):tab==='rules'?companyRules(name):companyLogistics(name);
   if(companyDashboard.markup!==markup){
     const activeId=document.activeElement?.id;
@@ -204,7 +213,6 @@ function renderCompanyDashboard(name,pageTab){
       control?.focus({preventScroll:true});
     }
   }
-  return false;
 }
 
 function updateCompanyEstimate(event, render){

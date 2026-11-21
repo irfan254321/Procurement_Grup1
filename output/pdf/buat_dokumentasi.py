@@ -20,6 +20,7 @@ PDF = OUT / 'BIZ_District_Arsitektur_Agen_dan_Dataset.pdf'
 FONT = Path('C:/Windows/Fonts')
 for name, filename in [('Calibri', 'calibri.ttf'), ('Calibri-Bold', 'calibrib.ttf'), ('Calibri-Italic', 'calibrii.ttf')]:
     pdfmetrics.registerFont(TTFont(name, str(FONT / filename)))
+pdfmetrics.registerFont(TTFont('Cambria-Math', str(FONT / 'cambria.ttc'), subfontIndex=1))
 pdfmetrics.registerFontFamily('Calibri', normal='Calibri', bold='Calibri-Bold', italic='Calibri-Italic', boldItalic='Calibri-Bold')
 
 INK = colors.HexColor('#183444')
@@ -31,12 +32,14 @@ LINE = colors.HexColor('#D5DFE4')
 PALE = colors.HexColor('#F0F5F7')
 LIGHTBLUE = colors.HexColor('#EAF3F9')
 WHITE = colors.white
+REVISION_DATE = '19 November 2026'
 styles = {
     'body': ParagraphStyle('body', fontName='Calibri', fontSize=10.6, leading=14.1, textColor=INK, spaceAfter=0),
     'small': ParagraphStyle('small', fontName='Calibri', fontSize=9, leading=11.7, textColor=MUTED),
     'tiny': ParagraphStyle('tiny', fontName='Calibri', fontSize=8, leading=10.2, textColor=MUTED),
     'table': ParagraphStyle('table', fontName='Calibri', fontSize=9.5, leading=12.1, textColor=INK),
     'th': ParagraphStyle('th', fontName='Calibri-Bold', fontSize=9.3, leading=11.8, textColor=WHITE),
+    'formula': ParagraphStyle('formula', fontName='Cambria-Math', fontSize=12.5, leading=18, textColor=INK),
 }
 
 
@@ -47,7 +50,7 @@ class Report:
         self.c.setAuthor('Dokumentasi proyek BIZ District')
         self.c.setSubject('Arsitektur aktual electronics, model supervised, alur bisnis dan data latih-uji')
         self.number = 0
-        self.count = 16
+        self.count = 19
         self.w, self.h = A4
         self.y = 0
 
@@ -63,7 +66,7 @@ class Report:
         self.c.setFont('Calibri-Bold', 9)
         self.c.drawString(46, self.h - 35, 'BIZ DISTRICT  /  DOKUMENTASI SISTEM')
         self.c.setFont('Calibri', 9)
-        self.c.drawRightString(self.w - 46, self.h - 35, '18 November 2026')
+        self.c.drawRightString(self.w - 46, self.h - 35, REVISION_DATE)
         self.c.setStrokeColor(LINE)
         self.c.line(46, 43, self.w - 46, 43)
         self.c.setFillColor(MUTED)
@@ -94,6 +97,9 @@ class Report:
 
     def p(self, text, style='body', after=7):
         return self.para(text, styles[style], after)
+
+    def formula(self, text):
+        self.para(text, styles['formula'], after=6, x=60, width=self.w - 106)
 
     def heading(self, text):
         self.y -= 5
@@ -169,14 +175,16 @@ report.table(['Halaman', 'Pembahasan'], [
     ['06', 'Arti komponen, hubungan data, API, dan penyimpanan'],
     ['07', 'Alur kerja dari pelanggan datang sampai pembayaran vendor'],
     ['08-09', 'Agen di enam lantai dan aktivitas di luar gedung'],
-    ['10', 'Dataset sumber, pembagian latih-validasi-uji, dan label'],
+    ['10', 'Dataset pembelian elektronik, pembagian latih-validasi-uji, dan label'],
     ['11', 'Proses training serta fungsi sembilan algoritme kandidat'],
     ['12-14', 'Pengaruh setiap model terhadap keputusan agen dan contohnya'],
     ['15', 'Hasil evaluasi, model cadangan, dan batas interpretasi'],
-    ['16', 'Rujukan implementasi, dokumentasi algoritme, dan reproduksi'],
+    ['16-17', 'Notasi bobot tujuh agen dan matriks pemilihan model'],
+    ['18', 'Dataset pengiriman, penalti risiko, dan agen pengangkut'],
+    ['19', 'Rujukan implementasi, dokumentasi algoritme, dan reproduksi'],
 ], [65, W - 65])
 report.p('<b>Istilah:</b> agen = peran pengambilan keputusan; model = classifier terlatih; petugas = karakter pembagian kerja; giliran = satu langkah proses yang dipicu dari browser.', 'small')
-report.p('Dokumen mengikuti kode dan artefak yang tersedia pada 18 November 2026. Diagram digambar ulang sesuai struktur referensi pengguna; isi modul menyesuaikan kemampuan yang benar-benar tersedia.', 'small')
+report.p(f'Dokumen mengikuti kode dan artefak yang tersedia pada {REVISION_DATE}. Diagram disusun berdasarkan struktur referensi pengguna dan modul yang ada di proyek.', 'small')
 
 # 02 - Architecture: vector graphics, inspired by the reference layout.
 report.page('Arsitektur sistem BIZ District', '', landscape(A3))
@@ -347,12 +355,12 @@ report.table(['Tahap', 'Proses dan hasil'], [
     ['04  Pemeriksaan stok', 'Stock menilai stok dan permintaan. Permintaan restok dibuat bila diperlukan. Jumlah restok ditentukan aturan, umumnya 6-14 unit.'],
     ['05  Pengadaan', 'Dana minimum diperiksa. Jika cukup, vendor diprioritaskan dan dimintai penawaran. Seluruh kandidat tetap diperiksa.'],
     ['06  Negosiasi', 'Vendor membuka harga, pembeli menawar balik, vendor merespons. Maksimal 3 putaran tiap vendor; kesepakatan disaring oleh model Negosiasi.'],
-    ['07  Pemilihan/dana', 'Pilih harga terendah dari penawaran yang disepakati. Keuangan memeriksa kas, anggaran, dan proyeksi laba. Jika lolos, dana dicadangkan.'],
-    ['08  Pemenuhan', 'Vendor mengemas dan mengirim. Gudang memeriksa jumlah serta kondisi; hanya unit layak jual menambah stok.'],
+    ['07  Pemilihan/dana', 'Pengadaan memilih kombinasi pemasok dan rute yang memenuhi kendala dengan biaya faktur dan penalti risiko terendah. Keuangan memeriksa dana dan proyeksi laba.'],
+    ['08  Pemenuhan', 'Vendor mengemas, lalu pengangkut mengambil dan mengantar barang ke BIZ. Gudang memeriksa jumlah dan kondisi sebelum menambah stok.'],
     ['09  Pembayaran', 'Pesanan, penerimaan dan faktur dicocokkan. Selisih ditahan untuk koreksi. Saat cocok: kas dan PPN masukan dicatat, reservasi dilepas.'],
 ], [104, W - 104], small=True)
 report.heading('Ketika proses belum bisa dilanjutkan')
-report.p('<b>Dana kurang:</b> permintaan masuk restock_holds dan dapat dilanjutkan setelah dana cukup. <b>Semua vendor gagal sepakat:</b> percobaan restok ditunda 18 giliran. <b>Stok kurang saat penjualan:</b> transaksi pelanggan ditutup; pelanggan itu tidak otomatis menunggu kiriman.', 'small')
+report.p('<b>Dana kurang</b> menahan permintaan di restock_holds sampai dana cukup. <b>Tanpa rencana yang memenuhi kapasitas, tenggat, dan target laba</b>, restok ditunda 18 giliran. <b>Stok kurang saat penjualan</b> menutup transaksi pelanggan dan mencatat kebutuhan barang.', 'small')
 report.source('[K1] agent.py:128-469; [K3] finance.py:14-53.')
 
 # 05 - floors.
@@ -375,16 +383,16 @@ report.table(['Elemen', 'Kegunaan dan hubungan dengan model'], [
     ['Petugas kantor vendor', '<b>Agent Vendor</b> meninjau tawaran dan mengirim faktur koreksi. <b>Pengiriman Vendor</b> menyiapkan kardus dan membawa barang ke area muat.'],
     ['Perwakilan vendor', 'Karakter tamu muncul di ruang negosiasi untuk vendor yang sedang dibahas. Keputusan penerimaan tetap memakai peran Vendor.'],
     ['Pelanggan di jalan/lobi', 'Karakter mewakili event kedatangan dan antrean. Minat belinya diprediksi CatBoost; pilihan jumlah dan anggaran dibentuk oleh simulasi.'],
-    ['Truk pengiriman', 'Muncul pada event shipping dan bergerak dari vendor ke BIZ. Pergerakan adalah animasi; tidak ada model sopir atau perencanaan rute.'],
+    ['Pengangkut dan truk', '<b>Agent Dispatch</b> memeriksa rencana muatan, rute, dan jadwal. <b>Agent Angkut</b> mengambil barang di vendor dan mengantar ke BIZ. Dijkstra menghitung rute; animasi mengikuti kiriman yang dipilih.'],
 ], [116, W - 116])
 report.heading('Contoh kiriman rusak: pesan 10, terima layak 8')
-report.p('Misalkan harga yang disepakati Rp1.000.000 per unit. Pembelian 10 unit memiliki biaya dasar Rp10.000.000 dan faktur Rp11.100.000 dengan asumsi PPN simulasi 11%. Dana itu dicadangkan setelah pembelian disetujui.')
+report.p('Untuk contoh dengan ongkir nol dan harga Rp1.000.000 per unit, pembelian 10 unit memiliki biaya dasar Rp10.000.000 dan faktur Rp11.100.000 dengan PPN simulasi 11%. Dana itu dicadangkan setelah pembelian disetujui.')
 report.p('Jika 2 unit rusak, hanya 8 unit masuk stok. Faktur untuk 10 unit ditahan. Vendor menerbitkan faktur pengganti Rp8.880.000 untuk 8 unit, terdiri dari biaya Rp8.000.000 dan PPN Rp880.000. Setelah cocok, Keuangan membayar dan mengembalikan selisih reservasi Rp2.220.000 ke dana restok.')
 report.p('Contoh angka di atas menjelaskan aturan, bukan kutipan satu transaksi historis. Skenario damage memunculkan dua unit rusak pada kiriman pertama. Mode auto juga dapat menimbulkan kerusakan secara acak; belum ada model prediksi kerusakan.', 'small')
 report.source('[K1] agent.py:398-469; [K6] web/interiors.js:68-74; [K8] web/district-3d.mjs:105-147.')
 
 # 07 - dataset.
-report.page('Dataset yang digunakan', 'Transaksi sumber dipakai sebagai acuan untuk membentuk contoh keputusan berlabel')
+report.page('Dataset pembelian elektronik', 'Transaksi sumber dipakai sebagai acuan untuk membentuk contoh keputusan berlabel')
 report.p('File lokal <b>electronics/data/spend_analysis_dataset.csv</b> berisi <b>500 transaksi dan 9 kolom</b>. Dokumentasi proyek mengatribusikan sumbernya ke <b>Company Purchasing Dataset oleh Shahriar Kabir di Kaggle</b> [D1]. Hanya kategori Electronics dipakai: <b>146 transaksi</b>, yaitu Laptop 56, Monitor 45, dan Printer 45.')
 report.p('<b>Kolom:</b> TransactionID, ItemName, Category, Quantity, UnitPrice, TotalCost, PurchaseDate, Supplier, dan Buyer.', 'small')
 report.heading('Pembagian kronologis sebelum pembentukan skenario')
@@ -418,7 +426,7 @@ report.table(['Algoritme', 'Bagaimana mengambil keputusan', 'Peran utama terpili
     ['Logistic Regression', 'Kombinasi berbobot fitur menghasilkan probabilitas dan kelas. Di sini dipakai untuk klasifikasi biner.', 'Stock'],
     ['SVM / SVC', 'Mempelajari batas pemisah kelas dengan margin dan support vectors; kernel menangani pola nonlinier.', 'Pengadaan'],
     ['KNN', 'Mengklasifikasikan keadaan baru dari suara 19 contoh latihan terdekat setelah penskalaan fitur.', 'Negosiasi'],
-    ['CatBoost', 'Boosting pohon untuk pola fitur tabular. Semua fitur proyek saat ini numerik; tidak memakai nama vendor sebagai fitur kategori.', 'Pembeli'],
+    ['CatBoost', 'Boosting pohon untuk data tabular. Pembeli memakai fitur numerik. Model risiko pengiriman juga memakai fitur kategoris dari dataset kedua.', 'Pembeli'],
     ['XGBoost', 'Boosting pohon yang mengoptimalkan kesalahan prediksi dan regularisasi kompleksitas model.', 'Keuangan'],
 ], [100, 288, W - 388], small=True)
 report.box('Mengapa setiap agen memakai algoritme berbeda?', 'Pemilihan memaksimalkan <b>total balanced accuracy validasi</b> dengan syarat tujuh algoritme utama tidak berulang. Jadi model utama tidak selalu memiliki skor tertinggi untuk agennya secara individual. Penugasan ini adalah pilihan eksperimen proyek, bukan sifat wajib masing-masing algoritme.')
@@ -456,7 +464,7 @@ report.model('4', 'Pengadaan', 'SVM',
     'SVC mempelajari batas antara vendor berlabel Prioritas dan Bandingkan. Kernel RBF default dapat membentuk batas nonlinier setelah penskalaan.',
     'Harga penawaran vendor, harga acuan produk, kapasitas vendor, kebutuhan unit.',
     'Prioritas jika penawaran &lt;=108% acuan dan kapasitas mencukupi.',
-    'Vendor diurutkan menurut prioritas model, harga, lalu nama. Semua kandidat tetap diperiksa; pemenang adalah harga terendah dari kesepakatan.',
+    'Vendor diurutkan menurut prioritas model, harga, lalu nama. Setelah negosiasi, pengalokasi membandingkan kombinasi pemasok dan rute berdasarkan biaya, risiko, dan kendala.',
     'Penawaran 105 saat acuan 100 dan kapasitas 20 untuk kebutuhan 10 memenuhi label prioritas. SVM tidak menentukan harga tawar ataupun pemenang akhir.',
     'StandardScaler + SVC; kernel RBF, C=1, gamma=scale (default).')
 report.model('5', 'Vendor', 'Gradient Boosting',
@@ -515,21 +523,90 @@ report.p('<b>Pemisahan sumber dilakukan berdasarkan waktu.</b> Namun test tetap 
 report.p('<b>Penugasan algoritme dibatasi harus berbeda.</b> Model utama tidak selalu yang tertinggi secara individual. Tidak ada training online, prediksi kerusakan terlatih, atau pergantian otomatis ke model cadangan.', 'small')
 report.source('[K4] train.py:70-108; [K9] data/metrics.json. Angka dibulatkan dua desimal.')
 
-# 13 - references/reproduce.
+# 16 - model weights for the first four roles.
+report.page('Notasi bobot model per agen', 'Pembeli, Penjual, Stock, dan Keuangan')
+report.p('Pelatihan model keputusan memakai contoh berlabel dari dataset pembelian elektronik. Kode memanggil <b>fit(X, y)</b> dengan bobot sampel bawaan. Bobot di bawah menggambarkan cara setiap model menggabungkan fiturnya, pohonnya, atau contoh latihnya.')
+report.p('Pada rumus ini, x adalah fitur masukan, h<sub>t</sub>(x) adalah kontribusi pohon ke-t, dan σ(u) = 1 / (1 + exp(−u)) adalah fungsi sigmoid. Pada Stock, SVM, dan KNN, StandardScaler menghitung z<sub>j</sub> = (x<sub>j</sub> − μ<sub>j</sub>) / s<sub>j</sub> dari rata-rata μ<sub>j</sub> dan simpangan baku s<sub>j</sub> data latih.')
+
+report.heading('1. Agent Pembeli | CatBoost')
+report.formula('s(x) = σ(∑<sub>t=1…120</sub> h<sub>t</sub>(x))')
+report.p('Kontribusi 120 pohon dijumlahkan untuk memberi skor minat beli dari harga, kesediaan bayar, dan jumlah. Pembelian dilanjutkan jika model memprediksi Beli dan anggaran cukup untuk harga termasuk PPN.')
+
+report.heading('2. Agent Penjual | Random Forest')
+report.formula('s(x) = (1 / 80) × ∑<sub>t=1…80</sub> p<sub>t</sub>(x)')
+report.p('p<sub>t</sub>(x) adalah probabilitas kelas Layani dari pohon ke-t. Masing-masing pohon berbobot 1/80. Penjualan terjadi jika model memprediksi Layani, pelanggan bersedia membeli, dan stok mencukupi.')
+
+report.heading('3. Agent Stock | Logistic Regression')
+report.formula('s(z) ≈ σ(−0,582 − 7,954z<sub>stok</sub> + 4,926z<sub>permintaan</sub> + 1,352z<sub>titik pesan</sub>)')
+report.p('Stok lebih tinggi menurunkan skor restok. Permintaan dan titik pesan yang lebih tinggi menaikkannya. Pada simulasi, stok paling banyak 3 unit atau pesanan yang kekurangan stok juga memicu kebutuhan restok.')
+report.p('Koefisien diambil dari model tersimpan dan dibulatkan ke tiga desimal. Dalam urutan fitur di atas, rata-rata latihnya 14,486 / 9,306 / 3,961 dan simpangan bakunya 8,774 / 5,393 / 1,419.', 'small')
+
+report.heading('4. Agent Keuangan | XGBoost')
+report.formula('s(x) = σ(b + ∑<sub>t=1…100</sub> h<sub>t</sub>(x))')
+report.p('Model memakai 100 pohon dengan laju belajar 0,1. Kontribusi pohon yang tersimpan sudah memuat penskalaan ini. Skor menjadi pembanding untuk aturan akhir yang memeriksa kas bebas setelah cadangan, anggaran, dan pendapatan minimal 1,15 kali biaya pengadaan.')
+report.source('[K1] agent.py:122-136, 189-202, 269-335, 455-473; [K4] train.py:26-38; [K10] model tersimpan.')
+
+# 17 - remaining model weights and model assignment.
+report.page('Notasi bobot pengadaan dan vendor', 'Pengadaan, Vendor, Negosiasi, dan pemilihan model utama')
+report.heading('5. Agent Pengadaan | SVM dengan kernel RBF')
+report.formula('f(z) ≈ −1,296 + ∑<sub>i=1…840</sub> β<sub>i</sub> exp(−0,25 ‖z − z<sub>i</sub>‖<super>2</super>)')
+report.p('β<sub>i</sub> adalah bobot bertanda untuk support vector z<sub>i</sub>. Model tersimpan memakai 840 support vector dan γ ≈ 0,25. Tanda skor menentukan kelas Prioritas atau Bandingkan untuk urutan permintaan penawaran. Harga menjadi pembanding berikutnya.')
+
+report.heading('6. Agent Vendor | Gradient Boosting')
+report.formula('s(x) = σ(b + 0,1 × ∑<sub>t=1…100</sub> h<sub>t</sub>(x))')
+report.p('Setiap pohon koreksi dikalikan laju belajar 0,1. Kelima pemasok memakai model respons tawaran ini. Tawaran diterima jika prediksi positif, harga mencapai batas minimum vendor, dan jumlah pesanan masih dalam kapasitas.')
+
+report.heading('7. Agent Negosiasi | KNN')
+report.formula('s(z) = (1 / 19) × ∑<sub>i ∈ N19(z)</sub> y<sub>i</sub>')
+report.p('N<sub>19</sub>(z) adalah 19 contoh latih terdekat menurut jarak Euclidean setelah standardisasi. Masing-masing punya satu suara dengan bobot 1/19. Kelas Sepakat memerlukan minimal 10 suara, dan hasil ini dipakai setelah vendor menerima tawaran.')
+
+report.heading('Matriks bobot untuk penugasan model')
+report.p('Saat pelatihan, setiap pasangan agen a dan model kandidat m memperoleh bobot W<sub>a,m</sub> dari akurasi seimbang pada data validasi. Ukuran ini merata-ratakan kemampuan mengenali kelas positif dan kelas negatif.')
+report.formula('W<sub>a,m</sub> = ½ × [TP / (TP + FN) + TN / (TN + FP)]')
+report.formula('Maksimalkan ∑<sub>a</sub> W<sub>a,m(a)</sub>, dengan m(a) berbeda untuk setiap agen.')
+report.p('TP dan TN menghitung prediksi benar untuk kelas positif dan negatif. FN dan FP menghitung kasus yang keliru. Pengujian kemudian mengukur model terpilih pada bagian uji yang terpisah.', 'small')
+report.source('[K1] agent.py:339-356, 384-407; [K4] train.py:26-38, 74-105; [K10] model tersimpan.')
+
+# 18 - second dataset and shared logistics scoring.
+report.page('Bobot risiko pemasok dan rute', 'Dataset pengiriman, optimasi alokasi, dan pemakaian oleh agen pengangkut')
+report.p('<b>Supply Chain Shipment Pricing Data</b> [D2] tersimpan sebagai <b>SCMS_Delivery_History_Dataset.csv</b>. Pembagian kronologis per pesanan menghasilkan <b>2.624 baris latih, 503 validasi, dan 1.149 uji</b>. Kelima vendor simulasi memakai satu CatBoost dengan profil dari riwayat pengiriman komoditas kesehatan.')
+
+report.heading('Skor keterlambatan pemasok | CatBoost')
+report.formula('y = 1 jika tanggal tiba aktual &gt; tanggal terjadwal, dan 0 jika tidak.')
+report.formula('r(x) = σ(∑<sub>t=1…260</sub> h<sub>t</sub>(x))')
+report.p('Model dilatih dengan Logloss dan laju belajar 0,055. Artefak melaporkan <b>class_weights = null</b>. Kode memberi label risiko tinggi pada r(x) ≥ 0,06. Nilai r(x) adalah skor historis dengan status kalibrasi <b>false</b> untuk penerapannya pada pemasok elektronik.')
+report.p('Jadwal historis menjadi dasar waktu tempuh. Pada validasi, galat absolut rata-ratanya 0,44 hari, dibanding 1,34 hari untuk jadwal yang dikoreksi oleh regresi CatBoost.', 'small')
+
+report.heading('Agent Pengadaan | Penalti risiko dalam alokasi')
+report.formula('Penalti<sub>i</sub> = 0,15 × q<sub>i</sub> × p<sub>i</sub> × r<sub>i</sub>')
+report.formula('Pilih rencana yang meminimalkan ∑<sub>i</sub> (I<sub>i</sub> + Penalti<sub>i</sub>).')
+report.p('Untuk kiriman i, q adalah jumlah unit, p harga satuan, r skor risiko, dan I faktur berisi nilai barang, ongkir, dan PPN. Pengalokasi memakai skor kontinu r dan memeriksa jumlah pesanan, kapasitas, tenggat, anggaran, serta batas biaya.')
+report.box('Contoh perhitungan', 'Nilai barang Rp10.000.000 dengan skor risiko 0,20 memberi penalti Rp300.000 dalam perbandingan rencana. Faktur tetap dihitung dari barang, ongkir, dan PPN.')
+
+report.heading('Agent Dispatch dan Agent Angkut | Bobot jarak')
+report.formula('d(R) = ∑<sub>e ∈ R</sub> d<sub>e</sub>')
+report.p('Dijkstra memakai jarak d<sub>e</sub> sebagai bobot tiap ruas. Dispatch memeriksa muatan, rute, dan jadwal dari rencana terpilih. Angkut menjalankan penjemputan dan pengantaran. Keduanya memakai hasil perencanaan yang sama tanpa pelatihan terpisah.')
+report.source('[K11] supplier_training.py:47-116, 156-216 dan supplier_data.py:50-95; [K12] supply_chain.py:87-230; [K7] room-jobs.js:17-21.')
+
+# 19 - references/reproduce.
 report.page('Rujukan dan cara reproduksi', 'Kode lokal menjadi acuan perilaku; dokumentasi resmi menjelaskan algoritmenya')
 report.heading('Rujukan implementasi dalam folder electronics/')
 for text in [
-    '<b>[K1] agent.py:</b> inferensi 69-83; pengatur fase 170-469; API dan penyimpanan 472-539.',
+    '<b>[K1] agent.py:</b> inferensi 122-136; pengatur fase mulai 226; API mulai 625.',
     '<b>[K2] domain.py:</b> daftar agen/fitur 14-29; katalog 59-68; label 72-85.',
     '<b>[K3] finance.py:</b> PPN simulasi, pencatatan, kas bebas dan setoran 14-86.',
     '<b>[K4] train.py:</b> sembilan kandidat 26-38; generator 41-65; split/pemilihan/artefak 70-113.',
     '<b>[K5]-[K8] web/:</b> app.js:20-27 (lantai); interiors.js:1-90,234-244 (tugas dan model); room-jobs.js:1-119 (aktivitas); district-3d.mjs:105-147 (truk dan karakter).',
     '<b>[K9] data/metrics.json:</b> model utama/cadangan dan metrik tersimpan, model_version 2.',
+    '<b>[K10] data/models.joblib:</b> koefisien model Stock dan parameter SVM yang dipakai simulator.',
+    '<b>[K11] supplier_training.py, supplier_data.py, data/supplier/metrics.json:</b> pembagian, model pengiriman, dan evaluasi.',
+    '<b>[K12] supply_chain.py:</b> jarak berbobot, penawaran rute, dan alokasi pesanan.',
 ]:
     report.p(text, 'small', after=5)
 report.heading('Dataset dan dokumentasi resmi algoritme')
 refs = [
     ('D1', 'Company Purchasing Dataset - atribusi sumber dalam README proyek', 'https://www.kaggle.com/datasets/shahriarkabir/company-purchasing-dataset'),
+    ('D2', 'Supply Chain Shipment Pricing Data - riwayat pengiriman SCMS', 'https://www.kaggle.com/datasets/divyeshardeshana/supply-chain-shipment-pricing-data'),
     ('A1', 'scikit-learn: Decision Trees', 'https://scikit-learn.org/stable/modules/tree.html#classification'),
     ('A2', 'scikit-learn: Ensembles (Random Forest, Extra Trees, Gradient Boosting)', 'https://scikit-learn.org/stable/modules/ensemble.html'),
     ('A3', 'scikit-learn: Logistic Regression', 'https://scikit-learn.org/stable/modules/linear_model.html#logistic-regression'),
@@ -541,7 +618,7 @@ refs = [
 for code, title, url in refs:
     report.p(f'<b>[{code}]</b> <link href="{escape(url)}" color="#086FAD">{escape(title)}</link>', 'small', after=5)
 report.heading('Perintah dari folder utama repositori')
-report.p('Instalasi dan penyiapan model: <font face="Calibri-Bold">py -3.14 electronics/install.py</font><br/>Training ulang: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/train.py</font><br/>Jalankan aplikasi: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/agent.py</font>', 'small')
+report.p('Instalasi dan penyiapan model: <font face="Calibri-Bold">py -3.14 electronics/install.py</font><br/>Training ulang agen: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/train.py</font><br/>Training ulang model pengiriman: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/supplier_training.py</font><br/>Jalankan aplikasi: <font face="Calibri-Bold">.\\electronics\\.venv\\Scripts\\python.exe electronics/agent.py</font>', 'small')
 report.p('Model dan dataset yang ada tidak diubah untuk membuat dokumen ini. Rentang tanggal dan jumlah baris dihitung dari CSV lokal; skor diekstrak dari metrics.json. Dokumentasi algoritme resmi ditinjau untuk penjelasan konsep.', 'small')
 digest = hashlib.sha256((ROOT / 'electronics/data/spend_analysis_dataset.csv').read_bytes()).hexdigest()
 report.p('Identitas dataset (SHA-256):<br/>' + digest, 'tiny')

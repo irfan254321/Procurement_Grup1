@@ -1,0 +1,89 @@
+<section id="biz-finance" aria-label="Laporan keuangan BIZ" hidden>
+  <div class="fin-toolbar">
+    <nav class="fin-nav" aria-label="Laporan keuangan">
+      <button type="button" data-fin-view="laba" aria-pressed="true">Laba rugi</button>
+      <button type="button" data-fin-view="neraca" aria-pressed="false">Neraca</button>
+      <button type="button" data-fin-view="kas" aria-pressed="false">Arus kas</button>
+      <button type="button" data-fin-view="pajak" aria-pressed="false">Pajak</button>
+    </nav>
+    <p id="finance-period"></p>
+  </div>
+  <section class="fin-view" id="fin-view-laba" aria-label="Laporan laba rugi">
+    <div class="fin-heading">
+      <div><h2>Laporan laba rugi</h2><p id="profit-period-details"></p></div>
+      <label>Periode <select id="profit-month"></select></label>
+    </div>
+    <div id="finance-kpis" class="fin-kpis"></div>
+    <div class="fin-grid">
+      <article class="fin-card">
+        <h3>Rincian laba rugi</h3>
+        <table class="fin-statement" aria-label="Rincian laba rugi bulanan"><tbody id="profit-rows"></tbody></table>
+        <p id="profit-tax-note"></p>
+      </article>
+      <article class="fin-card fin-entry">
+        <h3>Catat beban usaha</h3>
+        <p id="expense-period"></p>
+        <form id="expense-form" class="fin-form">
+          <label>Jenis beban<select name="kind" required><option value="payroll">Gaji</option><option value="rent">Sewa gudang</option><option value="operations">Operasional</option></select></label>
+          <label>Nominal (Rp)<input name="amount" type="number" min="1" max="1000000000000" step="1" required></label>
+          <button type="submit" class="profile-button">Catat pembayaran</button>
+        </form>
+        <p id="expense-notice" role="status"></p>
+        <details><summary>Riwayat beban pada periode terpilih</summary><div id="expense-history"></div></details>
+      </article>
+    </div>
+  </section>
+  <section class="fin-view" id="fin-view-neraca" aria-label="Neraca" hidden>
+    <div class="fin-heading"><div><h2>Neraca</h2><p id="balance-day"></p></div></div>
+    <div id="balance-kpis" class="fin-kpis fin-kpis-three"></div>
+    <div class="fin-grid fin-grid-even">
+      <article class="fin-card"><h3>Aset</h3><table class="fin-statement" aria-label="Aset"><tbody id="balance-assets"></tbody></table></article>
+      <article class="fin-card"><h3>Liabilitas dan ekuitas</h3><table class="fin-statement" aria-label="Liabilitas dan ekuitas"><tbody id="balance-liabilities"></tbody></table></article>
+    </div>
+    <p class="fin-note">Ekuitas simulasi adalah aset dikurangi liabilitas. Dana cadangan dan komitmen PO dipantau sebagai alokasi kas. Liabilitas pemasok mulai tercatat setelah barang diperiksa.</p>
+  </section>
+  <section class="fin-view" id="fin-view-kas" aria-label="Arus kas dan transaksi" hidden>
+    <div class="fin-heading">
+      <div><h2>Arus kas</h2><p id="cash-period-details"></p></div>
+      <label>Periode <select id="cash-month"></select></label>
+    </div>
+    <div class="fin-grid">
+      <article class="fin-card"><h3>Penerimaan dan pembayaran</h3><table class="fin-statement" aria-label="Arus kas operasional"><tbody id="cash-rows"></tbody></table></article>
+      <article class="fin-card"><h3>Kas dan anggaran saat ini</h3><table class="fin-statement" aria-label="Kas dan anggaran"><tbody id="ledger"></tbody></table></article>
+    </div>
+    <article class="fin-card">
+      <div class="fin-heading fin-heading-small">
+        <div><h3>Tren keuangan</h3><p>Posisi kumulatif berdasarkan giliran simulasi</p></div>
+        <label>Indikator <select id="finance-metric"><option value="cash">Saldo kas</option><option value="results">Pendapatan dan laba kotor</option></select></label>
+      </div>
+      <canvas id="finance-chart" role="img" aria-label="Grafik tren keuangan"></canvas>
+      <div id="finance-chart-caption"></div>
+    </article>
+    <article class="fin-card"><h3>Faktur dan transaksi terakhir</h3><div id="transactions" class="fin-grid fin-grid-even"></div></article>
+  </section>
+  <section class="fin-view" id="fin-view-pajak" aria-label="Pajak" hidden>
+    <div class="fin-heading"><div><h2>Posisi pajak</h2><p id="tax-period"></p></div></div>
+    <div id="vat-summary" class="fin-kpis fin-kpis-three"></div>
+    <div class="fin-grid">
+      <article class="fin-card">
+        <h3>Saldo dan setoran</h3>
+        <p id="tax-paid-total"></p>
+        <div class="fin-table-scroll"><table class="fin-statement fin-tax" aria-label="Posisi pajak dan setoran"><thead><tr><th>Jenis</th><th>Saldo</th><th>Disetor</th><th>Aksi</th></tr></thead><tbody id="tax-rows"></tbody></table></div>
+        <details><summary>Riwayat setoran simulasi</summary><div id="tax-payments"></div></details>
+      </article>
+      <article class="fin-card fin-entry">
+        <h3>Catat tagihan pajak</h3>
+        <form id="tax-assessment" class="fin-form">
+          <label>Jenis tagihan<select name="kind"><option value="pbb">PBB-P2 · nominal SPPT</option><option value="pph_badan">PPh Badan</option><option value="pph21">PPh Pasal 21</option><option value="pph23">PPh Pasal 23</option><option value="meterai">Bea Meterai</option></select></label>
+          <label>Total tagihan (Rp)<input name="amount" type="number" min="0" max="1000000000000" step="1" required></label>
+          <button type="submit" class="profile-button">Simpan tagihan</button>
+        </form>
+        <p id="tax-notice" role="status"></p>
+        <details><summary>Asumsi dan rujukan pajak</summary>
+          <p>PPN dicatat sesuai parameter simulasi elektronik domestik nonmewah. Perubahan tagihan kumulatif PPh Badan dibukukan pada bulan berjalan. Setoran tercatat pada saat pembayaran.</p>
+          <p><a href="https://pajak.go.id/id/peraturan/perlakuan-pajak-pertambahan-nilai-atas-impor-barang-kena-pajak-penyerahan-barang-kena">PPN PMK 131/2024</a> · <a href="https://pajak.go.id/id/mekanisme-penghitungan-pajak-penghasilan-badan">PPh Badan</a></p>
+        </details>
+      </article>
+    </div>
+  </section>
+</section>
