@@ -244,40 +244,97 @@ class ReceivingTests(unittest.TestCase):
             self.assertEqual(world["tick"], 1)
             self.assertEqual(world["opening"], reset["opening"])
 
-    def test_company_sites_have_direct_urls_for_all_companies(self):
-        from html import escape
+    def test_company_websites_follow_offline_and_reopening(self):
+        from web_views import COMPANY_PROFILES
 
-        def get(path):
+        def request(path, *, method="GET"):
             handler = object.__new__(server.Handler)
             handler.path = path
-            responses = []
-            handler.send_data = lambda body, mime="application/json", status=200: responses.append((body, mime, status))
-            handler.do_GET()
-            return responses[0]
+            handler.headers = {"Content-Type": "application/json"}
+            handler.read_json_body = lambda message: {"password": "example-password", "setup": True}
+            replies = []
+            handler.send_data = lambda body, mime="application/json", status=200: replies.append((status, body))
+            getattr(handler, "do_" + method)()
+            return replies[0]
 
-        metadata, _, _ = get("/api/models")
-        policy = metadata["company_policy"]
-        pages = policy["pages"]
-        self.assertEqual(set(pages), {"PT. Biz Indonesia Market", *policy["suppliers"], *policy["carriers"]})
-        self.assertEqual(pages["TechMart Inc."], "/techmart/")
-        for name, path in pages.items():
-            with self.subTest(company=name):
-                body, mime, status = get(path.rstrip("/") + "?view=profile")
-                self.assertEqual((mime, status), ("text/html", 200))
-                profile = body.decode("utf-8")
-                self.assertIn(f'data-company="{escape(name)}"', profile)
-                self.assertIn(f'data-company-path="{path}"', profile)
-                self.assertIn('id="company-panel"', profile)
-                self.assertIn('href="#aturan"', profile)
-                self.assertIn('href="#biaya-logistik"', profile)
-                self.assertNotIn('dashboard/#', profile)
-                alias, mime, status = get(f"{path}dashboard/")
-                self.assertEqual((mime, status), ("text/html", 200))
-                self.assertEqual(alias, body)
-        self.assertEqual(get("/biz/profil/"), get(pages["PT. Biz Indonesia Market"]))
-        self.assertEqual(get("/officesupplies/")[2], 404)
-        self.assertEqual(get("/company.html")[2], 404)
-        self.assertEqual(get("/perusahaan-tidak-ada/")[2], 404)
+        with TemporaryDirectory() as folder, patch.object(server, "DB", Path(folder) / "world.sqlite3"):
+            server.initialize()
+            with server.connect() as db, db:
+                world = server.load_world(db)
+                world["company_availability"] = {server.COMPANY_NAMES[slug]: False for slug in COMPANY_PROFILES}
+                server.storage.save_world(db, world)
+            for slug in COMPANY_PROFILES:
+                with self.subTest(company=slug):
+                    for route in (f"/{slug}", f"/{slug}/", f"/{slug}/dashboard/?view=profile"):
+                        status, body = request(route)
+                        self.assertEqual(status, 503)
+                        self.assertIn('data-company-offline="true"', body.decode())
+                        self.assertIn(f"profile-{slug}", body.decode())
+                        self.assertIn("company-status.js", body.decode())
+                        self.assertNotIn('id="company-unlock"', body.decode())
+                        self.assertNotIn("company-profile.js", body.decode())
+                    status, body = request(f"/api/companies/{slug}/status")
+                    self.assertEqual((status, body["online"]), (200, False))
+                    for command in ("access", "negotiations"):
+                        self.assertEqual(request(f"/api/companies/{slug}/{command}")[0], 503)
+                    self.assertEqual(request(f"/api/companies/{slug}/access", method="POST")[0], 503)
+                    with server.connect() as db:
+                        self.assertFalse(server.company_access.configured(db, slug))
+            self.assertEqual(request("/biz/")[0], 200)
+
+            # District availability controls remain usable while a site is closed.
+            slug = "cloudsoft"
+            handler = object.__new__(server.Handler)
+            handler.path = f"/api/companies/{slug}/availability"
+            handler.headers = {"Content-Type": "application/json"}
+            handler.read_json_body = lambda message: {"online": True}
+            replies = []
+            handler.send_data = lambda body, status=200: replies.append(status)
+            handler.do_POST()
+            self.assertEqual(replies, [200])
+            status, body = request(f"/{slug}/dashboard/")
+            self.assertEqual(status, 200)
+            self.assertIn('data-company-offline="false"', body.decode())
+            self.assertIn("company-profile.js", body.decode())
+            self.assertEqual(request(f"/api/companies/{slug}/status")[1]["online"], True)
+            self.assertEqual(request(f"/api/companies/{slug}/access")[0], 200)
+
+    def test_company_sites_have_direct_urls_for_all_companies(self):
+        with TemporaryDirectory() as folder, patch.object(server, "DB", Path(folder) / "world.sqlite3"):
+            server.initialize()
+            from html import escape
+
+            def get(path):
+                handler = object.__new__(server.Handler)
+                handler.path = path
+                responses = []
+                handler.send_data = lambda body, mime="application/json", status=200: responses.append((body, mime, status))
+                handler.do_GET()
+                return responses[0]
+
+            metadata, _, _ = get("/api/models")
+            policy = metadata["company_policy"]
+            pages = policy["pages"]
+            self.assertEqual(set(pages), {"PT. Biz Indonesia Market", *policy["suppliers"], *policy["carriers"]})
+            self.assertEqual(pages["TechMart Inc."], "/techmart/")
+            for name, path in pages.items():
+                with self.subTest(company=name):
+                    body, mime, status = get(path.rstrip("/") + "?view=profile")
+                    self.assertEqual((mime, status), ("text/html", 200))
+                    profile = body.decode("utf-8")
+                    self.assertIn(f'data-company="{escape(name)}"', profile)
+                    self.assertIn(f'data-company-path="{path}"', profile)
+                    self.assertIn('id="company-panel"', profile)
+                    self.assertIn('href="#aturan"', profile)
+                    self.assertIn('href="#biaya-logistik"', profile)
+                    self.assertNotIn('dashboard/#', profile)
+                    alias, mime, status = get(f"{path}dashboard/")
+                    self.assertEqual((mime, status), ("text/html", 200))
+                    self.assertEqual(alias, body)
+            self.assertEqual(get("/biz/profil/"), get(pages["PT. Biz Indonesia Market"]))
+            self.assertEqual(get("/officesupplies/")[2], 404)
+            self.assertEqual(get("/company.html")[2], 404)
+            self.assertEqual(get("/perusahaan-tidak-ada/")[2], 404)
 
     def test_migration_archives_retired_supplier_and_settles_committed_invoice(self):
         world = server.new_world("healthy")

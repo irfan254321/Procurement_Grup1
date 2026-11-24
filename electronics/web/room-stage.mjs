@@ -35,6 +35,11 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
   scene.add(stage);
   const batch = new Map();
   const stockDisplays = [];
+  const walkObstacles=[];
+  function obstacle(x,z,width,depth,kind='furniture'){
+    walkObstacles.push({minX:x-width/2,maxX:x+width/2,minZ:z-depth/2,maxZ:z+depth/2,kind});
+  }
+  stage.userData.walkObstacles=walkObstacles;
   const geometry = new THREE.BoxGeometry(1, 1, 1);
   function box(x, y, z, width, height, depth, color, castsShadow = true) {
     const key = color + '/' + castsShadow;
@@ -71,6 +76,16 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     }
   }
 
+  if(role==='vendor'||role==='carrier'){
+    box(10.25,.014,7.72,1.28,.022,.48,'#738c88',false);
+    for(const x of [9.61,10.89]){
+      obstacle(x,7.82,.075,.12);
+      box(x,1.05,7.82,.075,2.1,.12,'#6e8585',false);
+    }
+    box(10.25,2.12,7.82,1.36,.12,.12,'#6e8585',false);
+    box(10.25,2.12,7.9,.45,.07,.025,'#d7edca',false);
+  }
+
   // An open corner lets the camera see the workstations from above.
   box(-.07, 1.2, 4, .14, 2.4, 8.04, '#c9ddd8', false);
   box(5.5, 1.2, -.07, 11.16, 2.4, .14, '#f5e5d5', false);
@@ -100,6 +115,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
   }
 
   function plant(x,z){
+    obstacle(x,z,.36,.36);
     box(x,.12,z,.29,.24,.29,'#d18c64');
     for(const [dx,dy,dz,color] of [[.06,.44,0,'#328965'],[-.09,.55,.025,'#5bb280'],[.07,.65,-.04,'#6ec08c']]){
       const leaf=new THREE.Mesh(new THREE.SphereGeometry(.15,11,8),new THREE.MeshStandardMaterial({color}));
@@ -114,6 +130,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
   plant(10.42, 7.35);
 
   function chair(x, z, facingWall = true, color = navy) {
+    obstacle(x,z,.43,.43,'chair');
     box(x, .27, z, .39, .08, .38, color);
     box(x, .46, z + (facingWall ? .17 : -.17), .39, .34, .07, color);
     box(x, .115, z, .092, .22, .083, metal);
@@ -132,6 +149,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
   }
 
   function desk(x, z, width = 1.52, depth = .73, document = true) {
+    obstacle(x,z,width,depth);
     box(x, .70, z, width, .08, depth, desktop);
     for (const dx of [-1, 1]) for (const dz of [-1, 1]) {
       box(x + dx * (width / 2 - .12), .325, z + dz * (depth / 2 - .10), .075, .65, .075, cream);
@@ -145,12 +163,14 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
   }
 
   function carton(x, z, y, size = 1) {
+    if(y===0||y===.125)obstacle(x,z,.38*size,.32*size);
     box(x, y + .15 * size, z, .38 * size, .30 * size, .32 * size, '#c68b57');
     box(x, y + .302 * size, z, .079 * size, .009, .32 * size, '#eac38d');
     box(x, y + .22 * size, z + .163 * size, .075 * size, .16 * size, .008, '#eac38d');
   }
 
   function shelf(x, z, contents) {
+    obstacle(x,z,1.97,.7);
     for (const dx of [-.92, .92]) {
       for (const dz of [-.29, .29]) box(x + dx, .77, z + dz, .068, 1.54, .068, metal);
     }
@@ -169,6 +189,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     const slate = '#263848', silver = '#afc3cd', glass = '#457e98';
     const accents = ['#2a867f', '#2481a3', '#9e753b'];
     showroomPositions[role].forEach(([x, z], index) => {
+      obstacle(x,z,1.57,.92);
       const accent = accents[index];
       const base=looseBox(stage,x,.39,z,1.46,.76,.78,'#e8e5d8');
       const top=looseBox(stage,x,.77,z,1.57,.10,.92,'#fff3d9');
@@ -222,6 +243,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     mat(8.85, 6.2, 2.9, 1.85, '#748b91', '#d5ad61');
     for (const [x, z] of warehouseRacks) shelf(x,z);
     desk(7.3, 3.25, 1.45, .73);
+    obstacle(9.8,6.52,1.08,.71);
     for (const z of [6.26,6.52,6.78]) box(9.8,.09,z,1.08,.1,.19,'#a9764d');
   } else if (role === 'seller') {
     mat(4.69, 5.6, 6.5, 2.45, '#4e728f', '#93b9cc');
@@ -235,6 +257,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     mat(4.75, 5.69, 7.64, 2.75, '#679484', '#bfd8c5');
     desk(2.42, 2.9, 1.92);
     displayStands();
+    obstacle(.61,5.72,.86,2.39);
     if (assets.sofa) {
       placePoly(stage,assets.sofa,{x:.61,z:5.72,width:.86,height:.9,depth:2.39,angle:Math.PI/2});
     } else {
@@ -244,6 +267,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     }
   } else if (role === 'deal') {
     mat(5.9, 3.92, 6.2, 3.11, '#504f74', '#ada7bc');
+    obstacle(5.42,3.58,3.4,1.12);
     box(5.42, .70, 3.58, 3.4, .11, 1.12, desktop);
     for (const x of [4.13, 6.67]) box(x, .35, 3.58, .15, .70, .77, wood);
     for (const x of [4.35, 5.42, 6.49]) {
@@ -257,6 +281,7 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
     for (const [x, z] of [[3.15, 3.19], [7.34, 3.6], [7.48, 6.24]]) desk(x, z);
     if (role === 'carrier') {
       shelf(2.0, 1.0, 'cartons');
+      obstacle(9.75,6.28,1.14,.89);
       for (const z of [5.92,6.28,6.64]) box(9.75,.07,z,1.14,.11,.17,'#a9764d');
       carton(9.47,6.1,.125);
       carton(9.95,6.5,.125,1.12);
@@ -266,12 +291,17 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
       carton(9.82, 6.71, 0, 1.2);
       carton(10.3, 6.63, 0);
     } else {
+      obstacle(10.08,3.37,.58,1);
       box(10.08, .48, 3.37, .58, .96, 1.0, '#bad0d0');
       for (const y of [.19, .48, .77]) {
         box(10.08, y, 3.88, .52, .24, .026, '#d8dfdb');
         box(10.08, y, 3.90, .18, .036, .022, metal);
       }
     }
+  }
+
+  for (const seat of Object.values(roomSeats[role]??{})) {
+    chair(seat.x, seat.z, seat.facing===Math.PI, role==='deal'?'#635e81':navy);
   }
 
   const pose = new THREE.Matrix4();
@@ -311,9 +341,6 @@ export function buildRoomStage(THREE, scene, room, role, assets = {}) {
       return mesh;
     });
     stage.userData.cartonCapacity=slots.length;
-  }
-  for (const seat of Object.values(roomSeats[role]??{})) {
-    chair(seat.x, seat.z, seat.facing===Math.PI, role==='deal'?'#635e81':navy);
   }
   stage.userData.setStock=products=>{
     const counts=new Map(products.map(({name,units})=>[name,Math.max(0,Math.trunc(units)||0)]));

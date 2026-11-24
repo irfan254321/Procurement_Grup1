@@ -210,6 +210,7 @@ function renderInterior() {
   const offline=!!(vendor||carrier)&&!companyOnline(roomKey);
   const onDuty=!offline&&!!liveEvent&&belongs(liveEvent);
   const jobs=roomJobs(role,event,onDuty);
+  if(offline)for(const id of Object.keys(jobs))jobs[id]={kind:'idle',label:'Di luar kantor · perusahaan offline'};
   const roster=[...staff,...customers].map(person=>({...person,offline,jobMotion:jobs[person.id]}));
   const selectedPerson=roster.find(p=>p.id===roomPerson)??roster[0];
   roomPerson=selectedPerson.id;
@@ -245,9 +246,10 @@ function renderInterior() {
   if(event){
     const replay=$('floor-replay');
     replay.onclick=()=>{
-      const replayJobs=roomJobs(role,event,true);
+      const replayJobs=roomJobs(role,event,!offline);
       renderRoomDrawing(room,role,roster.map(p=>({...p,jobMotion:replayJobs[p.id]})),true,event.tick,true);
     };
+    replay.disabled=offline;
     if(replayFocused)replay.focus({preventScroll:true});
   }
   $('floor-roster').innerHTML=roster.map(p=>'<button class="floor-member'+(p.id===roomPerson?' chosen':'')+'" data-person="'+esc(p.id)+'" aria-pressed="'+(p.id===roomPerson)+'"><span>'+esc(p.name.slice(0,1))+'</span><span><strong>'+esc(p.name)+'</strong>'+(p.job!==p.name?'<small>'+esc(p.job)+'</small>':'')+(p.jobMotion?'<small class="floor-job-state">'+esc(p.jobMotion.label)+'</small>':'')+'</span></button>' ).join('');
@@ -315,7 +317,8 @@ function renderRoomDrawing(room,role,people,moveCustomers,activityKey,replay){
     room3D.update($('room-3d-mount'),$('room-3d-products'),roomKey,room,role,cast.map(p=>({...p,pin:pins.get(p.id)})),
       activityKey,replay,world.products,carriers[roomKey]?.color??room.color);
   }else{
-    drawing.innerHTML=drawRoom(room,roomStyle,cast)+names;
+    const present=cast.filter(person=>!person.offline);
+    drawing.innerHTML=drawRoom(room,roomStyle,present)+(present.length?names:'');
   }
 }
 

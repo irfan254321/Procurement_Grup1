@@ -28,6 +28,12 @@ SQLite sudah tersedia melalui Python. Saat pertama kali berjalan, server membuat
 
 ## Menggunakan aplikasi
 
+Gerakan agen 3D memakai jalur yang mempertimbangkan meja, kursi, rak, dan area muat. Agen memutari furnitur saat berganti tugas, masuk kantor, dan keluar kantor. Target di rak diarahkan ke sisi yang dapat dijangkau.
+
+Saat pemasok atau pengangkut di-offline-kan, agen di ruangannya berjalan ke pintu lalu menghilang. Saat perusahaan diaktifkan, agen masuk melalui pintu dan kembali ke tempat kerja. Ruangan yang dibuka dalam kondisi offline langsung kosong. Preferensi kurangi gerakan menampilkan perubahan secara langsung.
+
+Website pemasok dan pengangkut mengikuti tombol online/offline di distrik. Saat perusahaan ditutup, URL profil dan portalnya menampilkan halaman offline dengan desain perusahaan tersebut. Tab yang sudah terbuka memeriksa status setiap tiga detik dan memuat ulang ketika perusahaan ditutup atau diaktifkan kembali. Akses portal dibuka kembali setelah perusahaan online.
+
 - Buka **Perusahaan online / offline** di peta 3D, atau gunakan tombol di ruang pemasok dan pengangkut. Perusahaan offline keluar dari pemilihan PO baru. Pengemasan, keberangkatan, atau koreksi faktur yang masih membutuhkan perusahaan tersebut menunggu dibuka kembali. Barang yang sudah dalam perjalanan tetap diproses.
 - Klik judul perusahaan untuk membuka portal, lalu pilih **Jadwal & negosiasi**. Pada akses pertama, atur sandi minimal delapan karakter untuk perusahaan itu. Portal menyimpan jadwal negosiasi, jadwal pengiriman, dan riwayat lengkap di SQLite. Ringkasan status kiriman dan penawaran yang sedang divisualisasikan tersedia di simulasi. Reset membersihkan catatan skenario dan sesi akses, dengan sandi tetap berlaku.
 - **Control Tower** memuat lima output tiap RFQ, prakiraan tiga hari dan ROP dinamis, skor pemasok, event EPCIS, anomali, dan memori agen. Nama SAP, Oracle SCM, GPS/IoT dan PostgreSQL WMS menandai sumber aliran dalam simulasi. Objek EPCIS memakai pengenal lot lokal.

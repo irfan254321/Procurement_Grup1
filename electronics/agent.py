@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 from agents.base import (NEGOTIATION_ROUNDS, OFFER_FLOOR_MULTIPLIER, OFFER_OPENING_MULTIPLIER,
                          RESTOCK_THRESHOLD, customer_state, refresh_restock_holds, rupiah)
 from agents.orchestrator import run_turn
-from agents.availability import change_availability
+from agents.availability import change_availability, online
 from database import company_access, operations, storage
 from database.agent_memory import AgentMemory
 from finance import (VAT_RATE, apply_tax_action, company_finance, initialize_finance,
@@ -213,7 +213,10 @@ class Handler(BaseHTTPRequestHandler):
         segments = path.strip("/").split("/")
         slug, *page = segments
         if slug in COMPANY_NAMES and (page in ([], ["dashboard"]) or (slug == "biz" and page == ["profil"])):
-            self.send_data(company_profile(slug).encode("utf-8"), "text/html")
+            with connect() as db:
+                enabled = online(load_world(db), COMPANY_NAMES[slug])
+            self.send_data(company_profile(slug, online=enabled).encode("utf-8"), "text/html",
+                           status=200 if enabled else 503)
         elif path in ASSETS:
             name, mime = ASSETS[path]
             self.send_data((WEB / name).read_bytes(), mime)
@@ -242,11 +245,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_data({"memory": public_memory(AgentMemory(db).recall(role))})
 
     def send_company_data(self, slug, command):
-        if command not in {"access", "negotiations"} and (slug, command) != ("biz", "finance"):
+        if command not in {"status", "access", "negotiations"} and (slug, command) != ("biz", "finance"):
             self.send_data({"error": "Halaman tidak tersedia."}, status=404)
             return
         with connect() as db:
-            if command == "access":
+            world = load_world(db)
+            enabled = online(world, COMPANY_NAMES[slug])
+            if command == "status":
+                self.send_data({"company": COMPANY_NAMES[slug], "online": enabled, "day": world.get("day", 0)})
+            elif not enabled:
+                self.send_data({"error": "Perusahaan sedang offline."}, status=503)
+            elif command == "access":
                 self.send_data({"configured": company_access.configured(db, slug)})
             elif not company_access.authorized(db, slug, self.headers.get("Authorization", "")):
                 self.send_data({"error": "Masuk dengan kata sandi perusahaan."}, status=401)
@@ -307,7 +316,9 @@ class Handler(BaseHTTPRequestHandler):
             return
         with connect() as db, db:
             db.execute("BEGIN IMMEDIATE")
-            if command == "access":
+            if command == "access" and not online(load_world(db), COMPANY_NAMES[slug]):
+                status, body = 503, {"error": "Perusahaan sedang offline."}
+            elif command == "access":
                 status, body = company_access.exchange_password(db,slug,data.get("password"),setup=data.get("setup") is True)
             elif command == "logout":
                 company_access.revoke(db,slug,self.headers.get("Authorization",""))

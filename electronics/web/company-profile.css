@@ -105,3 +105,97 @@ body, h1, h2, h3, p, dl, dd, figure { margin: 0; }
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* Company closure pages share service information and retain distinct identities. */
+[data-company-offline="true"] #profile-metrics { display: none; }
+[data-company-offline="true"] .profile-header-inner { grid-template-columns: 1fr auto; }
+[data-company-offline="true"] {
+  --offline-surface: #fff;
+  --offline-warning: #996a25;
+  --offline-wash: #f8f8f5;
+}
+.company-offline-layout {
+  max-width: 78rem;
+  padding-block: clamp(1.5rem, 4vw, 3.75rem);
+  min-height: calc(100svh - 11rem);
+}
+.offline-section-label { display: flex; flex-wrap: wrap; align-items: center; gap: .7rem; font-size: .78rem; color: var(--profile-muted); }
+.offline-section-label > span:last-child { color: var(--profile-ink); }
+.offline-main { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(19rem, .85fr); align-items: start; gap: clamp(2.5rem, 7vw, 7rem); padding-block: clamp(2.5rem, 6vw, 5.5rem); }
+.offline-copy h1 { margin-block: 1.25rem; max-width: 14ch; font: 600 clamp(2.7rem, 4.8vw, 4.6rem)/1.07 var(--profile-display); letter-spacing: -.055em; text-wrap: balance; }
+.offline-badge { display: inline-flex; align-items: center; gap: .55rem; color: var(--offline-warning); font-weight: 600; font-size: .8rem; }
+.offline-badge > span,.offline-service-state i { width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.offline-description { max-width: 45ch; color: var(--profile-muted); font-size: 1rem; line-height: 1.8; }
+.offline-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.3rem; margin-top: 2rem; }
+.offline-check { gap: 1.3rem; border-radius: .45rem; cursor: pointer; font-family: inherit; min-height: 3rem; }
+.offline-check > span { font-size: 1.2rem; line-height: 1; }
+.offline-check:disabled { opacity: .65; cursor: wait; }
+.offline-back { display: inline-flex; align-items: center; gap: .8rem; font-size: .88rem; font-weight: 600; text-decoration: none; padding-block: .65rem; }
+.offline-back:hover,.offline-notice a:hover { text-decoration: underline; text-underline-offset: .3em; }
+.offline-live { max-width: 45ch; margin-top: 1.15rem; min-height: 3em; color: var(--profile-muted); font-size: .77rem; line-height: 1.7; }
+.offline-service-card { min-width: 0; border: 1px solid var(--profile-line); border-radius: .8rem; background: var(--offline-surface); box-shadow: 0 12px 40px #14253607; }
+.offline-card-brand { display: flex; align-items: center; gap: .85rem; padding: 1.5rem; border-bottom: 1px solid var(--profile-line); }
+.offline-monogram { display: grid; place-items: center; flex-shrink: 0; min-width: 2.8rem; height: 2.8rem; padding-inline: .5rem; border-radius: .55rem; background: var(--profile-accent); color: var(--profile-on-accent); font-size: .88rem; font-weight: 700; letter-spacing: -.04em; }
+.offline-card-brand strong { display: block; font-size: .95rem; line-height: 1.5; }
+.offline-card-brand div > span { display: block; font-size: .7rem; color: var(--profile-muted); margin-top: .1rem; }
+.offline-card-heading { display: flex; align-items: center; justify-content: space-between; padding: 1.4rem 1.5rem .8rem; gap: .7rem; }
+.offline-card-heading h2 { font: 600 .88rem/1.5 var(--profile-font); }
+.offline-paused { color: var(--offline-warning); background: var(--offline-wash); border: 1px solid var(--profile-line); border-radius: .3rem; font-size: .68rem; padding: .2rem .5rem; }
+.offline-services { list-style: none; margin: 0; padding: 0 1.5rem; }
+.offline-services li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; border-bottom: 1px solid var(--profile-line); padding-block: .9rem; font-size: .79rem; }
+.offline-service-state { display: inline-flex; align-items: center; gap: .4rem; font-size: .7rem; color: var(--profile-muted); white-space: nowrap; }
+.offline-service-state i { width: .3rem; height: .3rem; }
+.offline-reopening { margin: 0; padding: 1rem 1.5rem; }
+.offline-reopening > div { display: flex; justify-content: space-between; flex-wrap: wrap; gap: .4rem; margin-block: .6rem; font-size: .74rem; }
+.offline-reopening dt { color: var(--profile-muted); }
+.offline-reopening dd { font-weight: 600; }
+.offline-verified { font-size: .68rem; color: var(--profile-muted); border-top: 1px solid var(--profile-line); padding: .85rem 1.5rem; background: var(--offline-wash); border-radius: 0 0 .8rem .8rem; }
+.offline-notice { display: flex; align-items: start; gap: 1rem; padding: 1.4rem 1.5rem; background: var(--offline-wash); border: 1px solid var(--profile-line); border-radius: .65rem; }
+.offline-notice-icon { display: grid; place-items: center; margin-top: .15rem; width: 1.1rem; height: 1.1rem; flex-shrink: 0; border: 1px solid var(--profile-muted); border-radius: 50%; font: 600 .7rem/1 Georgia,serif; color: var(--profile-muted); }
+.offline-notice h2 { font: 600 .85rem/1.6 var(--profile-font); margin-bottom: .3rem; }
+.offline-notice p { max-width: 73ch; color: var(--profile-muted); font-size: .78rem; }
+.offline-notice a { display: inline-flex; gap: 1rem; margin-left: auto; flex-shrink: 0; font-size: .78rem; text-decoration: none; font-weight: 600; padding-block: .2rem; }
+.offline-cover { display: none; }
+.profile-cloudsoft[data-company-offline="true"] { --offline-surface: #1c192d; --offline-wash: #201d32; --offline-warning: #f1c17b; --profile-line: #39354e; background: radial-gradient(ellipse at 90% 12%,#29213e,#101021 70%); }
+.profile-cloudsoft .offline-service-card { border-radius: 1rem; box-shadow: 0 24px 80px #08071160; }
+.profile-cloudsoft .offline-monogram { background: #322844; color: #ded0ff; border: 1px solid #66557f; }
+.profile-cloudsoft .offline-check { border-radius: 2rem; }
+.profile-furniworks[data-company-offline="true"] { --offline-surface: #fffcf6; --offline-wash: #efe8dc; --offline-warning: #895229; --profile-line: #d9ccbc; }
+.profile-furniworks .offline-cover { display: block; height: 9rem; margin-top: 1.5rem; background: linear-gradient(90deg,#f6f1e700,#f6f1e733),url('/assets/profile-furniworks.webp') center 48%/cover; }
+.profile-furniworks .offline-copy h1 { font-family: Georgia,serif; font-weight: 400; letter-spacing: -.045em; }
+.profile-furniworks .offline-service-card { border-radius: 0; border-top: 3px solid #694532; margin-top: 2.6rem; }
+.profile-furniworks .offline-check,.profile-furniworks .offline-notice { border-radius: 0; }
+.profile-quickdeliver[data-company-offline="true"] { --profile-bg: #faf7f1; --offline-surface: #fffdfa; --offline-wash: #f0e9de; --profile-line: #ded4c6; --offline-warning: #87552a; }
+.profile-quickdeliver .offline-service-card { border-radius: .2rem; border-top: 4px solid #d97830; }
+.profile-quickdeliver .offline-card-brand { background: #fff2e2; }
+.profile-quickdeliver .offline-copy h1 { font-family: 'Arial Narrow',Arial,sans-serif; font-weight: 700; letter-spacing: -.05em; }
+.profile-quickdeliver .offline-verified { border-top: 1px dashed #b6a38e; }
+.profile-techmart[data-company-offline="true"] { --offline-surface: #201c2c; --offline-wash: #252032; --offline-warning: #e4d18c; --profile-line: #433b54; }
+.profile-techmart .offline-service-card { border-radius: .35rem; border-top: 2px solid #e4f579; }
+.profile-techmart .offline-monogram { font-family: monospace; border-radius: .2rem; }
+.profile-techmart .offline-section-label,.profile-techmart .offline-verified { font-family: monospace; }
+.profile-jne[data-company-offline="true"] { --offline-surface: #fff; --offline-wash: #f3f3f0; --profile-line: #deded7; --offline-warning: #8e5025; }
+.profile-jne .offline-service-card { border-top: 4px solid #9e2b1b; }
+.profile-jne .offline-cover { display: block; height: 8rem; margin-top: 1rem; background: url('/assets/profile-jne.webp') center 45%/cover; border-radius: .35rem; }
+.profile-jt-cargo[data-company-offline="true"] { --profile-bg: #faf6f0; --offline-surface: #fff; --offline-wash: #f0e7dc; --profile-line: #ded0c3; --offline-warning: #8b492b; }
+.profile-jt-cargo .offline-service-card { border-radius: 0; border-top: 5px solid #8e251c; }
+.profile-jt-cargo .offline-card-brand { border-bottom: 2px solid #8e251c; }
+.profile-jt-cargo .offline-check { border-radius: .15rem; }
+.profile-pos-logistik[data-company-offline="true"] { --offline-surface: #30261c; --offline-wash: #2b2117; --offline-warning: #e4bd75; --profile-line: #55432f; }
+.profile-pos-logistik .offline-copy h1 { font-family: Georgia,serif; font-weight: 400; }
+.profile-pos-logistik .offline-service-card { border-radius: .25rem; border-top: 2px solid #d9b16d; }
+.profile-pos-logistik .offline-monogram { background: transparent; border: 1px solid #b79660; color: #f3cc81; border-radius: 50%; font-family: Georgia,serif; }
+@media(max-width:800px) {
+  .offline-main { grid-template-columns: 1fr; gap: 2rem; }
+  .offline-copy h1 { max-width: 20ch; }
+  .profile-furniworks .offline-service-card { margin-top: 0; }
+  .offline-notice { flex-wrap: wrap; }
+  .offline-notice a { margin-left: 2.1rem; }
+}
+@media(max-width:420px) {
+  .offline-card-brand,.offline-card-heading,.offline-reopening,.offline-verified { padding-inline: 1rem; }
+  .offline-services { padding-inline: 1rem; }
+  .offline-services li { flex-wrap: wrap; gap: .35rem; }
+  .offline-notice { padding: 1rem; }
+}

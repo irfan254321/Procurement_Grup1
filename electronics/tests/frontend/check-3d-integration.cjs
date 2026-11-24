@@ -135,6 +135,27 @@ async function checkStages() {
   const { createCharacter }=await import('../../web/character-3d.mjs');
   const renderModule = await import('../../web/room-3d.mjs');
   assert.equal(typeof renderModule.createRoom3D, 'function');
+  const {planRoomPresence,sampleRoomPresence,roomEntrance}=renderModule;
+  for(const role of ['vendor','carrier']){
+    for(const home of [[3.02,3.78],[7.5,5.6]]){
+      const outgoing=planRoomPresence(home,roomEntrance,1000,180);
+      assert.deepEqual(sampleRoomPresence(outgoing,1000).position,home);
+      const halfway=sampleRoomPresence(outgoing,1180+outgoing.total/.007);
+      assert.equal(halfway.moving,true);
+      assert.equal(halfway.done,false);
+      const finished=sampleRoomPresence(outgoing,1180+outgoing.total/.0035);
+      assert.deepEqual(finished.position,roomEntrance);
+      assert.equal(finished.done,true);
+      assert.deepEqual(sampleRoomPresence(outgoing,1000,true).position,roomEntrance);
+      const incoming=planRoomPresence(roomEntrance,home,5000);
+      assert.deepEqual(sampleRoomPresence(incoming,5000).position,roomEntrance);
+      assert.deepEqual(sampleRoomPresence(incoming,15000).position,home);
+      const reversed=planRoomPresence(halfway.position,home,2500);
+      assert.deepEqual(sampleRoomPresence(reversed,2500).position,halfway.position,
+        role+' reverses a status change from its current position.');
+    }
+  }
+
   assert.equal(showroomPositions.buyer.length, 3);
   assert.equal(showroomPositions.seller.length, 3);
   for (const role of ['buyer', 'seller', 'stock', 'finance', 'procurement', 'deal', 'vendor', 'carrier']) {
@@ -142,6 +163,38 @@ async function checkStages() {
     const scene = new three.Scene();
     const stage = buildRoomStage(three, scene, { floor: '#ededed', color: '#72b2ad' }, role);
     assert.equal(stage.parent, scene);
+    const tasks={
+      buyer:[[7.9,2.4],[6.6,4.2],[1.4,3.9],[8.75,3.9]],
+      seller:[[3.1,4.4],[7.1,5.3],[4.9,2.6]],
+      stock:[[3.5,4.4],[9.2,6.3],[5.4,2.7]],
+      vendor:[[7.5,5.6],[5.5,4.5],[9.6,6.7]],
+      carrier:[[7.5,5.6],[9.3,6.2]],
+    };
+    const destinations=[roomEntrance,...Object.values(roomSeats[role]).map(seat=>[seat.x,seat.z]),...(tasks[role]??[])];
+    const footprints=stage.userData.walkObstacles;
+    assert.ok(footprints.length>0,role+' must register its physical furniture.');
+    for(const from of destinations)for(const to of destinations){
+      const motion=planRoomPresence(from,to,0,0,footprints);
+      assert.ok(motion,role+' must find a route to its workstations and entrance.');
+      const start=motion.points[0],end=motion.points.at(-1);
+      const contains=(point,box)=>point[0]>box.minX&&point[0]<box.maxX&&point[1]>box.minZ&&point[1]<box.maxZ;
+      for(let segment=1;segment<motion.points.length;segment++){
+        const a=motion.points[segment-1],b=motion.points[segment];
+        const steps=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/.025));
+        for(let index=0;index<=steps;index++){
+          const t=index/steps,point=[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+          for(const box of footprints){
+            // Only the worker's departure/arrival chair is used as a docking point.
+            if(box.kind==='chair'&&(contains(start,box)||contains(end,box)))continue;
+            const clearance=renderModule.roomWalkClearance-1e-8;
+            assert.ok(!contains(point,{minX:box.minX-clearance,maxX:box.maxX+clearance,
+              minZ:box.minZ-clearance,maxZ:box.maxZ+clearance}),
+              role+' route crosses a '+box.kind+' footprint.');
+          }
+        }
+      }
+    }
+
     const bounds = new three.Box3().setFromObject(stage);
     const width = bounds.max.x - bounds.min.x;
     const depth = bounds.max.z - bounds.min.z;
@@ -174,7 +227,73 @@ async function checkStages() {
   worker.dispose();
 }
 
+async function checkCompanyStatus() {
+  const script = fs.readFileSync(path.join(web, 'company-status.js'), 'utf8');
+  for (const initiallyOffline of [false, true]) {
+    let online = !initiallyOffline, reloads = 0, unavailable = false;
+    const timers = new Map(), documentEvents = {}, windowEvents = {};
+    let timerId = 0;
+    const button = { disabled: false, addEventListener(_, listener) { this.click = listener; } };
+    const message = { textContent: '' }, checkedAt = { textContent: '' };
+    const document = {
+      body: { dataset: { companyPath: '/cloudsoft/', companyOffline: String(initiallyOffline) } },
+      hidden: false,
+      getElementById: id => id === 'company-status-check' ? button : id === 'company-status-time' ? checkedAt : message,
+      addEventListener: (name, listener) => { documentEvents[name] = listener; },
+    };
+    const routes = [];
+    const context = vm.createContext({
+      document, AbortSignal,
+      window: { addEventListener: (name, listener) => { windowEvents[name] = listener; } },
+      location: { reload() { reloads++; } },
+      fetch: async route => {
+        routes.push(route);
+        if (unavailable) throw new Error('Server unavailable');
+        return { ok: true, json: async () => ({ online, day: 593 }) };
+      },
+      setTimeout: callback => { timers.set(++timerId, callback); return timerId; },
+      clearTimeout: id => timers.delete(id),
+    });
+    vm.runInContext(script, context);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(reloads, 0);
+    assert.equal(routes[0], '/api/companies/cloudsoft/status');
+    assert.equal(timers.size, 1);
+    if (initiallyOffline) {
+      assert.match(message.textContent, /masih offline/);
+      assert.match(checkedAt.textContent, /Diperiksa pukul.*593/);
+    }
+
+    unavailable = true;
+    await button.click();
+    assert.equal(reloads, 0, 'Connection failure must not reopen a closed company.');
+    assert.match(message.textContent, /belum dapat diperiksa/);
+    assert.equal(timers.size, 1);
+    unavailable = false;
+
+    document.hidden = true;
+    documentEvents.visibilitychange();
+    assert.equal(timers.size, 0);
+    const count = routes.length;
+    await button.click();
+    assert.equal(routes.length, count);
+    document.hidden = false;
+    documentEvents.visibilitychange();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(timers.size, 1);
+
+    online = !online;
+    await button.click();
+    assert.equal(reloads, 1, 'Closing and reopening must each refresh the company site.');
+    assert.equal(timers.size, 0);
+    windowEvents.pagehide();
+    await button.click();
+    assert.equal(reloads, 1);
+  }
+}
+
 async function check() {
+  await checkCompanyStatus();
   await checkStages();
   const { state, metadata } = fixture();
   const tabs = ['world', 'models', 'control-tower'].map(tab => ({ ...element('button'), dataset: { tab } }));
@@ -509,6 +628,26 @@ async function check() {
   get('floor-back').onclick();
   assert.equal(get('floor-view').hidden, true);
   assert.equal(get('map').hidden, false);
+
+
+  selectCompanyTab('room');
+  for(const name of [...Object.keys(metadata.company_policy.suppliers),...Object.keys(metadata.company_policy.carriers)]){
+    companyMarker(name).onclick();
+    state.company_availability ??= {};
+    state.company_availability[name]=false;
+    state.history=[{tick:state.tick,role:'vendor',vendor:name,title:'Pesanan disiapkan',detail:'Pesanan perusahaan.',
+      shipments:[{vendor:'CloudSoft Corp.',quantity:1,route:{carrier:name}}]}];
+    vm.runInContext('renderInterior()',context);
+    assert.match(get('floor-status').textContent,/Offline/);
+    assert.doesNotMatch(get('floor-drawing').innerHTML,/data-person=/,
+      name+' has no people or pins in the offline SVG fallback.');
+    assert.match(get('floor-roster').innerHTML,/Di luar kantor/);
+    if(state.history.length)assert.equal(get('floor-replay').disabled,true);
+    state.company_availability[name]=true;
+    vm.runInContext('renderInterior()',context);
+    assert.match(get('floor-drawing').innerHTML,/data-person="staff-0"/,
+      name+' repopulates when the company comes online.');
+  }
 
   console.log('Checked district framing, carrier pickup and delivery, company dashboards, stock, roster and SVG fallback.');
 }

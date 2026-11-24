@@ -4,29 +4,22 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="$description">
-  <title>$name | BIZ District</title>
+  <title>$page_title</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   $font_link
   <link rel="stylesheet" href="/company-profile.css">
   <link rel="stylesheet" href="$stylesheet">
   <link rel="stylesheet" href="/company-operations.css">
-  <script defer src="/format.js"></script>
-  <script defer src="/company-dashboard.js"></script>
-  <script defer src="/company-negotiations.js"></script>
-  <script defer src="/company-profile.js"></script>
+  $scripts
+  <script defer src="/company-status.js"></script>
 </head>
-<body class="company-profile profile-$slug" id="awal" data-company="$name" data-company-path="/$slug/">
+<body class="company-profile profile-$slug" id="awal" data-company="$name" data-company-path="/$slug/" data-company-offline="$offline">
   <a class="profile-skip" href="#konten">Lewati ke konten</a>
   <header class="profile-header">
     <div class="profile-header-inner profile-shell">
       <a class="profile-brand" href="/$slug/">$name</a>
-      <nav class="profile-nav" aria-label="Halaman perusahaan">
-        <a href="#profil" data-company-view aria-current="page">Profil</a>
-        <a href="#aturan" data-company-view>Aturan</a>
-        <a href="#biaya-logistik" data-company-view>Biaya logistik</a>
-        <a href="#negosiasi" data-company-view>Jadwal &amp; negosiasi</a>
-      </nav>
+      $navigation
       <a class="profile-district" href="/">BIZ District</a>
     </div>
   </header>
@@ -46,7 +39,7 @@
         <p class="profile-footer-name">$name</p>
         <p>Profil perusahaan dalam simulasi BIZ District.</p>
       </div>
-      <a href="#ringkasan">Ringkasan operasional</a>
+      $footer_link
     </div>
   </footer>
 </body>
