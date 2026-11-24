@@ -197,6 +197,35 @@ function supplierFacts(supplier){
     line('Estimasi kirim simulasi',supplier.lead_days==null?'Belum dikutip':amount(supplier.lead_days)+' hari')+
     line('Skor risiko model',supplier.late_probability==null?'Belum dikutip':percent(supplier.late_probability));
 }
+
+const supplyOrderStatus={
+  reserved:'Dana dicadangkan',
+  packing:'Dikemas',
+  shipping:'Dikirim',
+  inspected:'Sudah diperiksa',
+  invoice_hold:'Faktur ditahan',
+  corrected:'Faktur dikoreksi',
+  paid:'Dibayar',
+};
+
+function supplyOrderCard(order){
+  const status=supplyOrderStatus[order.status]??'Direncanakan';
+  const reference=[order.id,status].filter(Boolean).join(' · ');
+  const route=order.route;
+  return '<article class="supply-order">'+
+    '<strong>'+esc(order.vendor)+' · '+esc(amount(order.quantity))+' unit</strong>'+
+    '<small>'+esc(reference)+'</small>'+
+    line('Biaya barang',rupiah(order.goods_cost??order.cost??0))+
+    line('Ongkir',rupiah(order.freight??0))+
+    line('Total faktur',rupiah(order.invoice??0))+
+    (route?.carrier?line('Pengangkut',route.carrier):'')+
+    (route?line('Layanan',route.name)+line('Rute',(route.path??[]).slice(1).join(' → ')):'')+
+    (order.arrival_day==null?'':line('Perkiraan tiba','Hari '+amount(order.arrival_day)))+
+    (order.deadline_day==null?'':line('Tenggat','Hari '+amount(order.deadline_day)))+
+    (order.received_quantity==null?'':line('Layak jual / rusak',amount(order.received_quantity)+' / '+amount(order.damaged_quantity??0)+' unit'))+
+    '</article>';
+}
+
 function renderSuppliers(){
   const suppliers=Object.entries(world.suppliers??{});
   $('supplier-section').hidden=suppliers.length===0;
@@ -207,54 +236,57 @@ function renderSuppliers(){
     supplierFacts(supplier)+(supplier.source_vendor?'<p class="supplier-source">Acuan pemasok · '+esc(supplier.source_vendor)+'</p>':'')+'</article>').join('');
   const current=world.case?.orders;
   const orders=current?.length?current:world.last_purchase?.orders??[];
-  const statusLabels={reserved:'Dana dicadangkan',packing:'Dikemas',shipping:'Dikirim',inspected:'Sudah diperiksa',invoice_hold:'Faktur ditahan',corrected:'Faktur dikoreksi',paid:'Dibayar'};
-  $('supply-orders').innerHTML=orders.length?'<h3>Pembagian pesanan dan kiriman</h3><div class="supply-order-list">'+orders.map(order=>
-    '<article class="supply-order"><strong>'+esc(order.vendor)+' · '+esc(amount(order.quantity))+' unit</strong><small>'+esc([order.id,statusLabels[order.status]??'Direncanakan'].filter(Boolean).join(' · '))+'</small>'+
-    line('Biaya barang',rupiah(order.goods_cost??order.cost??0))+line('Ongkir',rupiah(order.freight??0))+line('Total faktur',rupiah(order.invoice??0))+
-    (order.route?.carrier?line('Pengangkut',order.route.carrier):'')+
-    (order.route?line('Layanan',order.route.name)+line('Rute',(order.route.path??[]).slice(1).join(' → ')):'')+
-    (order.arrival_day==null?'':line('Perkiraan tiba','Hari '+amount(order.arrival_day)))+
-    (order.deadline_day==null?'':line('Tenggat','Hari '+amount(order.deadline_day)))+
-    (order.received_quantity==null?'':line('Layak jual / rusak',amount(order.received_quantity)+' / '+amount(order.damaged_quantity??0)+' unit'))+'</article>').join('')+'</div>':'';
+  $('supply-orders').innerHTML=orders.length
+    ?'<h3>Pembagian pesanan dan kiriman</h3><div class="supply-order-list">'+orders.map(supplyOrderCard).join('')+'</div>'
+    :'';
 }
 $('supplier-list').onclick=event=>{
   const button=event.target.closest('[data-supplier]');
-  if(!button||!vendors[button.dataset.supplier])return;
-  followActivity=false;selected=button.dataset.supplier;render();openInterior(selected);
+  if(button&&vendors[button.dataset.supplier])selectDistrictBuilding(button.dataset.supplier);
 };
-function render(next){
-  if(next)world=next;
-  if(!world||!models)return;
-  district3D?.update(world);
-  const mode=activeMode(world);
-  const opening=openingLabels[world.opening]??openingLabels[mode];
-  $('scenario-current').textContent=[mode==='auto'?'Sesi otomatis':'Sesi uji',opening&&'Awal '+opening].filter(Boolean).join(' · ');
-  const latest=world.history[0], active=latest?.meeting?.vendor||latest?.vendor||latest?.inspection?.vendor;
-  if(paintedTick!==world.tick){
-    paintedTick=world.tick;movement=performance.now();
-    const panel=$('live-scene');
-    panel.hidden=!(latest?.meeting||latest?.carrier_quote||latest?.shipment||latest?.inspection);
-    if(latest?.carrier_quote)panel.innerHTML=carrierQuoteScene(latest.carrier_quote);
-    else if(latest?.inspection&&latest.shipment==='delivered'){
-      panel.innerHTML=shippingScene(latest.shipment,latest.inspection.vendor,latest);
-    }
-    else if(latest?.inspection)panel.innerHTML=inspectionScene(latest);
-    else if(latest?.meeting)panel.innerHTML=negotiationScene({company:'PT. Biz Indonesia Market',...latest.meeting});
-    else if(latest?.shipment)panel.innerHTML=activeShipments(latest)||shippingScene(latest.shipment,
+
+function vendorFromEvent(event){
+  return event?.meeting?.vendor||event?.vendor||event?.inspection?.vendor;
+}
+
+function renderLiveScene(latest){
+  if(paintedTick===world.tick)return;
+  paintedTick=world.tick;
+  movement=performance.now();
+
+  const panel=$('live-scene');
+  panel.hidden=!(latest?.meeting||latest?.carrier_quote||latest?.shipment||latest?.inspection);
+  if(latest?.carrier_quote){
+    panel.innerHTML=carrierQuoteScene(latest.carrier_quote);
+  }else if(latest?.inspection&&latest.shipment==='delivered'){
+    panel.innerHTML=shippingScene(latest.shipment,latest.inspection.vendor,latest);
+  }else if(latest?.inspection){
+    panel.innerHTML=inspectionScene(latest);
+  }else if(latest?.meeting){
+    panel.innerHTML=negotiationScene({company:'PT. Biz Indonesia Market',...latest.meeting});
+  }else if(latest?.shipment){
+    panel.innerHTML=activeShipments(latest)||shippingScene(latest.shipment,
       latest.shipments?.length>1?`${latest.shipments.length} kiriman pemasok`:latest.vendor);
-    else panel.replaceChildren();
+  }else{
+    panel.replaceChildren();
   }
-  $('clock').textContent='Giliran '+world.tick;
-  renderCompanySwitches();
+}
+
+function renderDistrictMarkers(latest){
   const empty=world.products.some(p=>!p.units);
   const showroomFloor=$('biz-tower-floors').querySelector('[data-floor="seller"]');
   if(showroomFloor)showroomFloor.dataset.empty=String(empty);
+
+  const activeCompanies=new Set([world.scene,vendorFromEvent(latest),latest?.inspection?.carrier]);
+  for(const order of latest?.shipments??[]){
+    activeCompanies.add(order.vendor);
+    activeCompanies.add(order.route?.carrier);
+  }
   for(const button of $('markers').children){
     const key=button.dataset.role,o=offices[key]||vendors[key]||carriers[key];
     if(!o)continue;
     button.classList.toggle('selected',key===selected);
-    const activeShipment=latest?.shipments?.some(order=>order.vendor===key||order.route?.carrier===key)??false;
-    button.classList.toggle('current',key===world.scene||key===active||key===latest?.inspection?.carrier||activeShipment);
+    button.classList.toggle('current',activeCompanies.has(key));
     button.classList.toggle('empty',key==='seller'&&empty);
     const offline=!offices[key]&&!companyOnline(key);
     button.classList.toggle('company-offline',offline);
@@ -266,35 +298,78 @@ function render(next){
     button.title=label;
     button.setAttribute('aria-pressed',key===selected);
   }
+}
+
+function renderAgentInspector(){
   if(!offices[selected]&&!vendors[selected]&&!carriers[selected])selected='stock';
-  const vendor=vendors[selected],carrier=carriers[selected],role=vendor?'vendor':carrier?'procurement':selected,o=vendor||carrier||offices[selected];
-  const agent=models.roles[role]??['Agen','Aktivitas simulasi'], event=world.history.find(e=>carrier?
-    e.shipments?.some(order=>order.route?.carrier===selected)||e.inspection?.carrier===selected:vendor?
-    (e.meeting?.vendor===selected||e.vendor===selected||e.inspection?.vendor===selected||e.shipments?.some(order=>order.vendor===selected)):e.role===role);
+  const vendor=vendors[selected];
+  const carrier=carriers[selected];
+  const role=vendor?'vendor':carrier?'procurement':selected;
+  const building=vendor||carrier||offices[selected];
+  const agent=models.roles[role]??['Agen','Aktivitas simulasi'];
+  const event=world.history.find(entry=>{
+    if(carrier){
+      return entry.shipments?.some(order=>order.route?.carrier===selected)||entry.inspection?.carrier===selected;
+    }
+    if(vendor){
+      return entry.meeting?.vendor===selected||entry.vendor===selected||entry.inspection?.vendor===selected||
+        entry.shipments?.some(order=>order.vendor===selected);
+    }
+    return entry.role===role;
+  });
   const agentModel=models.benchmark.agents[role];
-  $('inspector').innerHTML='<h2>'+esc(o.name)+'</h2><p>'+esc(carrier?'Terminal dan pengiriman ke Gudang BIZ':vendor?o.floors+' lantai · pemasok elektronik':agent[1])+'</p>'+
+  const supplier=vendor&&world.suppliers?.[selected];
+  const offers=world.case?.offers;
+  const inspector=$('inspector');
+  inspector.innerHTML='<h2>'+esc(building.name)+'</h2><p>'+esc(carrier?'Terminal dan pengiriman ke Gudang BIZ':vendor?building.floors+' lantai · pemasok elektronik':agent[1])+'</p>'+
     '<div class="decision">'+(event?'<strong>'+esc(event.title)+'</strong><p>'+esc(event.detail)+'</p>':'<p>Menunggu giliran agen.</p>')+'</div>'+
     (agentModel?'<small>Model utama · '+esc(agentModel.main)+'</small>':'')+
     (event?.prediction?'<p>Prediksi: '+esc(event.prediction)+'</p><details><summary>Masukan model</summary>'+
-      Object.entries(event.features??{}).map(([n,v])=>line(n,moneyFeatures.has(n)?rupiah(v):amount(v))).join('')+'</details>':'');
-  if(vendor&&world.suppliers?.[selected])$('inspector').innerHTML+='<div class="decision"><strong>Kondisi pemasok</strong>'+supplierFacts(world.suppliers[selected])+'</div>';
-  if(world.case?.offers?.length)$('inspector').innerHTML+='<details><summary>Hasil penawaran ('+world.case.offers.length+' / '+Object.keys(vendors).length+')</summary>'+
-    world.case.offers.map(o=>line(o.vendor,o.accepted?'Sepakat':'Gagal sepakat')).join('')+'</details>';
+      Object.entries(event.features??{}).map(([n,v])=>line(n,moneyFeatures.has(n)?rupiah(v):amount(v))).join('')+'</details>':'')+
+    (supplier?'<div class="decision"><strong>Kondisi pemasok</strong>'+supplierFacts(supplier)+'</div>':'')+
+    (offers?.length?'<details><summary>Hasil penawaran ('+offers.length+' / '+Object.keys(vendors).length+')</summary>'+
+      offers.map(o=>line(o.vendor,o.accepted?'Sepakat':'Gagal sepakat')).join('')+'</details>':'');
   if(typeof refreshInspectorMemory==='function'){
-    $('inspector').insertAdjacentHTML('beforeend','<div id="inspector-memories"></div>');
+    inspector.insertAdjacentHTML('beforeend','<div id="inspector-memories"></div>');
     refreshInspectorMemory(role,world.tick,$('inspector-memories'));
   }
+}
+
+function renderStoreStatus(){
   $('shelves').innerHTML=world.products.map(p=>line(p.name,(p.units?p.units+' unit':'STOK KOSONG')+' · '+customerPriceLabel(p.retail))).join('');
   const holds=Object.entries(world.restock_holds??{});
   $('restock-holds').hidden=holds.length===0;
   $('restock-hold-lines').innerHTML=holds.map(([product,hold])=>'<div class="decision">'+
     line(product,amount(hold.quantity)+' unit')+
     line('Status','Menunggu dana pengadaan')+'</div>').join('');
-  const pending=roomOrders(world).map(order=>[order,order.status]);
-  const orderLine=(c,status)=>line('Pelanggan '+c.id,c.quantity+' × '+c.product+' · '+status);
-  const recent=(world.customer_results??[]).filter(c=>c.status!=='Menunggu stok'&&!pending.some(([order])=>order.id===c.id)).slice(0,5);
-  $('customers').innerHTML=(pending.length?'<div class="customer-list">'+pending.map(([c,status])=>orderLine(c,status)).join('')+'</div>':'<p>Antrean kosong.</p>')+
-    (recent.length?'<details><summary>Hasil terakhir</summary>'+recent.map(c=>line('Pelanggan '+c.id,c.product+' · '+c.status)).join('')+'</details>':'');
+}
+
+function renderCustomerOrders(){
+  const pending=roomOrders(world);
+  const recent=(world.customer_results??[])
+    .filter(customer=>customer.status!=='Menunggu stok'&&!pending.some(order=>order.id===customer.id))
+    .slice(0,5);
+  const pendingOrders=pending.map(order=>line('Pelanggan '+order.id,order.quantity+' × '+order.product+' · '+order.status));
+  const recentOrders=recent.map(order=>line('Pelanggan '+order.id,order.product+' · '+order.status));
+  $('customers').innerHTML=(pendingOrders.length?'<div class="customer-list">'+pendingOrders.join('')+'</div>':'<p>Antrean kosong.</p>')+
+    (recentOrders.length?'<details><summary>Hasil terakhir</summary>'+recentOrders.join('')+'</details>':'');
+}
+
+function render(next){
+  if(next)world=next;
+  if(!world||!models)return;
+  district3D?.update(world);
+  const mode=activeMode(world);
+  const opening=openingLabels[world.opening]??openingLabels[mode];
+  $('scenario-current').textContent=[mode==='auto'?'Sesi otomatis':'Sesi uji',opening&&'Awal '+opening].filter(Boolean).join(' · ');
+  const latest=world.history[0];
+  renderLiveScene(latest);
+  $('clock').textContent='Giliran '+world.tick;
+  renderCompanySwitches();
+  renderDistrictMarkers(latest);
+  renderAgentInspector();
+  renderStoreStatus();
+  renderCustomerOrders();
   renderInterior();
   renderSuppliers();
   $('history').innerHTML=world.history.map(e=>'<li><small>Giliran '+e.tick+'</small><div><strong>'+esc(e.title)+'</strong> · '+esc(models.roles[e.role]?.[0]??'Simulasi')+'<p>'+esc(e.detail)+'</p></div></li>').join('')||'<li>Menunggu giliran pertama.</li>';
@@ -345,7 +420,7 @@ async function change(path,payload,autoSelect=true){
   try{
     const next=await api(path,'POST',payload),e=next.history[0];
     if(autoSelect&&followActivity){
-      const supplier=e?.meeting?.vendor||e?.vendor||e?.inspection?.vendor;
+      const supplier=vendorFromEvent(e);
       selected=e?.role==='vendor'?(Object.hasOwn(vendors,supplier)?supplier:'procurement'):next.scene;
     }
     render(next);

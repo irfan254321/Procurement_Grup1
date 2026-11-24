@@ -7,6 +7,7 @@ assumptions. No capacity or damaged-goods labels are invented from shipment data
 from functools import lru_cache
 from heapq import heappop, heappush
 from math import ceil
+from typing import NamedTuple
 
 from finance import vat
 
@@ -188,6 +189,13 @@ def quote_routes(world, vendor, quantity, unit_price):
     return routes
 
 
+def _shipment_costs(goods_cost, route, quantity):
+    freight = round(route["fixed_freight"] + route["unit_freight"] * quantity, 4)
+    landed_cost = round(goods_cost + freight, 4)
+    tax = vat(landed_cost)
+    return freight, landed_cost, tax, round(landed_cost + tax, 4)
+
+
 def carrier_quote_options(orders, offers, deadline_days):
     """Compare carrier routes for planned lots at their negotiated quantities."""
     routes_by_vendor = {offer["vendor"]: offer["routes"] for offer in offers if offer["accepted"]}
@@ -197,16 +205,33 @@ def carrier_quote_options(orders, offers, deadline_days):
         selected_route = order["route"]
         options = []
         for route in routes_by_vendor[order["vendor"]]:
-            freight = round(route["fixed_freight"] + route["unit_freight"] * quantity, 4)
-            cost = round(order["goods_cost"] + freight, 4)
+            freight, _, _, invoice = _shipment_costs(order["goods_cost"], route, quantity)
             selected = (route["carrier"], route["name"]) == (selected_route["carrier"], selected_route["name"])
-            options.append({**route, "freight": freight, "invoice": round(cost + vat(cost), 4),
+            options.append({**route, "freight": freight, "invoice": invoice,
                             "eligible": route.get("online", True) and quantity <= route["capacity"] and route["lead_days"] <= deadline_days,
                             "selected": selected})
         lots.append({"vendor": order["vendor"], "quantity": quantity,
                      "selected_carrier": selected_route["carrier"], "selected_service": selected_route["name"],
                      "options": options})
     return lots
+
+
+class _Allocation(NamedTuple):
+    invoice: float
+    landed_cost: float
+    objective: float
+    orders: list[dict]
+
+
+def _prune_frontier(allocations):
+    """Keep nondominated allocations for a single filled quantity."""
+    kept = []
+    for allocation in sorted(allocations, key=lambda plan: (plan.invoice, plan.landed_cost, plan.objective)):
+        # Invoice ordering ensures every retained plan is within this invoice ceiling.
+        if not any(previous.landed_cost <= allocation.landed_cost and previous.objective <= allocation.objective
+                   for previous in kept):
+            kept.append(allocation)
+    return kept
 
 
 def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, cost_limit=float("inf")):
@@ -220,28 +245,25 @@ def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, co
     """
     if quantity <= 0 or quantity > 40 or budget < 0:
         return None
-    # Entries: (invoiced total, landed cost, objective, order list).
-    frontiers = {0: [(0., 0., 0., [])]}
+    frontiers = {0: [_Allocation(0., 0., 0., [])]}
     for offer in offers:
         if not offer.get("accepted", True):
             continue
         updated = {units: list(values) for units, values in frontiers.items()}
         capacity = max(0, int(offer["capacity"]))
+        # Extend the prior frontier only, so at most one route is used for this offer.
         for route in offer["routes"]:
             if not route.get("online", True) or route["lead_days"] > deadline_days:
                 continue
             shipment_capacity = min(capacity, route.get("capacity", capacity))
-            for previous_quantity, previous in frontiers.items():
-                for count in range(1, min(shipment_capacity, quantity - previous_quantity) + 1):
+            for filled, allocations in frontiers.items():
+                for count in range(1, min(shipment_capacity, quantity - filled) + 1):
                     goods = round(offer["price"] * count, 2)
-                    freight = round(route["fixed_freight"] + route["unit_freight"] * count, 4)
-                    cost = round(goods + freight, 4)
-                    tax = vat(cost)
-                    invoice = round(cost + tax, 4)
+                    freight, cost, tax, invoice = _shipment_costs(goods, route, count)
                     risk_cost = goods * route["late_probability"] * risk_weight
-                    for old_total, old_cost, old_objective, plan in previous:
-                        total = round(old_total + invoice, 4)
-                        landed_cost = round(old_cost + cost, 4)
+                    for allocation in allocations:
+                        total = round(allocation.invoice + invoice, 4)
+                        landed_cost = round(allocation.landed_cost + cost, 4)
                         if total > budget + .00005 or landed_cost > cost_limit:
                             continue
                         order = {"vendor": offer["vendor"], "quantity": count,
@@ -251,21 +273,13 @@ def allocate_orders(offers, quantity, budget, deadline_days, risk_weight=.15, co
                                  "lead_days": route["lead_days"],
                                  "late_probability": route["late_probability"],
                                  "source_prediction_days": route.get("source_prediction_days", 0)}
-                        updated.setdefault(previous_quantity + count, []).append(
-                            (total, landed_cost, old_objective + invoice + risk_cost, plan + [order]))
-        # Remove dominated states with identical filled quantity.
-        for filled, values in updated.items():
-            kept = []
-            for value in sorted(values, key=lambda value: value[:3]):
-                _, cost, objective, _ = value
-                if not any(previous[1] <= cost and previous[2] <= objective for previous in kept):
-                    kept.append(value)
-            updated[filled] = kept
-        frontiers = updated
-    candidates = frontiers.get(quantity, [])
-    if not candidates:
-        return None
-    return min(candidates, key=lambda value: (value[2], value[0]))[3]
+                        updated.setdefault(filled + count, []).append(_Allocation(
+                            total, landed_cost, allocation.objective + invoice + risk_cost,
+                            allocation.orders + [order],
+                        ))
+        frontiers = {filled: _prune_frontier(plans) for filled, plans in updated.items()}
+    chosen = min(frontiers.get(quantity, ()), key=lambda plan: (plan.objective, plan.invoice), default=None)
+    return chosen.orders if chosen is not None else None
 
 
 def summarize_purchase(world):

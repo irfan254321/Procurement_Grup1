@@ -1,13 +1,10 @@
 import json
 import re
 import socket
-from html import escape
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from random import SystemRandom
-from string import Template
 from urllib.parse import urlsplit
 
-from carrier_profiles import CARRIER_PROFILES
 from agents.base import (NEGOTIATION_ROUNDS, OFFER_FLOOR_MULTIPLIER, OFFER_OPENING_MULTIPLIER,
                          RESTOCK_THRESHOLD, customer_state, refresh_restock_holds, rupiah)
 from agents.orchestrator import run_turn
@@ -17,11 +14,11 @@ from database.agent_memory import AgentMemory
 from finance import (VAT_RATE, apply_tax_action, company_finance, initialize_finance,
                      record_operating_expense, track_finance)
 from domain import AGENTS, MIN_MARKUP, RETIRED_SUPPLIER, load_models, make_catalog, read_purchases
-from paths import ROOT, WORLD_DATABASE
+from paths import WEB, WORLD_DATABASE
 from supplier_data import load_supplier_models
-from supplier_profiles import SUPPLIER_PROFILES
-from supply_chain import (SUPPLY_VERSION, SUPPLIER_REPLENISH_TICKS, init_supply, active_order,
+from supply_chain import (SUPPLY_VERSION, SUPPLIER_REPLENISH_TICKS, active_order, init_supply,
                           carrier_catalog, supplier_freight_catalog)
+from web_views import ASSETS, COMPANY_NAMES, COMPANY_PAGES, company_profile, public_memory, public_world
 
 ARCHIVED_SUPPLIER = "Pemasok arsip"
 CATALOG = make_catalog(read_purchases())
@@ -36,22 +33,12 @@ SUPPLIER_REPORT = supplier_bundle["report"]
 DB = WORLD_DATABASE
 OPENINGS = ("healthy", "normal", "stock", "cash", "damage", "supply")
 SCENARIOS = ("auto", *OPENINGS)
-COMPANY_NAMES = {
-    "biz": "PT. Biz Indonesia Market",
-    "cloudsoft": "CloudSoft Corp.",
-    "furniworks": "FurniWorks Ltd.",
-    "quickdeliver": "QuickDeliver Ltd.",
-    "techmart": "TechMart Inc.",
-    "jne": "JNE",
-    "jt-cargo": "J&T Cargo",
-    "pos-logistik": "Pos Logistik Indonesia",
+SCENARIO_ENDPOINTS = {
+    "/api/reset": ("reset", "auto"),
+    **{f"/api/{action}/{scenario}": (action, scenario)
+       for action in ("step", "reset") for scenario in SCENARIOS},
 }
-COMPANY_PAGES = {f"/{slug}/": name for slug, name in COMPANY_NAMES.items()}
-COMPANY_PROFILES = {**SUPPLIER_PROFILES, **CARRIER_PROFILES}
-PROFILE_IMAGES = (
-    "biz-warehouse", "profile-furniworks", "profile-techmart",
-    "profile-jne", "profile-jt-cargo", "profile-pos-logistik",
-)
+MAX_JSON_BODY_BYTES = 4096
 COMPANY_POLICY = {
     "restock_threshold": RESTOCK_THRESHOLD,
     "supplier_replenish_ticks": SUPPLIER_REPLENISH_TICKS,
@@ -198,73 +185,16 @@ def step(w, mode, *, memory=None):
              migrate=migrate_supplier_catalog, memory=memory)
 
 
-def company_profile(slug):
-    web = ROOT / "web"
-    name = escape(COMPANY_NAMES[slug])
-    operations = Template((web / "company-operations.html").read_text(encoding="utf-8")).substitute(name=name)
-    finance_panel = (web / "biz-finance.html").read_text(encoding="utf-8") if slug == "biz" else ""
-    operations = operations.replace("<!-- biz-finance -->", finance_panel)
-    if slug == "biz":
-        return (web / "biz-profile.html").read_text(encoding="utf-8").replace("<!-- company-operations -->", operations)
-    profile = COMPANY_PROFILES[slug]
-    group = "supplier" if slug in SUPPLIER_PROFILES else "carrier"
-    font_query = profile.get("font_query")
-    font_link = ""
-    if font_query:
-        font_link = f'<link rel="stylesheet" href="https://fonts.googleapis.com/css2?{escape(font_query)}">'
-    return Template((web / "company-profile.html").read_text(encoding="utf-8")).substitute(
-        slug=slug,
-        name=name,
-        description=escape(profile["description"]),
-        font_link=font_link,
-        stylesheet=f"/{group}-profiles.css",
-        content=profile["body"],
-        operations=operations,
-    )
+def _save_simulation(db, world):
+    refresh_restock_holds(world)
+    track_finance(world)
+    storage.save_world(db, world)
 
 
-def public_world(world):
-    """Retain live simulation telemetry and keep archived negotiation detail in the company portal."""
-    internal = {"cash", "payroll", "operations", "reserve", "fund", "reserved", "sales",
-                "cogs", "reinvested", "last_sale", "profit_report", "finance_series", "cash_flow", "tax"}
-    result = {key: value for key, value in world.items() if key not in internal}
-    result["tax"] = {"rate": world["tax"]["rate"]}
-    result["products"] = [{key: value for key, value in product.items() if key != "cost"}
-                          for product in world["products"]]
-    result["restock_holds"] = {name: {"quantity": hold["quantity"]}
-                               for name, hold in world.get("restock_holds", {}).items()}
-    def planned_purchase(purchase):
-        private = {"free_cash", "available", "fund", "profit", "profit_per_unit", "revenue"}
-        return {key: value for key, value in purchase.items() if key not in private}
-
-    if purchase := world.get("last_purchase"):
-        result["last_purchase"] = planned_purchase(purchase)
-    result["purchase_orders"] = [planned_purchase(purchase) for purchase in world.get("purchase_orders", [])]
-    events = world["history"]
-    history = []
-    for index, event in enumerate(events):
-        if event.get("role") in {"finance", "seller"} or "Dana tersedia Rp" in event.get("detail", ""):
-            event = {key: value for key, value in event.items() if key not in {"detail", "features"}}
-            event["detail"] = "Rincian keuangan tersedia di portal BIZ."
-        if index == 0 or not (event.get("meeting") or event.get("carrier_quote")):
-            history.append(event)
-            continue
-        visible = {key:value for key,value in event.items() if key not in {"features","carrier_quote","detail","prediction"}}
-        if event.get("meeting"):
-            meeting = event["meeting"]
-            visible["meeting"] = {**meeting,"event":{
-                key:value for key,value in meeting["event"].items() if key in {"speaker","action"}}}
-        visible["detail"] = "Rincian tersimpan di riwayat negosiasi pada portal perusahaan."
-        history.append(visible)
-    result["history"] = history
-    if case := world.get("case"):
-        fields = ("product","quantity","offers","orders","restock","planned_quantity","deadline_days")
-        if world["phase"]=="seller":
-            fields += ("id","buy","budget","restocked")
-        result["case"] = {key:case[key] for key in fields if key in case}
-        if "offers" in result["case"]:
-            result["case"]["offers"] = [{"vendor":o["vendor"],"accepted":o["accepted"]} for o in case["offers"]]
-    return result
+def _company_endpoint(segments):
+    if len(segments) == 4 and segments[:2] == ["api", "companies"] and segments[2] in COMPANY_NAMES:
+        return segments[2], segments[3]
+    return None
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -279,43 +209,14 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        scripts = (
-            "app.js", "format.js", "finance.js", "scenes.js", "interiors.js",
-            "room-jobs.js", "company-dashboard.js", "biz-profile.js", "company-profile.js",
-            "control-tower.js", "company-negotiations.js",
-            "room-3d.mjs", "room-stage.mjs", "district-3d.mjs", "district-scenery.mjs", "studio.mjs", "poly-assets.mjs",
-            "character-3d.mjs", "character-studio.mjs", "three/OrbitControls.js",
-            "three/three.module.min.js", "three/three.core.min.js", "three/GLTFLoader.js",
-            "three/BufferGeometryUtils.js", "three/SkeletonUtils.js",
-        )
-        assets = {
-            "/": ("index.html", "text/html"),
-            "/character-studio": ("character-studio.html", "text/html"),
-            "/character-studio/": ("character-studio.html", "text/html"),
-            "/character-studio.css": ("character-studio.css", "text/css"),
-            "/biz-profile.css": ("biz-profile.css", "text/css"),
-            "/biz-finance.css": ("biz-finance.css", "text/css"),
-            "/company-profile.css": ("company-profile.css", "text/css"),
-            "/company-operations.css": ("company-operations.css", "text/css"),
-            "/supplier-profiles.css": ("supplier-profiles.css", "text/css"),
-            "/carrier-profiles.css": ("carrier-profiles.css", "text/css"),
-            "/style.css": ("style.css", "text/css"),
-            "/scenes.css": ("scenes.css", "text/css"),
-            **{"/" + name: (name, "text/javascript") for name in scripts},
-            **{f"/assets/{name}.webp": (f"assets/{name}.webp", "image/webp")
-               for name in PROFILE_IMAGES},
-            **{f"/assets/{name}.glb": (f"assets/{name}.glb", "model/gltf-binary")
-               for name in ("laptop", "monitor", "printer", "office", "sofa", "truck")},
-        }
         path = urlsplit(self.path).path
         segments = path.strip("/").split("/")
-        slug = segments[0]
-        if slug in COMPANY_NAMES and (segments[1:] in ([], ["dashboard"]) or segments == ["biz", "profil"]):
+        slug, *page = segments
+        if slug in COMPANY_NAMES and (page in ([], ["dashboard"]) or (slug == "biz" and page == ["profil"])):
             self.send_data(company_profile(slug).encode("utf-8"), "text/html")
-        elif path in assets:
-            name, mime = assets[path]
-            content = (ROOT/"web"/name).read_bytes()
-            self.send_data(content,mime)
+        elif path in ASSETS:
+            name, mime = ASSETS[path]
+            self.send_data((WEB / name).read_bytes(), mime)
         elif path == "/api/models":
             self.send_data({"roles": AGENTS, "benchmark": REPORT, "scenarios": SCENARIOS,
                             "supplier_model": SUPPLIER_REPORT, "company_policy": COMPANY_POLICY})
@@ -324,65 +225,68 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_data(public_world(load_world(db)))
         elif path == "/api/memory" or path.startswith("/api/memory/"):
             role = path.removeprefix("/api/memory/") if path != "/api/memory" else None
-            if role is not None and role not in {*AGENTS,"orchestrator"}:
-                self.send_data({"error":"Agen tidak ditemukan."},status=404)
-                return
-            with connect() as db:
-                rows = AgentMemory(db).recall(role)
-                for row in rows:
-                    if row["role"] == "finance":
-                        for key in ("cash", "restock_fund", "reserved"):
-                            row["facts"].pop(key, None)
-                    if row["role"] in {"finance", "seller"} or "Dana tersedia Rp" in row["reason"]:
-                        row["reason"] = "Rincian keuangan tersedia di portal BIZ."
-                self.send_data({"memory": rows})
+            self.send_memory(role)
         elif path == "/api/control-tower":
             with connect() as db:
                 self.send_data(operations.control_tower(db,load_world(db)))
-        elif len(segments)==4 and segments[:2]==["api","companies"] and segments[2] in COMPANY_NAMES:
-            owner, command = segments[2:]
-            with connect() as db:
-                if command == "access":
-                    self.send_data({"configured":company_access.configured(db,owner)})
-                elif command != "negotiations" and not (owner == "biz" and command == "finance"):
-                    self.send_data({"error":"Halaman tidak tersedia."},status=404)
-                elif not company_access.authorized(db,owner,self.headers.get("Authorization","")):
-                    self.send_data({"error":"Masuk dengan kata sandi perusahaan."},status=401)
-                elif command == "finance":
-                    self.send_data(company_finance(load_world(db)))
-                else:
-                    name = COMPANY_NAMES[owner]
-                    self.send_data({"negotiation_history":operations.logs(db,name),
-                                    "negotiation_schedule":operations.negotiation_schedule(db,name),
-                                    "delivery_schedule":operations.schedules(db,name)})
+        elif company := _company_endpoint(segments):
+            self.send_company_data(*company)
         else:
             self.send_data({"error":"Halaman tidak tersedia."},status=404)
 
+    def send_memory(self, role):
+        if role is not None and role != "orchestrator" and role not in AGENTS:
+            self.send_data({"error": "Agen tidak ditemukan."}, status=404)
+            return
+        with connect() as db:
+            self.send_data({"memory": public_memory(AgentMemory(db).recall(role))})
+
+    def send_company_data(self, slug, command):
+        if command not in {"access", "negotiations"} and (slug, command) != ("biz", "finance"):
+            self.send_data({"error": "Halaman tidak tersedia."}, status=404)
+            return
+        with connect() as db:
+            if command == "access":
+                self.send_data({"configured": company_access.configured(db, slug)})
+            elif not company_access.authorized(db, slug, self.headers.get("Authorization", "")):
+                self.send_data({"error": "Masuk dengan kata sandi perusahaan."}, status=401)
+            elif command == "finance":
+                self.send_data(company_finance(load_world(db)))
+            else:
+                name = COMPANY_NAMES[slug]
+                self.send_data({
+                    "negotiation_history": operations.logs(db, name),
+                    "negotiation_schedule": operations.negotiation_schedule(db, name),
+                    "delivery_schedule": operations.schedules(db, name),
+                })
+
     def do_POST(self):
         segments = urlsplit(self.path).path.strip("/").split("/")
-        if len(segments)==4 and segments[:2]==["api","companies"] and segments[2] in COMPANY_NAMES:
-            self.company_action(*segments[2:])
+        if company := _company_endpoint(segments):
+            self.company_action(*company)
             return
-        modes = {f"/api/{verb}/{scenario}": scenario
-                 for verb in ("step", "reset") for scenario in SCENARIOS}
-        mode = modes.get(self.path) if self.path != "/api/reset" else "auto"
-        if mode is None:
-            self.send_data({"error":"Aksi tidak tersedia."},status=404)
+        if self.path not in SCENARIO_ENDPOINTS:
+            self.send_data({"error": "Aksi tidak tersedia."}, status=404)
             return
+        action, mode = SCENARIO_ENDPOINTS[self.path]
         with connect() as db, db:
             db.execute("BEGIN IMMEDIATE")
             world = load_world(db)
-            if self.path.startswith("/api/reset"):
+            if action == "reset":
                 world = new_world(mode)
                 storage.clear_scenario(db)
-                operations.capacity_alerts(db,world)
+                operations.capacity_alerts(db, world)
             else:
-                step(world,mode,memory=AgentMemory(db))
-                operations.capture_turn(db,world)
-            refresh_restock_holds(world)
-            track_finance(world)
-            storage.save_world(db,world)
+                step(world, mode, memory=AgentMemory(db))
+                operations.capture_turn(db, world)
+            _save_simulation(db, world)
         self.send_data(public_world(world))
+
+    def read_json_body(self, invalid_length):
+        length = int(self.headers.get("Content-Length", 0))
+        if not 0 < length <= MAX_JSON_BODY_BYTES:
+            raise ValueError(invalid_length)
+        return json.loads(self.rfile.read(length))
 
     def company_action(self, slug, command):
         if slug == "biz" and command == "finance":
@@ -391,15 +295,15 @@ class Handler(BaseHTTPRequestHandler):
         if command not in {"access","logout","availability"} or command=="availability" and slug=="biz":
             self.send_data({"error":"Aksi tidak tersedia."},status=404)
             return
+        invalid_request = "Data permintaan tidak valid."
         try:
-            length = int(self.headers.get("Content-Length",0))
-            if self.headers.get("Content-Type","").split(";")[0] != "application/json" or not 0 < length <= 4096:
-                raise ValueError
-            data = json.loads(self.rfile.read(length))
-            if not isinstance(data,dict):
-                raise ValueError
-        except (ValueError, UnicodeError):
-            self.send_data({"error":"Data permintaan tidak valid."},status=400)
+            if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
+                raise ValueError(invalid_request)
+            data = self.read_json_body(invalid_request)
+            if not isinstance(data, dict):
+                raise ValueError(invalid_request)
+        except ValueError:
+            self.send_data({"error": invalid_request}, status=400)
             return
         with connect() as db, db:
             db.execute("BEGIN IMMEDIATE")
@@ -425,10 +329,7 @@ class Handler(BaseHTTPRequestHandler):
                 return
             world = load_world(db)
             try:
-                length = int(self.headers.get("Content-Length", 0))
-                if not 0 < length <= 4096:
-                    raise ValueError("Data keuangan tidak valid.")
-                payload = json.loads(self.rfile.read(length))
+                payload = self.read_json_body("Data keuangan tidak valid.")
                 action = payload.get("action") if isinstance(payload, dict) else None
                 if action == "expense":
                     record_operating_expense(world, payload)
@@ -436,12 +337,10 @@ class Handler(BaseHTTPRequestHandler):
                     apply_tax_action(world, action, payload)
                 else:
                     raise ValueError("Aksi keuangan tidak tersedia.")
-            except (ValueError, UnicodeError) as error:
+            except ValueError as error:
                 self.send_data({"error": str(error)}, status=400)
                 return
-            refresh_restock_holds(world)
-            track_finance(world)
-            storage.save_world(db, world)
+            _save_simulation(db, world)
         self.send_data(company_finance(world))
 
 
